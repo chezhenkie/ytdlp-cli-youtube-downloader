@@ -46,7 +46,7 @@ Shipped filename template is now %(title)s.
 
 Escape backs out of a submenu. The prompt takes either a URL (download starts right away) or a number. Every change writes to config/settings.json immediately, so seeding defaults for the paste-url flow needs no menu.
 
-A download runs on a cleared screen with one line per stage, animated prefixes of at most three characters: amber dots for the preflight stages, light-blue chevrons for the download itself. The sub-second yt-dlp and ffmpeg checks share a single grouped line ("ready - yt-dlp v..., ffmpeg found"), then "downloading" spins until the run ends, and the result is a short sentence ("... done - <file> (<size>MB)"). yt-dlp's own console output is suppressed. Finished lines stay on screen until the next URL, a menu pick, or a submenu escape repaints.
+A download runs below the input line with the menu always on screen, one line per stage, animated prefixes of at most three characters: amber dots for the preflight stages, light-blue chevrons for the download itself. The sub-second yt-dlp and ffmpeg checks share a single grouped line ("ready - yt-dlp v..., ffmpeg found"), then "downloading (escape to stop)" spins until the run ends, and the result is a short sentence ("... done - <file> (<size>MB)"). yt-dlp's own console output is suppressed. No input is accepted while a download runs - only escape, which stops yt-dlp (and any ffmpeg child it spawned) and deletes the fresh partial files, printing ">>> downloading - stopped by escape, cleaned N partial files". The stage lines stay on screen until the next URL, a menu pick, or escape repaints the menu.
 
 Notes
 -----
