@@ -3,6 +3,7 @@ ytdlp-youtube-proj
 
 Text-menu CLI around standalone yt-dlp, plus reference docs and release zips.
 Defaults live in config/settings.json, so everyday use is: start, paste URL, done.
+History in CHANGELOG.md; next-session notes live in the handoff store.
 
 Layout
 ------
@@ -14,6 +15,7 @@ ytdlp-files/         yt-dlp release zips + 7-Zip installer (tracked)
 ytdlp-docs/          wiki/readme references
 bin/                 yt-dlp.exe + ffmpeg.exe + ffprobe.exe (gitignored)
 downloads/           output (gitignored)
+CHANGELOG.md         commit-grouped history
 
 Usage
 -----
