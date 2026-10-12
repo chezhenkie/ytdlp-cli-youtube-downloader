@@ -452,16 +452,39 @@ def menu_line(idx, label, value="", grey=True):
     return m + left + (" " * pad) + value + m
 
 
+def short_path(p, maxv):
+    """Path for one menu line: '...\\last\\folder' style, cut on separators."""
+    if len(p) <= maxv:
+        return p
+    sep = "\\" if os.name == "nt" else "/"
+    parts = [x for x in p.replace("/", sep).split(sep) if x]
+    if not parts:
+        return p[:maxv]
+    out = parts[-1]
+    i = len(parts) - 2
+    while i >= 0 and len("..." + sep + parts[i] + sep + out) <= maxv:
+        out = parts[i] + sep + out
+        i -= 1
+    head = "..." + sep
+    if len(head + out) <= maxv:
+        return head + out
+    keep = maxv - len(head)
+    if keep <= 0:
+        return out[:maxv]
+    return head + out[:keep]
+
+
 def hint(s):
-    """Amber instructions over thin light-blue dividers, above the input field."""
+    """Amber instructions plus grey detail lines, above the input field."""
     div = "-" * (WIDTH + 2)
     l1 = "enter number to change default settings"
     l2 = "paste url, press enter and download will start."
     l3 = "change download location by choosing menu item: 5"
-    print(c(A_LBLUE, div))
+    l4 = "DL location: %s" % resolve_outdir(s)
     print(c(A_AMBER, l1))
     print(c(A_AMBER, l2))
     print(c(A_DARKGREY, l3))
+    print(c(A_DARKGREY, l4))
     print(c(A_LBLUE, div))
 
 
@@ -510,7 +533,9 @@ def render(s):
         (2, "change container", container, True),
         (3, "change resolution", media, True),
         (4, "change audio format", s["audio_format"], True),
-        (5, "change output folder", s["output_dir"], True),
+        (5, "change output folder",
+         short_path(s["output_dir"] or "downloads",
+                    WIDTH - len("  5  change output folder") - 3), True),
         (6, "change filename template", s["filename_template"], True),
         (7, "change subtitles", "%s (%s)" % (onoff(s.get("subtitles")), s["subtitle_langs"]), True),
         (8, "change thumbnail", onoff(s.get("thumbnail")), True),
