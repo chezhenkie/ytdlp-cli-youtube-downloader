@@ -312,45 +312,50 @@ def ask_bool(label, current):
 
 def menu_line(idx, label, value=""):
     left = " %2d  %s" % (idx, label)
-    right = value
-    pad = WIDTH - len(left) - len(right) - 2
+    maxv = WIDTH - len(left) - 3
+    if maxv < 1:
+        maxv = 1
+    if len(value) > maxv:
+        value = ("..." + value[-(maxv - 3):]) if maxv > 3 else value[:maxv]
+    pad = WIDTH - len(left) - len(value)
     if pad < 1:
-        right = ""
-        pad = WIDTH - len(left) - 2
-    return "|" + left + (" " * pad) + right + "|"
+        pad = 1
+    return "|" + left + (" " * pad) + value + "|"
 
 
 def render(s):
     bar = "+" + "-" * WIDTH + "+"
+    blank = "|" + " " * WIDTH + "|"
     kind = "audio only (%s)" % s["audio_format"] if s.get("audio_only") else "video"
     res = s["video_resolution"]
-    if s.get("audio_only"):
-        media = "container -"
+    media = "container -" if s.get("audio_only") else ("best" if res == "best" else res + "p")
+    if s.get("playlist"):
+        n = int(s.get("playlist_max_items") or 0)
+        pl = "on (all)" if n <= 0 else "on (max %d)" % n
     else:
-        media = "%sp" % res if res != "best" else "best"
-    rows = [
-        ("", ""),
-        menu_line(1, "Paste URL and download", "uses the defaults below"),
-        ("", ""),
-        menu_line(2, "Type", kind),
-        menu_line(3, "Container", s["video_container"] if not s.get("audio_only") else "-"),
-        menu_line(4, "Resolution", media),
-        menu_line(5, "Audio format", s["audio_format"]),
-        menu_line(6, "Output folder", str(resolve_outdir(s))),
-        menu_line(7, "Filename template", s["filename_template"][:20]),
-        menu_line(8, "Subtitles", "%s (%s)" % (onoff(s.get("subtitles")), s["subtitle_langs"])),
-        menu_line(9, "Thumbnail", onoff(s.get("thumbnail"))),
-        menu_line(10, "Embed metadata", onoff(s.get("embed_metadata"))),
-        menu_line(11, "Playlist", onoff(s.get("playlist"))),
-        menu_line(12, "Reset defaults", "config/settings.json"),
-        menu_line(13, "Quit", ""),
-        ("", ""),
+        pl = "off"
+    items = [
+        (1, "Paste URL and download", "uses the defaults below"),
+        (2, "Type", kind),
+        (3, "Container", "-" if s.get("audio_only") else s["video_container"]),
+        (4, "Resolution", media),
+        (5, "Audio format", s["audio_format"]),
+        (6, "Output folder", s["output_dir"]),
+        (7, "Filename template", s["filename_template"]),
+        (8, "Subtitles", "%s (%s)" % (onoff(s.get("subtitles")), s["subtitle_langs"])),
+        (9, "Thumbnail", onoff(s.get("thumbnail"))),
+        (10, "Embed metadata", onoff(s.get("embed_metadata"))),
+        (11, "Playlist", pl),
+        (12, "Reset defaults", "config/settings.json"),
+        (13, "Quit", ""),
     ]
     print(bar)
-    print("|" + "yt-dlp CLI  v%s".ljust(WIDTH) + "|" % VERSION)
+    print("|" + ("yt-dlp CLI  v%s" % VERSION).ljust(WIDTH) + "|")
     print(bar)
-    for r in rows:
-        print(r if r else "|" + " " * WIDTH + "|")
+    print(blank)
+    for idx, label, value in items:
+        print(menu_line(idx, label, value))
+    print(blank)
     print(bar)
 
 
