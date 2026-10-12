@@ -453,25 +453,14 @@ def menu_line(idx, label, value="", grey=True):
 
 
 def short_path(p, maxv):
-    """Path for one menu line: '...\\last\\folder' style, cut on separators."""
-    if len(p) <= maxv:
-        return p
+    """Path for menu item 5: always '...\\<folder name>'."""
     sep = "\\" if os.name == "nt" else "/"
     parts = [x for x in p.replace("/", sep).split(sep) if x]
-    if not parts:
-        return p[:maxv]
-    out = parts[-1]
-    i = len(parts) - 2
-    while i >= 0 and len("..." + sep + parts[i] + sep + out) <= maxv:
-        out = parts[i] + sep + out
-        i -= 1
-    head = "..." + sep
-    if len(head + out) <= maxv:
-        return head + out
-    keep = maxv - len(head)
-    if keep <= 0:
-        return out[:maxv]
-    return head + out[:keep]
+    name = parts[-1] if parts else "downloads"
+    out = "..." + sep + name
+    if len(out) <= maxv:
+        return out
+    return out[:maxv]
 
 
 def hint(s):
@@ -550,9 +539,10 @@ def render(s):
     for idx, label, value, grey in items:
         print(menu_line(idx, label, value, grey))
     desc = "press escape to exit submenu"
-    seg = (" " + desc).ljust(WIDTH)
-    print(m + c(A_LBLUE, seg) + m)
-    print(m + " " * WIDTH + m)
+    pad = WIDTH - len(desc)
+    left = pad // 2
+    right = pad - left
+    print(m + " " * left + c(A_LBLUE, desc) + " " * right + m)
     print(c(A_DARKGREY, "-" * (WIDTH + 2)))
 
 
