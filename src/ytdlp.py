@@ -359,10 +359,10 @@ FRAME_SECS = 0.1
 class Stage:
     """One animated stage line: a 3-char prefix spins, then freezes.
 
-    done() ends the line with a newline, so finished stages stay on screen.
-    Nothing in the CLI clears them; the next url, menu pick, or submenu
-    escape repaints. Outside a tty the thread is skipped and only the final
-    line prints."""
+    done() ends the line with a newline, so finished stages stay on screen
+    under the input line until the next url, menu pick, or escape repaints
+    the menu. Outside a tty the thread is skipped and only the final line
+    prints."""
 
     def __init__(self, text, frames, color, freeze):
         self.text = text
@@ -418,15 +418,114 @@ def newest_since(folder, since, slack=2.0):
     return best[1] if best else None
 
 
+def clean_partials(folder, since, slack=5.0):
+    """Delete fresh *.part* and *.ytdl leftovers after a stopped download."""
+    removed = []
+    try:
+        cands = list(folder.glob("*.part*")) + list(folder.glob("*.ytdl"))
+    except OSError:
+        return removed
+    for p in cands:
+        try:
+            if p.stat().st_mtime >= since - slack and p.is_file():
+                p.unlink()
+                removed.append(p.name)
+        except OSError:
+            pass
+    return removed
+
+
+class KeyWatch:
+    """Raw key watcher for the download run: only escape is acted on.
+
+    Nothing else is consumed as input; the watcher exists so escape can stop
+    a running download. No-op when stdin is not a tty."""
+
+    def __init__(self):
+        self.old = None
+        self.fd = None
+        if os.name == "nt":
+            return
+        if not sys.stdin.isatty():
+            return
+        import termios
+        import tty
+        self.fd = sys.stdin.fileno()
+        self.old = termios.tcgetattr(self.fd)
+        tty.setcbreak(self.fd)
+
+    def escape_hit(self):
+        if os.name == "nt":
+            import msvcrt
+            if not msvcrt.kbhit():
+                return False
+            ch = msvcrt.getwch()
+            if ch in ("\x00", "\xe0"):  # eat arrow/function scan codes
+                msvcrt.getwch()
+                return False
+            return ch == "\x1b"
+        if self.fd is None:
+            return False
+        import select
+        r, _, _ = select.select([self.fd], [], [], 0)
+        if not r:
+            return False
+        return os.read(self.fd, 1) == b"\x1b"
+
+    def restore(self):
+        if self.old is not None:
+            import termios
+            termios.tcsetattr(self.fd, termios.TCSADRAIN, self.old)
+
+
+def _kill_tree(proc):
+    """Kill yt-dlp and any ffmpeg child it spawned."""
+    if os.name == "nt":
+        subprocess.call(["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL)
+    else:
+        import signal
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except OSError:
+            pass
+    proc.wait()
+
+
+def run_download(binary, opts):
+    """Run yt-dlp with no input; escape stops it and cleans partials.
+
+    Returns (rc, stopped) where stopped is True when escape killed it."""
+    popen_kw = {}
+    if os.name != "nt":
+        popen_kw["start_new_session"] = True
+    started = time.time()
+    proc = subprocess.Popen([str(binary)] + opts,
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            **popen_kw)
+    watch = KeyWatch()
+    try:
+        while True:
+            rc = proc.poll()
+            if rc is not None:
+                return rc, False
+            if watch.escape_hit():
+                _kill_tree(proc)
+                return proc.returncode if proc.returncode is not None else -1, True
+            time.sleep(FRAME_SECS)
+    except KeyboardInterrupt:
+        _kill_tree(proc)
+        return -1, False
+    finally:
+        watch.restore()
+
+
 def do_download(s, url):
     if not (url or "").lower().startswith(("http://", "https://")):
         print("not a URL: %r" % url)
         return 2
-    if USE_COLOR:
-        sys.stdout.write(CLEAR)
-        sys.stdout.flush()
-    print("url: %s" % url)
-
     binary = find_yt_dlp(s)
     if binary is None:
         plat = platform_name()
@@ -458,21 +557,24 @@ def do_download(s, url):
 
     opts = build_args(s, url, ffdir)
     started = time.time()
-    st = Stage("downloading", CHEVRONS, A_LBLUE, ">>>")
+    st = Stage("downloading (escape to stop)", CHEVRONS, A_LBLUE, ">>>")
     st.start()
-    try:
-        rc = subprocess.call([str(binary)] + opts,
-                             stdout=subprocess.DEVNULL,
-                             stderr=subprocess.DEVNULL)
-    except KeyboardInterrupt:
-        st.done("downloading - cancelled")
+    rc, stopped = run_download(binary, opts)
+    if stopped:
+        removed = clean_partials(resolve_outdir(s), started)
+        tail = ""
+        if removed:
+            tail = ", cleaned %d partial file%s" % (len(removed),
+                                                    "" if len(removed) == 1
+                                                    else "s")
+        st.done("downloading - stopped by escape%s" % tail)
         return 130
     if rc != 0:
         st.done("downloading - failed, yt-dlp exited rc=%s" % rc)
         return rc
 
-    newest = newest_since(resolve_outdir(s), started)
     st.done("downloading - finished")
+    newest = newest_since(resolve_outdir(s), started)
     if newest is None:
         print("saved to %s" % resolve_outdir(s))
     else:
@@ -641,6 +743,7 @@ def menu_summary(s):
 def main_menu(s):
     enable_vt_output()
     dirty = True
+    results = False
     while True:
         if dirty:
             if USE_COLOR:
@@ -649,26 +752,36 @@ def main_menu(s):
             render(s)
             hint(s)
             dirty = False
+            results = False
         try:
             choice = read_esc("> ")
         except (EOFError, KeyboardInterrupt):
             print()
             return 0
         if choice is None:
-            # escape at the main prompt: stay put, do not re-render
+            # escape: wipe the results if any are on screen, else a no-op
+            if results:
+                dirty = True
             continue
         choice = choice.strip()
         url = clean_url(choice)
         if url:
+            # a new url starts from a fresh menu on top, results below input
+            if USE_COLOR:
+                sys.stdout.write(CLEAR)
+                sys.stdout.flush()
+            render(s)
+            hint(s)
             do_download(s, url)
-            print(c(A_DARKGREY, "another url, a menu number, or escape"))
-            # no repaint: the stage lines stay until the next action
+            results = True
+            save_settings(s)
             continue
         try:
             act(choice, s)
         except GoBack:
             pass
         dirty = True
+        results = False
         save_settings(s)
 
 
