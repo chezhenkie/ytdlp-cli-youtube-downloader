@@ -27,8 +27,87 @@ WIDTH = 64
 
 A_AMBER = "\033[38;5;214m"
 A_LBLUE = "\033[38;5;117m"
+A_GREY = "\033[38;5;250m"
 A_RESET = "\033[0m"
 USE_COLOR = sys.stdout.isatty()
+
+
+def c(code, text):
+    return code + text + A_RESET if USE_COLOR else text
+
+
+class GoBack(Exception):
+    """Escape pressed inside a submenu: return to the main menu."""
+
+
+def read_esc(prompt=""):
+    """One input line; returns None if Escape was pressed.
+
+    Raw console reader so escape is detectable. Falls back to input() when
+    stdin is not a tty (pipes, tests)."""
+    if not sys.stdin.isatty():
+        return input(prompt)
+    if prompt:
+        sys.stdout.write(prompt)
+        sys.stdout.flush()
+    if os.name == "nt":
+        import msvcrt
+        buf = []
+        while True:
+            ch = msvcrt.getwch()
+            if ch in ("\r", "\n"):
+                sys.stdout.write("\n")
+                sys.stdout.flush()
+                return "".join(buf)
+            if ch == "\x1b":
+                sys.stdout.write("\n")
+                sys.stdout.flush()
+                return None
+            if ch in ("\x08", "\x7f"):
+                if buf:
+                    buf.pop()
+                    sys.stdout.write("\b \b")
+                    sys.stdout.flush()
+                continue
+            if ch == "\x00":
+                msvcrt.getwch()
+                continue
+            if ch == "\x03":
+                raise KeyboardInterrupt
+            buf.append(ch)
+            sys.stdout.write(ch)
+            sys.stdout.flush()
+    import termios
+    import tty
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    try:
+        tty.setraw(fd)
+        buf = []
+        while True:
+            ch = sys.stdin.read(1)
+            if ch in ("\r", "\n"):
+                sys.stdout.write("\n")
+                sys.stdout.flush()
+                return "".join(buf)
+            if ch == "\x1b":
+                sys.stdout.write("\n")
+                sys.stdout.flush()
+                return None
+            if ch in ("\x7f", "\x08"):
+                if buf:
+                    buf.pop()
+                    sys.stdout.write("\b \b")
+                    sys.stdout.flush()
+                continue
+            if ch == "\x03":
+                raise KeyboardInterrupt
+            if ch >= " ":
+                buf.append(ch)
+                sys.stdout.write(ch)
+                sys.stdout.flush()
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
 
 URL_RE = re.compile(r"https?://\S+")
 ABS_RE = re.compile(r"^([A-Za-z]:[\\/]|[\\/])")
@@ -291,8 +370,13 @@ def pick_list(title, options, current):
     print("  %s" % title)
     for i, o in enumerate(options, 1):
         mark = "x" if str(o) == str(current) else " "
+        if mark == "x":
+            mark = c(A_AMBER, mark)
         print("    [%s] %2d  %s" % (mark, i, o))
-    raw = input("  number (Enter = keep %s): " % current).strip()
+    raw = read_esc("  number (enter = keep %s): " % current)
+    if raw is None:
+        raise GoBack()
+    raw = raw.strip()
     if not raw:
         return current
     try:
@@ -307,7 +391,10 @@ def pick_list(title, options, current):
 
 
 def ask_bool(label, current):
-    raw = input("  %s (now %s) y/n (Enter = keep): " % (label, onoff(current))).strip().lower()
+    raw = read_esc("  %s (now %s) y/n (enter = keep): " % (label, onoff(current)))
+    if raw is None:
+        raise GoBack()
+    raw = raw.strip().lower()
     if raw in ("y", "yes", "on", "1"):
         return True
     if raw in ("n", "no", "off", "0"):
@@ -315,14 +402,16 @@ def ask_bool(label, current):
     return current
 
 
-def menu_line(idx, label, value=""):
+def menu_line(idx, label, value="", grey=True):
     left = " %2d  %s" % (idx, label)
-    maxv = WIDTH - len(left) - 3
+    if grey:
+        left = c(A_GREY, left)
+    maxv = WIDTH - len(" %2d  %s" % (idx, label)) - 3
     if maxv < 1:
         maxv = 1
     if len(value) > maxv:
         value = ("..." + value[-(maxv - 3):]) if maxv > 3 else value[:maxv]
-    pad = WIDTH - len(left) - len(value)
+    pad = WIDTH - len(" %2d  %s" % (idx, label)) - len(value)
     if pad < 1:
         pad = 1
     return "|" + left + (" " * pad) + value + "|"
@@ -333,21 +422,33 @@ def hint(s):
     div = "-" * (WIDTH + 2)
     l1 = "enter number to change default settings"
     l2 = "paste url, enter and download will start to %s" % (s["output_dir"] or "downloads")
-    if not USE_COLOR:
-        print(div)
-        print(l1)
-        print(l2)
-        print(div)
-        return
-    print(A_LBLUE + div + A_RESET)
-    print(A_AMBER + l1 + A_RESET)
-    print(A_AMBER + l2 + A_RESET)
-    print(A_LBLUE + div + A_RESET)
+    print(c(A_LBLUE, div))
+    print(c(A_AMBER, l1))
+    print(c(A_AMBER, l2))
+    print(c(A_LBLUE, div))
+
+
+def header():
+    title = "yt-dlp cli  v%s" % VERSION
+    text = " " + title + " "
+    pad = WIDTH - len(text)
+    left = pad // 2
+    right = pad - left
+    div = "-" * (WIDTH + 2)
+    # dotted lines above/below and the side markers are light blue,
+    # the centered header text itself is amber
+    print(c(A_LBLUE, div))
+    if USE_COLOR:
+        line = (A_LBLUE + "|" + A_RESET + " " * left
+                + A_AMBER + text + A_RESET
+                + " " * right + A_LBLUE + "|" + A_RESET)
+    else:
+        line = "|" + " " * left + text + " " * right + "|"
+    print(line)
+    print(c(A_LBLUE, div))
 
 
 def render(s):
-    bar = "+" + "-" * WIDTH + "+"
-    blank = "|" + " " * WIDTH + "|"
     if s.get("audio_only"):
         kind = "audio only (%s)" % s["audio_format"]
     else:
@@ -365,27 +466,28 @@ def render(s):
     else:
         pl = "off"
     items = [
-        (1, "type", kind),
-        (2, "container", container),
-        (3, "resolution", media),
-        (4, "audio format", s["audio_format"]),
-        (5, "output folder", s["output_dir"]),
-        (6, "filename template", s["filename_template"]),
-        (7, "subtitles", "%s (%s)" % (onoff(s.get("subtitles")), s["subtitle_langs"])),
-        (8, "thumbnail", onoff(s.get("thumbnail"))),
-        (9, "embed metadata", onoff(s.get("embed_metadata"))),
-        (10, "playlist", pl),
-        (11, "reset defaults", "config/settings.json"),
-        (12, "quit", ""),
+        (1, "type", kind, True),
+        (2, "container", container, True),
+        (3, "resolution", media, True),
+        (4, "audio format", s["audio_format"], True),
+        (5, "output folder", s["output_dir"], True),
+        (6, "filename template", s["filename_template"], True),
+        (7, "subtitles", "%s (%s)" % (onoff(s.get("subtitles")), s["subtitle_langs"]), True),
+        (8, "thumbnail", onoff(s.get("thumbnail")), True),
+        (9, "embed metadata", onoff(s.get("embed_metadata")), True),
+        (10, "playlist", pl, True),
+        (11, "reset defaults", "config/settings.json", True),
+        (12, "quit", "", False),
     ]
-    print(bar)
-    print("|" + ("yt-dlp cli  v%s" % VERSION).ljust(WIDTH) + "|")
-    print(bar)
-    print(blank)
-    for idx, label, value in items:
-        print(menu_line(idx, label, value))
-    print(blank)
-    print(bar)
+    header()
+    print("|" + " " * WIDTH + "|")
+    for idx, label, value, grey in items:
+        print(menu_line(idx, label, value, grey))
+    desc = "press escape to exit submenu"
+    seg = (" " + desc).ljust(WIDTH)
+    print("|" + c(A_LBLUE, seg) + "|")
+    print("|" + " " * WIDTH + "|")
+    print("-" * (WIDTH + 2))
 
 
 def menu_summary(s):
@@ -399,68 +501,93 @@ def main_menu(s):
         render(s)
         hint(s)
         try:
-            choice = input("> ").strip()
+            choice = read_esc("> ")
+            if choice is None:
+                continue
+            choice = choice.strip()
         except (EOFError, KeyboardInterrupt):
             print()
             return 0
         url = clean_url(choice)
         if url:
-            do_download(s, url)
+            try:
+                do_download(s, url)
+            except GoBack:
+                pass
             save_settings(s)
             continue
-        if choice == "1":
-            s["audio_only"] = not s.get("audio_only")
-        elif choice == "2":
-            if s.get("audio_only"):
-                print("  audio-only mode has no container")
-                continue
-            s["video_container"] = pick_list("Container", CONTAINERS, s["video_container"])
-        elif choice == "3":
-            if s.get("audio_only"):
-                print("  audio-only mode has no resolution")
-                continue
-            s["video_resolution"] = pick_list("Max height", RESOLUTIONS, s["video_resolution"])
-        elif choice == "4":
-            s["audio_format"] = pick_list("Audio format (needs ffmpeg to convert)", AUDIO_FORMATS, s["audio_format"])
-        elif choice == "5":
-            raw = input("  folder (Enter = keep %s): " % resolve_outdir(s)).strip().strip('"')
-            if raw:
-                s["output_dir"] = raw
-        elif choice == "6":
-            raw = input("  template (Enter = keep): ").strip()
-            if raw:
-                s["filename_template"] = raw
-        elif choice == "7":
-            s["subtitles"] = ask_bool("subtitles", s.get("subtitles"))
-            if s.get("subtitles"):
-                raw = input("  languages (comma list, Enter = keep): ").strip()
-                if raw:
-                    s["subtitle_langs"] = raw
-        elif choice == "8":
-            s["thumbnail"] = ask_bool("thumbnail", s.get("thumbnail"))
-        elif choice == "9":
-            s["embed_metadata"] = ask_bool("embed metadata", s.get("embed_metadata"))
-        elif choice == "10":
-            s["playlist"] = ask_bool("playlist mode", s.get("playlist"))
-            if s.get("playlist"):
-                raw = input("  max items (0 = all, Enter = keep %s): "
-                            % s.get("playlist_max_items")).strip()
-                if raw:
-                    try:
-                        s["playlist_max_items"] = int(raw)
-                    except ValueError:
-                        print("  not a number - kept %s" % s.get("playlist_max_items"))
-        elif choice == "11":
-            for k, v in DEFAULTS.items():
-                s[k] = json.loads(json.dumps(v)) if isinstance(v, (dict, list)) else v
-            print("  defaults restored")
-        elif choice in ("12", "q", "quit", "exit"):
-            save_settings(s)
-            print("bye. defaults saved to %s" % CONFIG_PATH)
-            return 0
-        elif choice:
-            print("  pick 1-12 or paste a url")
+        try:
+            act(choice, s)
+        except GoBack:
+            continue
         save_settings(s)
+
+
+def act(choice, s):
+    if choice == "1":
+        s["audio_only"] = not s.get("audio_only")
+    elif choice == "2":
+        if s.get("audio_only"):
+            print("  audio-only mode has no container")
+            return
+        s["video_container"] = pick_list("container", CONTAINERS, s["video_container"])
+    elif choice == "3":
+        if s.get("audio_only"):
+            print("  audio-only mode has no resolution")
+            return
+        s["video_resolution"] = pick_list("max height", RESOLUTIONS, s["video_resolution"])
+    elif choice == "4":
+        s["audio_format"] = pick_list("audio format (needs ffmpeg to convert)", AUDIO_FORMATS, s["audio_format"])
+    elif choice == "5":
+        raw = read_esc("  folder (enter = keep %s): " % resolve_outdir(s))
+        if raw is None:
+            raise GoBack()
+        raw = raw.strip().strip('"')
+        if raw:
+            s["output_dir"] = raw
+    elif choice == "6":
+        raw = read_esc("  template (enter = keep): ")
+        if raw is None:
+            raise GoBack()
+        raw = raw.strip()
+        if raw:
+            s["filename_template"] = raw
+    elif choice == "7":
+        s["subtitles"] = ask_bool("subtitles", s.get("subtitles"))
+        if s.get("subtitles"):
+            raw = read_esc("  languages (comma list, enter = keep): ")
+            if raw is None:
+                raise GoBack()
+            raw = raw.strip()
+            if raw:
+                s["subtitle_langs"] = raw
+    elif choice == "8":
+        s["thumbnail"] = ask_bool("thumbnail", s.get("thumbnail"))
+    elif choice == "9":
+        s["embed_metadata"] = ask_bool("embed metadata", s.get("embed_metadata"))
+    elif choice == "10":
+        s["playlist"] = ask_bool("playlist mode", s.get("playlist"))
+        if s.get("playlist"):
+            raw = read_esc("  max items (0 = all, enter = keep %s): "
+                           % s.get("playlist_max_items"))
+            if raw is None:
+                raise GoBack()
+            raw = raw.strip()
+            if raw:
+                try:
+                    s["playlist_max_items"] = int(raw)
+                except ValueError:
+                    print("  not a number - kept %s" % s.get("playlist_max_items"))
+    elif choice == "11":
+        for k, v in DEFAULTS.items():
+            s[k] = json.loads(json.dumps(v)) if isinstance(v, (dict, list)) else v
+        print("  defaults restored")
+    elif choice in ("12", "q", "quit", "exit"):
+        save_settings(s)
+        print("bye. defaults saved to %s" % CONFIG_PATH)
+        raise SystemExit(0)
+    elif choice:
+        print("  pick 1-12 or paste a url")
 
 
 # ---------------------------------------------------------------- cli/self-test
