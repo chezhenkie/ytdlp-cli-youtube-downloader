@@ -30,7 +30,23 @@ A_RED = "\033[38;5;196m"
 A_LBLUE = "\033[38;5;117m"
 A_GREY = "\033[38;5;250m"
 A_RESET = "\033[0m"
+CLEAR = "\033[2J\033[H"
 USE_COLOR = sys.stdout.isatty()
+
+
+def enable_vt_output():
+    """Windows consoles need ENABLE_VIRTUAL_TERMINAL_PROCESSING for ANSI."""
+    if os.name != "nt":
+        return
+    try:
+        import ctypes
+        k = ctypes.windll.kernel32
+        h = k.GetStdHandle(-11)
+        mode = ctypes.c_uint32()
+        if k.GetConsoleMode(h, ctypes.byref(mode)):
+            k.SetConsoleMode(h, mode.value | 0x0004)
+    except Exception:
+        pass
 
 
 def c(code, text):
@@ -501,9 +517,13 @@ def menu_summary(s):
 
 
 def main_menu(s):
+    enable_vt_output()
     dirty = True
     while True:
         if dirty:
+            if USE_COLOR:
+                sys.stdout.write(CLEAR)
+                sys.stdout.flush()
             render(s)
             hint(s)
             dirty = False
