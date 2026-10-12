@@ -42,11 +42,9 @@ menu rework - e58348e, 131ddd4, 7e17d59, e7de4fe, 2c9a754, 21c54a9,
 - selftest grew from 25 to 28 checks (video-no-audio branches); as of the
   last run: 28 checks, 0 failed
 
-console window - added after cca7605
-- menu start resizes the console to 90x32 on windows (ctypes
-  SetConsoleScreenBufferSize + SetConsoleWindowInfo), clamped to
-  dwMaximumWindowSize; buffer height and scrollbar are kept, piped runs and
-  non-windows untouched; resize_console returns True only after the calls
-  succeed. verified in a real console: before buffer=120x9001 window=120x30,
-  after buffer=90x9001 window=90x32
-- selftest beat to 29 checks with a non-tty no-op guard
+console window - implemented in 86c9856, reverted same day per user call
+- ctypes resize to 90x32 at menu start worked in a classic conhost probe
+  (buffer=120x9001 window=120x30 -> buffer=90x9001 window=90x32), but did
+  nothing in the user's bat-launched shell, so the code path is not
+  dependable across console frontends. removed; no console sizing in the CLI
+- selftest back to 28 checks
