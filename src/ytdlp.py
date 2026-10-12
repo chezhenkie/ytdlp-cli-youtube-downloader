@@ -26,6 +26,7 @@ BIN_DIR = ROOT / "bin"
 WIDTH = 64
 
 A_AMBER = "\033[38;5;214m"
+A_RED = "\033[38;5;196m"
 A_LBLUE = "\033[38;5;117m"
 A_GREY = "\033[38;5;250m"
 A_RESET = "\033[0m"
@@ -225,12 +226,15 @@ def find_ffmpeg_dir(s):
             return p
         if p.parent.is_dir():
             return p.parent
-    hit = shutil.which("ffmpeg")
-    if hit:
-        return Path(hit).parent
+    binname = "ffmpeg.exe" if os.name == "nt" else "ffmpeg"
+    if (BIN_DIR / binname).is_file():
+        return BIN_DIR
     for c in (BIN_DIR / "ffmpeg", FILES_DIR / "ffmpeg"):
         if c.is_dir():
             return c
+    hit = shutil.which("ffmpeg")
+    if hit:
+        return Path(hit).parent
     return None
 
 
@@ -371,7 +375,7 @@ def pick_list(title, options, current):
     for i, o in enumerate(options, 1):
         mark = "x" if str(o) == str(current) else " "
         if mark == "x":
-            mark = c(A_AMBER, mark)
+            mark = c(A_RED, mark)
         print("    [%s] %2d  %s" % (mark, i, o))
     raw = read_esc("  number (enter = keep %s): " % current)
     if raw is None:
@@ -483,10 +487,10 @@ def render(s):
     print("|" + " " * WIDTH + "|")
     for idx, label, value, grey in items:
         print(menu_line(idx, label, value, grey))
+    print("|" + " " * WIDTH + "|")
     desc = "press escape to exit submenu"
     seg = (" " + desc).ljust(WIDTH)
     print("|" + c(A_LBLUE, seg) + "|")
-    print("|" + " " * WIDTH + "|")
     print("-" * (WIDTH + 2))
 
 
@@ -497,29 +501,32 @@ def menu_summary(s):
 
 
 def main_menu(s):
+    dirty = True
     while True:
-        render(s)
-        hint(s)
+        if dirty:
+            render(s)
+            hint(s)
+            dirty = False
         try:
             choice = read_esc("> ")
-            if choice is None:
-                continue
-            choice = choice.strip()
         except (EOFError, KeyboardInterrupt):
             print()
             return 0
+        if choice is None:
+            # escape at the main prompt: stay put, do not re-render
+            continue
+        choice = choice.strip()
         url = clean_url(choice)
         if url:
-            try:
-                do_download(s, url)
-            except GoBack:
-                pass
+            do_download(s, url)
+            dirty = True
             save_settings(s)
             continue
         try:
             act(choice, s)
         except GoBack:
-            continue
+            pass
+        dirty = True
         save_settings(s)
 
 

@@ -12,7 +12,7 @@ run-ytdlp.sh         Linux launcher
 config/settings.json saved defaults (committed)
 ytdlp-files/         yt-dlp release zips + 7-Zip installer (tracked)
 ytdlp-docs/          wiki/readme references
-bin/                 unpacked yt-dlp binary (auto, gitignored)
+bin/                 yt-dlp.exe + ffmpeg.exe + ffprobe.exe (gitignored)
 downloads/           output (gitignored)
 
 Usage
@@ -27,28 +27,30 @@ python src/ytdlp.py --selftest         built-in logic tests (no network)
 
 Menu options
 ------------
-1  Paste URL and download - runs with the values shown below
-2  Type              video / audio-only
-3  Container         mp4 / mkv / webm / best
-4  Resolution        max height, 360p..2160p / best
-5  Audio format      mp3 / m4a / opus / wav / best (audio-only)
-6  Output folder     default downloads/
-7  Filename template default "%(title)s [%(id)s].%(ext)s"
-8  Subtitles         on/off + language list
-9  Thumbnail         embed (ffmpeg) or sidecar file
-10 Embed metadata     on/off (ffmpeg)
-11 Playlist          on/off + max items (0 = all)
-12 Reset defaults    back to this file's values
-13 Quit
+1  type               video / audio-only
+2  container          mp4 / mkv / webm / best
+3  resolution         max height, 360p..2160p / best
+4  audio format       mp3 / m4a / opus / wav / best (audio-only)
+5  output folder      default downloads/
+6  filename template  default "%(title)s [%(id)s].%(ext)s"
+7  subtitles          on/off + language list
+8  thumbnail          on/off
+9  embed metadata      on/off (ffmpeg)
+10 playlist           on/off + max items (0 = all)
+11 reset defaults     back to config/settings.json values
+12 quit
 
-Every change writes to config/settings.json immediately. Edit that file to
-seed defaults for the paste-URL flow, no menu needed.
+Escape backs out of a submenu. The prompt takes either a URL (download starts
+right away) or a number. Every change writes to config/settings.json
+immediately, so seeding defaults for the paste-url flow needs no menu.
 
 Notes
 -----
 First run unpacks yt-dlp from ytdlp-files on Windows and Linux. No macOS zip
 shipped: put yt-dlp on PATH or set yt_dlp_path in config/settings.json.
-Merge, mp3/m4a conversion, subtitle convert, thumbnail/metadata embedding need
-ffmpeg. If ffmpeg is missing the CLI says so and falls back to a single best
-file, so downloads keep working. ffmpeg_path can point at a binary or folder.
+Merge, mp3/m4a conversion, srt subtitle conversion and thumbnail/metadata
+embedding need ffmpeg; without it the CLI says so and falls back to a single
+best file, so downloads keep working. On this Windows box ffmpeg/ffprobe sit in
+bin/ next to yt-dlp.exe, PATH-independently; ffmpeg_path in settings points
+elsewhere if wanted. bin/ is untracked - ~480MB for the full builds here.
 Quick-arg overrides are one-shot, they do not change saved defaults.
