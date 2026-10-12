@@ -532,7 +532,8 @@ def render(s):
         (9, "change metadata", onoff(s.get("embed_metadata")), True),
         (10, "change playlist", pl, True),
         (11, "reset defaults", "config/settings.json", True),
-        (12, "quit", "", False),
+        (12, "update yt-dlp", "", True),
+        (13, "quit", "", False),
     ]
     header()
     m = c(A_DARKGREY, "|")
@@ -659,6 +660,37 @@ def _posix_folder_dialog(initial):
     return None
 
 
+def update_yt_dlp(s):
+    """In-place self-update of the resolved yt-dlp binary (`<binary> -U`).
+
+    Returns True when the binary answered -U, False when it could not be
+    found or failed its version check."""
+    binary = find_yt_dlp(s)
+    if binary is None:
+        plat = platform_name()
+        print("yt-dlp binary not found.")
+        if plat == "macos":
+            print("no macOS zip shipped - install yt-dlp (brew install yt-dlp)"
+                  " or set yt_dlp_path in config/settings.json")
+        else:
+            print("expected a release zip in ytdlp-files/ or yt-dlp on PATH")
+        return False
+    old, rc = probe_version(binary)
+    if rc != 0 or not old:
+        print("yt-dlp binary check failed (rc=%s): %s" % (rc, old))
+        return False
+    print("binary      : %s" % binary)
+    print("version now : %s" % old)
+    try:
+        rc = subprocess.call([str(binary), "-U"])
+    except KeyboardInterrupt:
+        print("\ncancelled by user")
+        return False
+    new, _ = probe_version(binary)
+    print("version after: %s" % new)
+    return rc == 0
+
+
 def act(choice, s):
     if choice == "1":
         s["type"] = pick_list("change type: video / video no audio / audio only",
@@ -732,12 +764,15 @@ def act(choice, s):
         for k, v in DEFAULTS.items():
             s[k] = json.loads(json.dumps(v)) if isinstance(v, (dict, list)) else v
         print("  defaults restored")
-    elif choice in ("12", "q", "quit", "exit"):
+    elif choice == "12":
+        update_yt_dlp(s)
+        read_esc("  press enter to go back: ")
+    elif choice in ("13", "q", "quit", "exit"):
         save_settings(s)
         print("bye. defaults saved to %s" % CONFIG_PATH)
         raise SystemExit(0)
     elif choice:
-        print("  pick 1-12 or paste a url")
+        print("  pick 1-13 or paste a url")
 
 
 # ---------------------------------------------------------------- cli/self-test
@@ -879,6 +914,7 @@ def main(argv=None):
     p.add_argument("--playlist", action="store_true", help="playlist mode")
     p.add_argument("--menu", action="store_true", help="force menu even with URL")
     p.add_argument("--check", action="store_true", help="show resolved paths/versions")
+    p.add_argument("--update", action="store_true", help="update the yt-dlp binary in place")
     p.add_argument("--selftest", action="store_true", help="run built-in logic tests")
     args = p.parse_args(argv)
 
@@ -890,6 +926,8 @@ def main(argv=None):
         return 0
     if args.selftest:
         return selftest()
+    if args.update:
+        return 0 if update_yt_dlp(s) else 1
     if args.url and not args.menu:
         return do_download(s, args.url)
     return main_menu(s)

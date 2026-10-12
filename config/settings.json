@@ -1,5 +1,5 @@
 {
-  "audio_format": "wav",
+  "audio_format": "mp3",
   "audio_quality": "0",
   "embed_metadata": false,
   "ffmpeg_path": "",
@@ -8,11 +8,11 @@
   "playlist": false,
   "playlist_max_items": 0,
   "settings_version": 1,
-  "subtitle_langs": "en,nl",
-  "subtitles": false,
+  "subtitle_langs": "en",
+  "subtitles": true,
   "thumbnail": false,
   "type": "video",
   "video_container": "mp4",
-  "video_resolution": "1080",
+  "video_resolution": "720",
   "yt_dlp_path": ""
 }

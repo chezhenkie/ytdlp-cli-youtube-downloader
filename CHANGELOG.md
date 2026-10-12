@@ -24,3 +24,7 @@ A ctypes resize to 90x32 at menu start was added and proven in a hidden classic 
 verified state at v1.1
 ----------------------
 HEAD 9ebe9d0, tree clean, selftest 28 checks 0 failed. yt-dlp 2026.08.19 runs from bin/yt-dlp.exe, ffmpeg and ffprobe resolve to bin/, and the downloads folder is empty. v1.1 is the level the user confirmed working end to end (menu, selection, folder dialog with a deep long path, hint block, amber selection box) in a bat-launched shell.
+
+update option added after v1.1
+------------------------------
+Menu item 12 (and `python src/ytdlp.py --update`) runs `<resolved yt-dlp> -U` on whatever binary find_yt_dlp picked - bin/, PATH, or the yt_dlp_path override - and prints the version before and after. Verified live 2026-10-12: `Latest version: stable@2026.08.19 from yt-dlp/yt-dlp` / `yt-dlp is up to date`, version now 2026.08.19, version after 2026.08.19, exit 0. The menu grew to 13 rows and every row still renders at exactly 66 chars. Note the companion refresh path: a zip swap in ytdlp-files/ alone does not replace an existing bin/yt-dlp.exe, since the unpack only runs when the binary is missing.

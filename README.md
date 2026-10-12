@@ -24,6 +24,7 @@ run-ytdlp.bat <url> -f mkv -r 720      overrides, one run only
 run-ytdlp.bat <url> --subs --playlist  subtitles + playlist
 python src/ytdlp.py --check            resolved paths and versions
 python src/ytdlp.py --selftest         built-in logic tests (no network)
+python src/ytdlp.py --update           yt-dlp self-update (same as menu item 12)
 
 Menu options
 ------------
@@ -38,7 +39,8 @@ Menu options
 9  change metadata      on/off (ffmpeg)
 10 change playlist      on/off + max items (0 = all)
 11 reset defaults       back to the values in config/settings.json
-12 quit
+12 update yt-dlp       runs `<yt-dlp> -U` on the resolved binary
+13 quit
 
 Shipped filename template is now %(title)s.
 
