@@ -25,6 +25,11 @@ FILES_DIR = ROOT / "ytdlp-files"
 BIN_DIR = ROOT / "bin"
 WIDTH = 64
 
+A_AMBER = "\033[38;5;214m"
+A_LBLUE = "\033[38;5;117m"
+A_RESET = "\033[0m"
+USE_COLOR = sys.stdout.isatty()
+
 URL_RE = re.compile(r"https?://\S+")
 ABS_RE = re.compile(r"^([A-Za-z]:[\\/]|[\\/])")
 
@@ -323,34 +328,58 @@ def menu_line(idx, label, value=""):
     return "|" + left + (" " * pad) + value + "|"
 
 
+def hint(s):
+    """Amber instructions over thin light-blue dividers, above the input field."""
+    div = "-" * (WIDTH + 2)
+    l1 = "enter number to change default settings"
+    l2 = "paste url, enter and download will start to %s" % (s["output_dir"] or "downloads")
+    if not USE_COLOR:
+        print(div)
+        print(l1)
+        print(l2)
+        print(div)
+        return
+    print(A_LBLUE + div + A_RESET)
+    print(A_AMBER + l1 + A_RESET)
+    print(A_AMBER + l2 + A_RESET)
+    print(A_LBLUE + div + A_RESET)
+
+
 def render(s):
     bar = "+" + "-" * WIDTH + "+"
     blank = "|" + " " * WIDTH + "|"
-    kind = "audio only (%s)" % s["audio_format"] if s.get("audio_only") else "video"
+    if s.get("audio_only"):
+        kind = "audio only (%s)" % s["audio_format"]
+    else:
+        kind = "video"
     res = s["video_resolution"]
-    media = "container -" if s.get("audio_only") else ("best" if res == "best" else res + "p")
+    if s.get("audio_only"):
+        container = "-"
+        media = "-"
+    else:
+        container = s["video_container"]
+        media = res if res == "best" else res + "p"
     if s.get("playlist"):
         n = int(s.get("playlist_max_items") or 0)
         pl = "on (all)" if n <= 0 else "on (max %d)" % n
     else:
         pl = "off"
     items = [
-        (1, "Paste URL and download", "uses the defaults below"),
-        (2, "Type", kind),
-        (3, "Container", "-" if s.get("audio_only") else s["video_container"]),
-        (4, "Resolution", media),
-        (5, "Audio format", s["audio_format"]),
-        (6, "Output folder", s["output_dir"]),
-        (7, "Filename template", s["filename_template"]),
-        (8, "Subtitles", "%s (%s)" % (onoff(s.get("subtitles")), s["subtitle_langs"])),
-        (9, "Thumbnail", onoff(s.get("thumbnail"))),
-        (10, "Embed metadata", onoff(s.get("embed_metadata"))),
-        (11, "Playlist", pl),
-        (12, "Reset defaults", "config/settings.json"),
-        (13, "Quit", ""),
+        (1, "type", kind),
+        (2, "container", container),
+        (3, "resolution", media),
+        (4, "audio format", s["audio_format"]),
+        (5, "output folder", s["output_dir"]),
+        (6, "filename template", s["filename_template"]),
+        (7, "subtitles", "%s (%s)" % (onoff(s.get("subtitles")), s["subtitle_langs"])),
+        (8, "thumbnail", onoff(s.get("thumbnail"))),
+        (9, "embed metadata", onoff(s.get("embed_metadata"))),
+        (10, "playlist", pl),
+        (11, "reset defaults", "config/settings.json"),
+        (12, "quit", ""),
     ]
     print(bar)
-    print("|" + ("yt-dlp CLI  v%s" % VERSION).ljust(WIDTH) + "|")
+    print("|" + ("yt-dlp cli  v%s" % VERSION).ljust(WIDTH) + "|")
     print(bar)
     print(blank)
     for idx, label, value in items:
@@ -368,54 +397,51 @@ def menu_summary(s):
 def main_menu(s):
     while True:
         render(s)
-        print("changes save automatically - paste-URL flow is option 1")
+        hint(s)
         try:
-            choice = input(" select > ").strip()
+            choice = input("> ").strip()
         except (EOFError, KeyboardInterrupt):
             print()
             return 0
-        if choice == "1":
-            raw = input(" URL (Enter = cancel): ").strip()
-            url = clean_url(raw)
-            if not url:
-                print(" no URL found in that text")
-                continue
+        url = clean_url(choice)
+        if url:
             do_download(s, url)
-            input(" Enter to continue...")
-        elif choice == "2":
+            save_settings(s)
+            continue
+        if choice == "1":
             s["audio_only"] = not s.get("audio_only")
-        elif choice == "3":
+        elif choice == "2":
             if s.get("audio_only"):
                 print("  audio-only mode has no container")
                 continue
             s["video_container"] = pick_list("Container", CONTAINERS, s["video_container"])
-        elif choice == "4":
+        elif choice == "3":
             if s.get("audio_only"):
                 print("  audio-only mode has no resolution")
                 continue
             s["video_resolution"] = pick_list("Max height", RESOLUTIONS, s["video_resolution"])
-        elif choice == "5":
+        elif choice == "4":
             s["audio_format"] = pick_list("Audio format (needs ffmpeg to convert)", AUDIO_FORMATS, s["audio_format"])
-        elif choice == "6":
+        elif choice == "5":
             raw = input("  folder (Enter = keep %s): " % resolve_outdir(s)).strip().strip('"')
             if raw:
                 s["output_dir"] = raw
-        elif choice == "7":
+        elif choice == "6":
             raw = input("  template (Enter = keep): ").strip()
             if raw:
                 s["filename_template"] = raw
-        elif choice == "8":
-            s["subtitles"] = ask_bool("Subtitles", s.get("subtitles"))
+        elif choice == "7":
+            s["subtitles"] = ask_bool("subtitles", s.get("subtitles"))
             if s.get("subtitles"):
                 raw = input("  languages (comma list, Enter = keep): ").strip()
                 if raw:
                     s["subtitle_langs"] = raw
+        elif choice == "8":
+            s["thumbnail"] = ask_bool("thumbnail", s.get("thumbnail"))
         elif choice == "9":
-            s["thumbnail"] = ask_bool("Thumbnail", s.get("thumbnail"))
+            s["embed_metadata"] = ask_bool("embed metadata", s.get("embed_metadata"))
         elif choice == "10":
-            s["embed_metadata"] = ask_bool("Embed metadata", s.get("embed_metadata"))
-        elif choice == "11":
-            s["playlist"] = ask_bool("Playlist mode", s.get("playlist"))
+            s["playlist"] = ask_bool("playlist mode", s.get("playlist"))
             if s.get("playlist"):
                 raw = input("  max items (0 = all, Enter = keep %s): "
                             % s.get("playlist_max_items")).strip()
@@ -424,16 +450,16 @@ def main_menu(s):
                         s["playlist_max_items"] = int(raw)
                     except ValueError:
                         print("  not a number - kept %s" % s.get("playlist_max_items"))
-        elif choice == "12":
+        elif choice == "11":
             for k, v in DEFAULTS.items():
                 s[k] = json.loads(json.dumps(v)) if isinstance(v, (dict, list)) else v
             print("  defaults restored")
-        elif choice in ("13", "q", "quit", "exit"):
+        elif choice in ("12", "q", "quit", "exit"):
             save_settings(s)
             print("bye. defaults saved to %s" % CONFIG_PATH)
             return 0
-        else:
-            print("  pick 1-13")
+        elif choice:
+            print("  pick 1-12 or paste a url")
         save_settings(s)
 
 
