@@ -15,6 +15,8 @@ import shutil
 import stat
 import subprocess
 import sys
+import threading
+import time
 import zipfile
 from pathlib import Path
 
@@ -349,53 +351,135 @@ def build_args(s, url, ffdir):
 
 # ---------------------------------------------------------------- download
 
+DOTS = [".  ", ".. ", "...", ".. ", ".  "]
+CHEVRONS = [">  ", ">> ", ">>>", ">> ", ">  "]
+FRAME_SECS = 0.1
+
+
+class Stage:
+    """One animated stage line: a 3-char prefix spins, then freezes.
+
+    done() ends the line with a newline, so finished stages stay on screen.
+    Nothing in the CLI clears them; the next url, menu pick, or submenu
+    escape repaints. Outside a tty the thread is skipped and only the final
+    line prints."""
+
+    def __init__(self, text, frames, color, freeze):
+        self.text = text
+        self.frames = frames
+        self.color = color
+        self.freeze = freeze
+        self._stop = False
+        self._th = None
+
+    def start(self):
+        if not USE_COLOR:
+            return
+        self._th = threading.Thread(target=self._spin, daemon=True)
+        self._th.start()
+
+    def _spin(self):
+        i = 0
+        while not self._stop:
+            sys.stdout.write("\r%s%s%s %s" % (self.color,
+                                              self.frames[i % len(self.frames)],
+                                              A_RESET, self.text))
+            sys.stdout.flush()
+            i += 1
+            time.sleep(FRAME_SECS)
+
+    def done(self, text=None):
+        self._stop = True
+        if self._th is not None:
+            self._th.join(timeout=1.0)
+        final = text if text is not None else self.text
+        if USE_COLOR:
+            sys.stdout.write("\r%s%s%s %s\n" % (self.color, self.freeze,
+                                                A_RESET, final))
+        else:
+            print("%s %s" % (self.freeze, final))
+        sys.stdout.flush()
+
+
+def newest_since(folder, since, slack=2.0):
+    """Newest file in folder with an mtime at or just after 'since'."""
+    best = None
+    try:
+        for p in folder.glob("*"):
+            if p.is_file():
+                try:
+                    m = p.stat().st_mtime
+                except OSError:
+                    continue
+                if m >= since - slack and (best is None or m > best[0]):
+                    best = (m, p)
+    except OSError:
+        return None
+    return best[1] if best else None
+
+
 def do_download(s, url):
     if not (url or "").lower().startswith(("http://", "https://")):
         print("not a URL: %r" % url)
         return 2
+    if USE_COLOR:
+        sys.stdout.write(CLEAR)
+        sys.stdout.flush()
+    print("url: %s" % url)
+
     binary = find_yt_dlp(s)
     if binary is None:
         plat = platform_name()
-        print("yt-dlp binary not found.")
         if plat == "macos":
-            print("no macOS zip shipped - install yt-dlp (brew install yt-dlp) or set yt_dlp_path in ")
-            print("config/settings.json")
+            print("%s yt-dlp not found - no macOS zip shipped; install"
+                  " (brew install yt-dlp) or set yt_dlp_path"
+                  % c(A_AMBER, "..."))
         else:
-            print("expected a release zip in ytdlp-files/ or yt-dlp on PATH")
-        return 2
-    ver, rc = probe_version(binary)
-    if rc != 0 or not ver:
-        print("yt-dlp binary check failed (rc=%s): %s" % (rc, ver))
+            print("%s yt-dlp not found - expected a release zip in"
+                  " ytdlp-files/ or yt-dlp on PATH" % c(A_AMBER, "..."))
         return 2
 
+    # sub-second preflight checks share one grouped stage line
+    st = Stage("checking yt-dlp and ffmpeg", DOTS, A_AMBER, "...")
+    st.start()
+    ver, vrc = probe_version(binary)
     ffdir = find_ffmpeg_dir(s)
-    if ffdir is None:
-        kind = s.get("type", "video")
-        if kind == "audio only" and s["audio_format"] not in ("best",):
-            print("note: ffmpeg not found - saving original audio (no %s conversion)"
-                  % s["audio_format"])
-        elif kind == "video":
-            print("note: ffmpeg not found - single best file, no merge")
+    if vrc != 0 or not ver:
+        st.done("yt-dlp check failed (rc=%s): %s" % (vrc, ver))
+        return 2
+    kind = s.get("type", "video")
+    if ffdir:
+        ffs = "ffmpeg found"
+    elif kind == "audio only":
+        ffs = "no ffmpeg - saving original audio"
+    else:
+        ffs = "no ffmpeg - single best file"
+    st.done("ready - yt-dlp v%s, %s" % (ver, ffs))
 
     opts = build_args(s, url, ffdir)
-    argv = [str(binary)] + opts
-    print("-" * WIDTH)
-    print("binary  : %s (%s)" % (binary, ver))
-    print("url     : %s" % url)
-    print("output  : %s" % resolve_outdir(s))
-    print("command : %s" % " ".join(opts))
-    print("-" * WIDTH)
+    started = time.time()
+    st = Stage("downloading", CHEVRONS, A_LBLUE, ">>>")
+    st.start()
     try:
-        rc = subprocess.call(argv)
+        rc = subprocess.call([str(binary)] + opts,
+                             stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL)
     except KeyboardInterrupt:
-        print("\ncancelled by user")
+        st.done("downloading - cancelled")
         return 130
-    if rc == 0:
-        print("-" * WIDTH)
-        print("finished - files in %s" % resolve_outdir(s))
-        return 0
-    print("yt-dlp exited with code %s" % rc)
-    return rc
+    if rc != 0:
+        st.done("downloading - failed, yt-dlp exited rc=%s" % rc)
+        return rc
+
+    newest = newest_since(resolve_outdir(s), started)
+    st.done("downloading - finished")
+    if newest is None:
+        print("saved to %s" % resolve_outdir(s))
+    else:
+        print("%s done - %s (%.1fMB)" % (c(A_AMBER, "..."),
+                                         newest.name,
+                                         newest.stat().st_size / 1048576.0))
+    return 0
 
 
 # ---------------------------------------------------------------- menu parts
@@ -577,8 +661,8 @@ def main_menu(s):
         url = clean_url(choice)
         if url:
             do_download(s, url)
-            dirty = True
-            save_settings(s)
+            print(c(A_DARKGREY, "another url, a menu number, or escape"))
+            # no repaint: the stage lines stay until the next action
             continue
         try:
             act(choice, s)

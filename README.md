@@ -46,6 +46,8 @@ Shipped filename template is now %(title)s.
 
 Escape backs out of a submenu. The prompt takes either a URL (download starts right away) or a number. Every change writes to config/settings.json immediately, so seeding defaults for the paste-url flow needs no menu.
 
+A download runs on a cleared screen with one line per stage, animated prefixes of at most three characters: amber dots for the preflight stages, light-blue chevrons for the download itself. The sub-second yt-dlp and ffmpeg checks share a single grouped line ("ready - yt-dlp v..., ffmpeg found"), then "downloading" spins until the run ends, and the result is a short sentence ("... done - <file> (<size>MB)"). yt-dlp's own console output is suppressed. Finished lines stay on screen until the next URL, a menu pick, or a submenu escape repaints.
+
 Notes
 -----
 First run unpacks yt-dlp from ytdlp-files on Windows and Linux. No macOS zip shipped: put yt-dlp on PATH or set yt_dlp_path in config/settings.json.
