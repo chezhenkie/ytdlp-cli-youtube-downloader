@@ -7,8 +7,10 @@ Piped (no tty):         prints the frames as text and exits.
 Each entry is (description, ansi 256-color, frames) and every frame is
 exactly four characters wide, matching the menu row budget of 66 chars.
 """
+import os
 import sys
 import time
+from pathlib import Path
 
 A_AMBER = "\033[38;5;214m"
 A_LBLUE = "\033[38;5;117m"
@@ -44,6 +46,18 @@ def play(frames, color, seconds=4.0):
     sys.stdout.flush()
 
 
+def _enable_vt():
+    """Same VT enable the CLI does at menu start (windows legacy consoles)."""
+    if os.name != "nt":
+        return
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "ytdlp", str(Path(__file__).resolve().parent / "ytdlp.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    mod.enable_vt_output()
+
+
 def main():
     idx = None
     if len(sys.argv) > 1:
@@ -61,6 +75,7 @@ def main():
             print("    frames: |%s|" % "|".join(frames))
         print("run this in a real console to watch the animations")
         return 0
+    _enable_vt()
     picks = [idx] if idx else list(range(1, len(SPINNERS) + 1))
     for n in picks:
         name, color, frames = SPINNERS[n - 1]
