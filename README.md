@@ -27,11 +27,12 @@ python src/ytdlp.py --selftest         built-in logic tests (no network)
 
 Menu options
 ------------
-1  change type         video / video no audio (no audio track) / audio only
+1  change video/audio  video / video no audio (no audio track) / audio only
 2  change container    mp4 / mkv / webm / best (type video)
 3  change resolution   max height, 360p..2160p / best (not audio only)
 4  change audio format mp3 / m4a / opus / wav / best (needs ffmpeg)
-5  change output folder default downloads/
+5  change output folder default downloads/; native folder dialog first,
+                     typed path as fallback
 6  change filename template 4 standard lines to pick from, or type one
 7  change subtitles    on/off + language list
 8  change thumbnail    on/off

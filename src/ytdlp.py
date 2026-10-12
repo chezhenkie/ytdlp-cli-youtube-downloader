@@ -73,12 +73,12 @@ def read_esc(prompt=""):
         buf = []
         while True:
             ch = msvcrt.getwch()
-            if ch in ("\r", "\n"):
+            if ch == "\r" or ch == "\n":
                 sys.stdout.write("\n")
                 sys.stdout.flush()
                 return "".join(buf)
             if ch == "\x1b":
-                sys.stdout.write("\n")
+                sys.stdout.write("\r\033[K")
                 sys.stdout.flush()
                 return None
             if ch in ("\x08", "\x7f"):
@@ -109,7 +109,7 @@ def read_esc(prompt=""):
                 sys.stdout.flush()
                 return "".join(buf)
             if ch == "\x1b":
-                sys.stdout.write("\n")
+                sys.stdout.write("\r\033[K")
                 sys.stdout.flush()
                 return None
             if ch in ("\x7f", "\x08"):
@@ -506,7 +506,7 @@ def render(s):
     else:
         pl = "off"
     items = [
-        (1, "change type", shown, True),
+        (1, "change video/audio", shown, True),
         (2, "change container", container, True),
         (3, "change resolution", media, True),
         (4, "change audio format", s["audio_format"], True),
@@ -571,6 +571,78 @@ def main_menu(s):
         save_settings(s)
 
 
+def folder_dialog(initial):
+    """Native folder picker. Returns a path or None (cancel / not available).
+
+    Silently returns None when not attached to a console, so piped/test runs
+    never trigger a GUI."""
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+        return None
+    if os.name == "nt":
+        return _win_folder_dialog(initial)
+    return _posix_folder_dialog(initial)
+
+
+def _win_folder_dialog(initial):
+    import ctypes
+    from ctypes import wintypes
+
+    class BROWSEINFO(ctypes.Structure):
+        _fields_ = [("hwndOwner", wintypes.HWND),
+                    ("pidlRoot", ctypes.c_void_p),
+                    ("pszDisplayName", ctypes.c_wchar_p),
+                    ("lpszTitle", ctypes.c_wchar_p),
+                    ("ulFlags", ctypes.c_uint),
+                    ("lpfn", ctypes.c_void_p),
+                    ("lParam", ctypes.c_long),
+                    ("iImage", ctypes.c_int)]
+
+    shell32 = ctypes.windll.shell32
+    shell32.SHBrowseForFolderW.restype = ctypes.c_void_p
+    shell32.SHGetPathFromIDListW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p]
+    display = ctypes.create_unicode_buffer(wintypes.MAX_PATH)
+    info = BROWSEINFO()
+    info.pszDisplayName = ctypes.cast(display, ctypes.c_wchar_p)
+    info.lpszTitle = "choose download folder"
+    info.ulFlags = 0x00000001 | 0x00000010 | 0x00000040  # fsonly | editbox | newstyle
+    pidl = shell32.SHBrowseForFolderW(ctypes.byref(info))
+    if not pidl:
+        return None
+    path = ctypes.create_unicode_buffer(wintypes.MAX_PATH)
+    shell32.SHGetPathFromIDListW(pidl, path)
+    ctypes.windll.ole32.CoTaskMemFree(ctypes.c_void_p(pidl))
+    return path.value or None
+
+
+def _posix_folder_dialog(initial):
+    try:
+        import tkinter
+        from tkinter import filedialog
+        root = tkinter.Tk()
+        root.withdraw()
+        try:
+            picked = filedialog.askdirectory(title="choose download folder",
+                                             initialdir=initial or "/",
+                                             mustexist=True)
+        finally:
+            root.destroy()
+        return picked or None
+    except Exception:
+        pass
+    for cmd in (["zenity", "--file-selection", "--directory"],
+                ["kdialog", "--getexistingdirectory"]):
+        if not shutil.which(cmd[0]):
+            continue
+        try:
+            r = subprocess.run(cmd + ([str(initial)] if initial else []),
+                               capture_output=True, text=True, timeout=120)
+        except Exception:
+            continue
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout.strip()
+    return None
+
+
 def act(choice, s):
     if choice == "1":
         s["type"] = pick_list("change type: video / video no audio / audio only",
@@ -588,6 +660,10 @@ def act(choice, s):
     elif choice == "4":
         s["audio_format"] = pick_list("audio format (needs ffmpeg to convert)", AUDIO_FORMATS, s["audio_format"])
     elif choice == "5":
+        picked = folder_dialog(resolve_outdir(s))
+        if picked:
+            s["output_dir"] = picked
+            return
         raw = read_esc("  folder (enter = keep %s): " % resolve_outdir(s))
         if raw is None:
             raise GoBack()
