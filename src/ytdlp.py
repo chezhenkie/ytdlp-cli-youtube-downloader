@@ -32,6 +32,8 @@ A_DARKGREY = "\033[38;5;244m"
 A_RESET = "\033[0m"
 CLEAR = "\033[2J\033[H"
 USE_COLOR = sys.stdout.isatty()
+CONSOLE_COLS = 90
+CONSOLE_LINES = 32
 
 
 def enable_vt_output():
@@ -47,6 +49,54 @@ def enable_vt_output():
             k.SetConsoleMode(h, mode.value | 0x0004)
     except Exception:
         pass
+
+
+def resize_console(cols=CONSOLE_COLS, lines=CONSOLE_LINES):
+    """Windows only: set the visible console window to cols x lines.
+
+    The screen buffer keeps its height (grows if smaller), so the scrollbar
+    and the history survive. Returns True when the window was resized,
+    False when skipped: not windows, not attached to a console, API failure,
+    or the requested width above dwMaximumWindowSize (clamped there)."""
+    if os.name != "nt" or not sys.stdout.isatty():
+        return False
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class COORD(ctypes.Structure):
+            _fields_ = [("X", wintypes.SHORT), ("Y", wintypes.SHORT)]
+
+        class RECT(ctypes.Structure):
+            _fields_ = [("Left", wintypes.SHORT), ("Top", wintypes.SHORT),
+                        ("Right", wintypes.SHORT), ("Bottom", wintypes.SHORT)]
+
+        class CSBI(ctypes.Structure):
+            _fields_ = [("dwSize", COORD),
+                        ("dwCursorPosition", COORD),
+                        ("wAttributes", wintypes.WORD),
+                        ("srWindow", RECT),
+                        ("dwMaximumWindowSize", COORD)]
+
+        k = ctypes.windll.kernel32
+        h = k.GetStdHandle(-11)
+        info = CSBI()
+        if not k.GetConsoleScreenBufferInfo(h, ctypes.byref(info)):
+            return False
+        cols = min(int(cols), info.dwMaximumWindowSize.X)
+        lines = min(int(lines), info.dwMaximumWindowSize.Y)
+        rect = RECT(0, 0, cols - 1, lines - 1)
+        win_w = info.srWindow.Right - info.srWindow.Left + 1
+        win_h = info.srWindow.Bottom - info.srWindow.Top + 1
+        if win_w > cols or win_h > lines:
+            if not k.SetConsoleWindowInfo(h, True, ctypes.byref(rect)):
+                return False
+        if not k.SetConsoleScreenBufferSize(h, COORD(cols, max(info.dwSize.Y,
+                                                             lines))):
+            return False
+        return bool(k.SetConsoleWindowInfo(h, True, ctypes.byref(rect)))
+    except Exception:
+        return False
 
 
 def c(code, text):
@@ -555,6 +605,7 @@ def menu_summary(s):
 
 def main_menu(s):
     enable_vt_output()
+    resize_console()
     dirty = True
     while True:
         if dirty:
@@ -841,6 +892,10 @@ def selftest():
     check("clean_url basic", clean_url("watch https://youtu.be/abc-123_x now") == "https://youtu.be/abc-123_x", clean_url("watch https://youtu.be/abc-123_x now"))
     check("clean_url trims punctuation", clean_url("https://youtu.be/z9?si=1, ok") == "https://youtu.be/z9?si=1", clean_url("https://youtu.be/z9?si=1, ok"))
     check("clean_url none", clean_url("no link here") is None, clean_url("no link here"))
+
+    if not sys.stdout.isatty():
+        check("resize_console no-op when not a tty", resize_console() is False,
+              resize_console())
 
     print("-" * WIDTH)
     print("selftest: %d checks, %d failed" % (count[0], len(fails)))

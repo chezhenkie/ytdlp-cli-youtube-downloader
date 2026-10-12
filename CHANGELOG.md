@@ -14,7 +14,7 @@ fix - 2dc66b4
   header line, blank rows printed as tuples
 
 menu rework - e58348e, 131ddd4, 7e17d59, e7de4fe, 2c9a754, 21c54a9,
-              ac58613, d2c20a0, 54a63ec
+              ac58613, d2c20a0, 54a63ec, cca7605
 - single input field: paste a URL, enter, download starts; the old paste-url
   menu entry removed
 - amber hints above the input field: "enter number to change default
@@ -28,8 +28,10 @@ menu rework - e58348e, 131ddd4, 7e17d59, e7de4fe, 2c9a754, 21c54a9,
 - filename template presets: title, title date, title date time, title id,
   plus free text; shipped default %(title)s
 - menu items 1-11 light grey including numbers, values uncoloured
-- red x selection marker in submenus; blue centered
-  "press escape to exit submenu" row under item 12, no blank row under it
+- selection box in submenus: amber "[x]" when chosen (brackets and cross),
+  plain "[ ]" when not
+- blue centered "press escape to exit submenu" row under item 12, no blank
+  row under it
 - item 5 value always shows "...\<folder name>"; native folder dialog first
   (SHBrowseForFolder / tkinter / zenity / kdialog), typed path as fallback
 - escape exits submenus back to the main menu and keeps the single input
@@ -39,3 +41,12 @@ menu rework - e58348e, 131ddd4, 7e17d59, e7de4fe, 2c9a754, 21c54a9,
   depends on PATH for merging or converting
 - selftest grew from 25 to 28 checks (video-no-audio branches); as of the
   last run: 28 checks, 0 failed
+
+console window - added after cca7605
+- menu start resizes the console to 90x32 on windows (ctypes
+  SetConsoleScreenBufferSize + SetConsoleWindowInfo), clamped to
+  dwMaximumWindowSize; buffer height and scrollbar are kept, piped runs and
+  non-windows untouched; resize_console returns True only after the calls
+  succeed. verified in a real console: before buffer=120x9001 window=120x30,
+  after buffer=90x9001 window=90x32
+- selftest beat to 29 checks with a non-tty no-op guard
