@@ -32,7 +32,7 @@ Menu options
 3  change resolution   max height, 360p..2160p / best (not audio only)
 4  change audio format mp3 / m4a / opus / wav / best (needs ffmpeg)
 5  change output folder default downloads/
-6  change filename template two standard lines to pick from, or type one
+6  change filename template 4 standard lines to pick from, or type one
 7  change subtitles    on/off + language list
 8  change thumbnail    on/off
 9  change metadata      on/off (ffmpeg)

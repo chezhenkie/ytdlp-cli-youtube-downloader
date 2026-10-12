@@ -153,7 +153,12 @@ RESOLUTIONS = ["2160", "1440", "1080", "720", "480", "360", "best"]
 CONTAINERS = ["mp4", "mkv", "webm", "best"]
 AUDIO_FORMATS = ["mp3", "m4a", "opus", "wav", "best"]
 TYPES = ["video", "video no audio", "audio only"]
-TEMPLATE_PRESETS = ["%(title)s", "%(title)s [%(id)s].%(ext)s"]
+TEMPLATE_PRESETS = [
+    "%(title)s",
+    "%(title)s %(upload_date)s",
+    "%(title)s %(timestamp>%Y-%m-%d %H-%M)s",
+    "%(title)s %(id)s",
+]
 PLATFORM_ZIP = {"windows": "yt-dlp-win64.zip", "linux": "yt-dlp_linux.zip"}
 PLATFORM_BIN = {"windows": "yt-dlp.exe", "linux": "yt-dlp", "macos": "yt-dlp"}
 
