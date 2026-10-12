@@ -1,50 +1,26 @@
 changelog
 =========
 
-All entries 2026-10-12. Version 1.0.
+All entries 2026-10-12. Current released level: v1.1.
 
-initial - 181d9bf
-- git repo for ytdlp-youtube-proj; docs and release zips tracked (103.5MB total)
-- src/ytdlp.py: Python 3 stdlib-only wrapper, argv builder, --selftest
-- config/settings.json saved defaults; one-shot quick-arg overrides
-- run-ytdlp.bat / run-ytdlp.sh launchers, README, .gitignore
+initial scaffold and renderer fix (181d9bf, 2dc66b4)
+----------------------------------------------------
+The project started as a git repo with the CLI skeleton, the selftest harness, the release zips and the docs tracked. One renderer fix followed: menu rows were two chars off, the header line crashed on a string-format precedence bug, and blank rows printed as tuples.
 
-fix - 2dc66b4
-- menu renderer: row width off by two, string-format precedence crash on the
-  header line, blank rows printed as tuples
+menu rework, nine commits (e58348e through 54a63ec)
+--------------------------------------------------
+The single input line replaced the old paste-url menu entry: typing a URL and pressing enter starts the download right away, and every other input is a menu number. The header became a centered amber title between light-blue dotted lines with blue side markers and no plus corners, while the menu frame went plain dark grey. Items 1 to 11 are light grey including their numbers, values are uncoloured, and the hints above the input field are amber ("enter number to change default settings", "paste url, press enter and download will start.") over two grey detail lines ("change download location by choosing menu item: 5" and "DL location: <full path>") with the blue dotted divider only below the block. Escape backs out of a submenu, keeps the single input line at the main prompt, and the menu repaints onto a cleared screen once; on windows consoles VT processing is enabled at menu start for the ANSI colors.
 
-menu rework - e58348e, 131ddd4, 7e17d59, e7de4fe, 2c9a754, 21c54a9,
-              ac58613, d2c20a0, 54a63ec, cca7605
-- single input field: paste a URL, enter, download starts; the old paste-url
-  menu entry removed
-- amber hints above the input field: "enter number to change default
-  settings", "paste url, press enter and download will start.", then grey
-  "change download location by choosing menu item: 5" and
-  "DL location: <full path>"; blue dotted divider only below the block
-- header: centered amber title between light-blue dotted lines and blue side
-  markers; box corners plain "+" removed
-- item 1 "change video/audio": video / video no audio / audio only, where
-  "video no audio" maps to -f bv*[height<=N] with no merge
-- filename template presets: title, title date, title date time, title id,
-  plus free text; shipped default %(title)s
-- menu items 1-11 light grey including numbers, values uncoloured
-- selection box in submenus: amber "[x]" when chosen (brackets and cross),
-  plain "[ ]" when not
-- blue centered "press escape to exit submenu" row under item 12, no blank
-  row under it
-- item 5 value always shows "...\<folder name>"; native folder dialog first
-  (SHBrowseForFolder / tkinter / zenity / kdialog), typed path as fallback
-- escape exits submenus back to the main menu and keeps the single input
-  line at the main prompt; menu repaints onto a cleared screen (VT enabled on
-  windows consoles)
-- ffmpeg.exe and ffprobe.exe bundled in bin/ next to yt-dlp.exe, so nothing
-  depends on PATH for merging or converting
-- selftest grew from 25 to 28 checks (video-no-audio branches); as of the
-  last run: 28 checks, 0 failed
+Type became three-way (video / video no audio / audio only), the filename template menu gained four presets (title, title date, title date time, title id) plus free text on top of the shipped default %(title)s, ffmpeg.exe and ffprobe.exe were bundled into bin/ next to yt-dlp.exe so nothing needs PATH for merging or converting, and the output folder gained a native picker first (SHBrowseForFolder via ctypes, tkinter, zenity or kdialog depending on platform) with a typed path as fallback; item 5 then always shows "...\<folder name>" instead of a raw path cut.
 
-console window - implemented in 86c9856, reverted same day per user call
-- ctypes resize to 90x32 at menu start worked in a classic conhost probe
-  (buffer=120x9001 window=120x30 -> buffer=90x9001 window=90x32), but did
-  nothing in the user's bat-launched shell, so the code path is not
-  dependable across console frontends. removed; no console sizing in the CLI
-- selftest back to 28 checks
+selection color (cca7605)
+-------------------------
+The selection box in the submenus is now amber "[x]" - brackets and cross in the same amber - when an option is chosen, and it stays plain "[ ]" when not. The unused red constant was removed.
+
+console window resize, implemented and reverted (86c9856, 9ebe9d0)
+----------------------------------------------------------------
+A ctypes resize to 90x32 at menu start was added and proven in a hidden classic conhost probe (screen buffer 120x9001 with window 120x30 changed to buffer 90x9001 with window 90x32, dwMaximumWindowSize 120x86 to 90x86), but it did nothing in the bat-launched shell, so by the user's call it is gone: the CLI no longer sizes the console in any way, and the selftest is back to 28 checks, 0 failed.
+
+verified state at v1.1
+----------------------
+HEAD 9ebe9d0, tree clean, selftest 28 checks 0 failed. yt-dlp 2026.08.19 runs from bin/yt-dlp.exe, ffmpeg and ffprobe resolve to bin/, and the downloads folder is empty. v1.1 is the level the user confirmed working end to end (menu, selection, folder dialog with a deep long path, hint block, amber selection box) in a bat-launched shell.

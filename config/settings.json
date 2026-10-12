@@ -1,5 +1,5 @@
 {
-  "audio_format": "mp3",
+  "audio_format": "wav",
   "audio_quality": "0",
   "embed_metadata": false,
   "ffmpeg_path": "",
