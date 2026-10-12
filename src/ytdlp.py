@@ -26,7 +26,6 @@ BIN_DIR = ROOT / "bin"
 WIDTH = 64
 
 A_AMBER = "\033[38;5;214m"
-A_RED = "\033[38;5;196m"
 A_LBLUE = "\033[38;5;117m"
 A_GREY = "\033[38;5;250m"
 A_DARKGREY = "\033[38;5;244m"
@@ -401,13 +400,15 @@ def do_download(s, url):
 
 # ---------------------------------------------------------------- menu parts
 
+def sel_mark(sel):
+    """Selection box: amber [x] when chosen, plain [ ] otherwise."""
+    return c(A_AMBER, "[x]") if sel else "[ ]"
+
+
 def pick_list(title, options, current):
     print("  %s" % title)
     for i, o in enumerate(options, 1):
-        mark = "x" if str(o) == str(current) else " "
-        if mark == "x":
-            mark = c(A_RED, mark)
-        print("    [%s] %2d  %s" % (mark, i, o))
+        print("    %s %2d  %s" % (sel_mark(str(o) == str(current)), i, o))
     raw = read_esc("  number (enter = keep %s): " % current)
     if raw is None:
         raise GoBack()
@@ -688,10 +689,8 @@ def act(choice, s):
     elif choice == "6":
         print("  filename template - standard templates:")
         for i, t in enumerate(TEMPLATE_PRESETS, 1):
-            mark = "x" if t == s["filename_template"] else " "
-            if mark == "x":
-                mark = c(A_RED, mark)
-            print("    [%s] %2d  %s" % (mark, i, t))
+            print("    %s %2d  %s"
+                  % (sel_mark(t == s["filename_template"]), i, t))
         raw = read_esc("  number 1-%d, or type a template (enter = keep): "
                        % len(TEMPLATE_PRESETS))
         if raw is None:
