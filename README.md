@@ -27,18 +27,20 @@ python src/ytdlp.py --selftest         built-in logic tests (no network)
 
 Menu options
 ------------
-1  type               video / audio-only
-2  container          mp4 / mkv / webm / best
-3  resolution         max height, 360p..2160p / best
-4  audio format       mp3 / m4a / opus / wav / best (audio-only)
-5  output folder      default downloads/
-6  filename template  default "%(title)s [%(id)s].%(ext)s"
-7  subtitles          on/off + language list
-8  thumbnail          on/off
-9  embed metadata      on/off (ffmpeg)
-10 playlist           on/off + max items (0 = all)
-11 reset defaults     back to config/settings.json values
+1  change type         video / video no audio (no audio track) / audio only
+2  change container    mp4 / mkv / webm / best (type video)
+3  change resolution   max height, 360p..2160p / best (not audio only)
+4  change audio format mp3 / m4a / opus / wav / best (needs ffmpeg)
+5  change output folder default downloads/
+6  change filename template two standard lines to pick from, or type one
+7  change subtitles    on/off + language list
+8  change thumbnail    on/off
+9  change metadata      on/off (ffmpeg)
+10 change playlist     on/off + max items (0 = all)
+11 reset defaults      back to the values in config/settings.json
 12 quit
+
+Shipped filename template is now %(title)s.
 
 Escape backs out of a submenu. The prompt takes either a URL (download starts
 right away) or a number. Every change writes to config/settings.json

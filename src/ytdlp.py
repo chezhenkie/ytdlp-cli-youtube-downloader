@@ -29,6 +29,7 @@ A_AMBER = "\033[38;5;214m"
 A_RED = "\033[38;5;196m"
 A_LBLUE = "\033[38;5;117m"
 A_GREY = "\033[38;5;250m"
+A_DARKGREY = "\033[38;5;244m"
 A_RESET = "\033[0m"
 CLEAR = "\033[2J\033[H"
 USE_COLOR = sys.stdout.isatty()
@@ -133,13 +134,13 @@ DEFAULTS = {
     "settings_version": 1,
     "yt_dlp_path": "",
     "ffmpeg_path": "",
+    "type": "video",
     "video_container": "mp4",
     "video_resolution": "1080",
-    "audio_only": False,
     "audio_format": "mp3",
     "audio_quality": "0",
     "output_dir": "downloads",
-    "filename_template": "%(title)s [%(id)s].%(ext)s",
+    "filename_template": "%(title)s",
     "subtitles": False,
     "subtitle_langs": "en,nl",
     "thumbnail": False,
@@ -151,6 +152,8 @@ DEFAULTS = {
 RESOLUTIONS = ["2160", "1440", "1080", "720", "480", "360", "best"]
 CONTAINERS = ["mp4", "mkv", "webm", "best"]
 AUDIO_FORMATS = ["mp3", "m4a", "opus", "wav", "best"]
+TYPES = ["video", "video no audio", "audio only"]
+TEMPLATE_PRESETS = ["%(title)s", "%(title)s [%(id)s].%(ext)s"]
 PLATFORM_ZIP = {"windows": "yt-dlp-win64.zip", "linux": "yt-dlp_linux.zip"}
 PLATFORM_BIN = {"windows": "yt-dlp.exe", "linux": "yt-dlp", "macos": "yt-dlp"}
 
@@ -178,6 +181,8 @@ def load_settings():
         for key in data:
             if key in s:
                 s[key] = data[key]
+        if "type" not in data and data.get("audio_only"):
+            s["type"] = "audio only"
     return s
 
 
@@ -283,7 +288,8 @@ def build_args(s, url, ffdir):
         opts += ["-P", "home:" + str(op if op.is_absolute() else resolve_outdir(s))]
     opts += ["--retries", "5"]
 
-    if s.get("audio_only"):
+    kind = s.get("type", "video")
+    if kind == "audio only":
         if ffdir:
             opts += ["-f", "bestaudio/best",
                      "-x",
@@ -291,6 +297,9 @@ def build_args(s, url, ffdir):
                      "--audio-quality", str(s["audio_quality"])]
         else:
             opts += ["-f", "bestaudio"]
+    elif kind == "video no audio":
+        height = "" if s["video_resolution"] == "best" else "[height<=%s]" % s["video_resolution"]
+        opts += ["-f", "bv*%s" % height]
     else:
         if ffdir:
             if s["video_resolution"] == "best":
@@ -357,10 +366,11 @@ def do_download(s, url):
 
     ffdir = find_ffmpeg_dir(s)
     if ffdir is None:
-        if s.get("audio_only") and s["audio_format"] not in ("best",):
+        kind = s.get("type", "video")
+        if kind == "audio only" and s["audio_format"] not in ("best",):
             print("note: ffmpeg not found - saving original audio (no %s conversion)"
                   % s["audio_format"])
-        elif not s.get("audio_only"):
+        elif kind == "video":
             print("note: ffmpeg not found - single best file, no merge")
 
     opts = build_args(s, url, ffdir)
@@ -423,28 +433,30 @@ def ask_bool(label, current):
 
 
 def menu_line(idx, label, value="", grey=True):
-    left = " %2d  %s" % (idx, label)
-    if grey:
-        left = c(A_GREY, left)
-    maxv = WIDTH - len(" %2d  %s" % (idx, label)) - 3
+    plain = " %2d  %s" % (idx, label)
+    left = c(A_GREY, plain) if grey else plain
+    maxv = WIDTH - len(plain) - 3
     if maxv < 1:
         maxv = 1
     if len(value) > maxv:
         value = ("..." + value[-(maxv - 3):]) if maxv > 3 else value[:maxv]
-    pad = WIDTH - len(" %2d  %s" % (idx, label)) - len(value)
+    pad = WIDTH - len(plain) - len(value)
     if pad < 1:
         pad = 1
-    return "|" + left + (" " * pad) + value + "|"
+    m = c(A_DARKGREY, "|")
+    return m + left + (" " * pad) + value + m
 
 
 def hint(s):
     """Amber instructions over thin light-blue dividers, above the input field."""
     div = "-" * (WIDTH + 2)
     l1 = "enter number to change default settings"
-    l2 = "paste url, enter and download will start to %s" % (s["output_dir"] or "downloads")
+    l2 = "paste url, press enter and download will start."
+    l3 = "change download location by choosing menu item: 5"
     print(c(A_LBLUE, div))
     print(c(A_AMBER, l1))
     print(c(A_AMBER, l2))
+    print(c(A_DARKGREY, l3))
     print(c(A_LBLUE, div))
 
 
@@ -469,15 +481,18 @@ def header():
 
 
 def render(s):
-    if s.get("audio_only"):
-        kind = "audio only (%s)" % s["audio_format"]
-    else:
-        kind = "video"
+    kind = s.get("type", "video")
     res = s["video_resolution"]
-    if s.get("audio_only"):
+    if kind == "audio only":
+        shown = "audio only (%s)" % s["audio_format"]
         container = "-"
         media = "-"
+    elif kind == "video no audio":
+        shown = "video no audio"
+        container = "-"
+        media = res if res == "best" else res + "p"
     else:
+        shown = "video"
         container = s["video_container"]
         media = res if res == "best" else res + "p"
     if s.get("playlist"):
@@ -486,32 +501,33 @@ def render(s):
     else:
         pl = "off"
     items = [
-        (1, "type", kind, True),
-        (2, "container", container, True),
-        (3, "resolution", media, True),
-        (4, "audio format", s["audio_format"], True),
-        (5, "output folder", s["output_dir"], True),
-        (6, "filename template", s["filename_template"], True),
-        (7, "subtitles", "%s (%s)" % (onoff(s.get("subtitles")), s["subtitle_langs"]), True),
-        (8, "thumbnail", onoff(s.get("thumbnail")), True),
-        (9, "embed metadata", onoff(s.get("embed_metadata")), True),
-        (10, "playlist", pl, True),
+        (1, "change type", shown, True),
+        (2, "change container", container, True),
+        (3, "change resolution", media, True),
+        (4, "change audio format", s["audio_format"], True),
+        (5, "change output folder", s["output_dir"], True),
+        (6, "change filename template", s["filename_template"], True),
+        (7, "change subtitles", "%s (%s)" % (onoff(s.get("subtitles")), s["subtitle_langs"]), True),
+        (8, "change thumbnail", onoff(s.get("thumbnail")), True),
+        (9, "change metadata", onoff(s.get("embed_metadata")), True),
+        (10, "change playlist", pl, True),
         (11, "reset defaults", "config/settings.json", True),
         (12, "quit", "", False),
     ]
     header()
-    print("|" + " " * WIDTH + "|")
+    m = c(A_DARKGREY, "|")
+    print(m + " " * WIDTH + m)
     for idx, label, value, grey in items:
         print(menu_line(idx, label, value, grey))
-    print("|" + " " * WIDTH + "|")
     desc = "press escape to exit submenu"
     seg = (" " + desc).ljust(WIDTH)
-    print("|" + c(A_LBLUE, seg) + "|")
-    print("-" * (WIDTH + 2))
+    print(m + c(A_LBLUE, seg) + m)
+    print(m + " " * WIDTH + m)
+    print(c(A_DARKGREY, "-" * (WIDTH + 2)))
 
 
 def menu_summary(s):
-    if s.get("audio_only"):
+    if s.get("type") == "audio only":
         return "audio-only %s" % s["audio_format"]
     return "%s %sp" % (s["video_container"], s["video_resolution"])
 
@@ -552,15 +568,16 @@ def main_menu(s):
 
 def act(choice, s):
     if choice == "1":
-        s["audio_only"] = not s.get("audio_only")
+        s["type"] = pick_list("change type: video / video no audio / audio only",
+                              TYPES, s.get("type", "video"))
     elif choice == "2":
-        if s.get("audio_only"):
-            print("  audio-only mode has no container")
+        if s.get("type", "video") == "audio only":
+            print("  audio only mode has no container")
             return
         s["video_container"] = pick_list("container", CONTAINERS, s["video_container"])
     elif choice == "3":
-        if s.get("audio_only"):
-            print("  audio-only mode has no resolution")
+        if s.get("type", "video") == "audio only":
+            print("  audio only mode has no resolution")
             return
         s["video_resolution"] = pick_list("max height", RESOLUTIONS, s["video_resolution"])
     elif choice == "4":
@@ -573,11 +590,22 @@ def act(choice, s):
         if raw:
             s["output_dir"] = raw
     elif choice == "6":
-        raw = read_esc("  template (enter = keep): ")
+        print("  filename template - standard templates:")
+        for i, t in enumerate(TEMPLATE_PRESETS, 1):
+            mark = "x" if t == s["filename_template"] else " "
+            if mark == "x":
+                mark = c(A_RED, mark)
+            print("    [%s] %2d  %s" % (mark, i, t))
+        raw = read_esc("  number 1-%d, or type a template (enter = keep): "
+                       % len(TEMPLATE_PRESETS))
         if raw is None:
             raise GoBack()
         raw = raw.strip()
-        if raw:
+        if not raw:
+            pass
+        elif raw.isdigit() and 1 <= int(raw) <= len(TEMPLATE_PRESETS):
+            s["filename_template"] = TEMPLATE_PRESETS[int(raw) - 1]
+        else:
             s["filename_template"] = raw
     elif choice == "7":
         s["subtitles"] = ask_bool("subtitles", s.get("subtitles"))
@@ -667,7 +695,7 @@ def selftest():
     a = build_args(tmp, "https://x/y", fd)
     check("no merge when container best", "--merge-output-format" not in a, a)
 
-    tmp["audio_only"] = True
+    tmp["type"] = "audio only"
     a = build_args(tmp, "https://x/y", fd)
     check("audio extract", "-x" in a and a[a.index("--audio-format") + 1] == "mp3", a)
     check("audio quality", a[a.index("--audio-quality") + 1] == "0", a)
@@ -676,10 +704,17 @@ def selftest():
     check("no ffmpeg -> bestaudio", a[a.index("-f") + 1] == "bestaudio", a)
     check("no ffmpeg -> no -x", "-x" not in a, a)
 
-    tmp["audio_only"] = False
+    tmp["type"] = "video"
     a = build_args(tmp, "https://x/y", None)
     check("no ffmpeg video -> -f b", a[a.index("-f") + 1] == "b", a)
     check("no ffmpeg -> no ffmpeg-location", "--ffmpeg-location" not in a, a)
+
+    tmp["type"] = "video no audio"
+    a = build_args(tmp, "https://x/y", None)
+    check("video no audio 720 fmt", a[a.index("-f") + 1] == "bv*[height<=720]", a)
+    check("video no audio no merge", "--merge-output-format" not in a, a)
+    check("video no audio no -x", "-x" not in a, a)
+    tmp["type"] = "video"
 
     tmp["playlist"] = True
     tmp["playlist_max_items"] = 3
@@ -719,7 +754,7 @@ def selftest():
 
 def apply_overrides(s, args):
     if args.audio:
-        s["audio_only"] = True
+        s["type"] = "audio only"
     if args.format:
         s["video_container"] = args.format
     if args.resolution:
