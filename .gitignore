@@ -1,0 +1,7 @@
+bin/
+downloads/
+__pycache__/
+*.pyc
+*.log
+*.tmp
+.vscode/

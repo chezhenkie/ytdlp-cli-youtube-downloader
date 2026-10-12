@@ -1,0 +1,18 @@
+{
+  "audio_format": "mp3",
+  "audio_only": false,
+  "audio_quality": "0",
+  "embed_metadata": false,
+  "ffmpeg_path": "",
+  "filename_template": "%(title)s [%(id)s].%(ext)s",
+  "output_dir": "downloads",
+  "playlist": false,
+  "playlist_max_items": 0,
+  "settings_version": 1,
+  "subtitle_langs": "en,nl",
+  "subtitles": false,
+  "thumbnail": false,
+  "video_container": "mp4",
+  "video_resolution": "1080",
+  "yt_dlp_path": ""
+}
