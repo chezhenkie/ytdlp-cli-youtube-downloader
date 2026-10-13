@@ -68,21 +68,48 @@ TIME_RE = re.compile(r"^\d{1,2}:\d{2}(:\d{2})?$")
 PLAIN_WORDS = ("of", "at", "in", "ETA")
 
 
+def one_dec_num(word):
+    """Numbers print with one decimal, truncated: yt-dlp emits two
+    (pinned source _utils.py, format_bytes -> %.2f%sB) and an extra digit
+    buys nothing on a progress line. 9.94MiB/s -> 9.9MiB/s forever."""
+    m = re.match(r"^(~?\d+)\.(\d+)([A-Za-z/%]+)$", word)
+    if not m:
+        return word
+    return "%s.%s%s" % (m.group(1), m.group(2)[:1], m.group(3))
+
+
+def pad_speed(word):
+    """The speed keeps a zero-padded three digit integer part, so the
+    digit crossings the user reported (9.9 -> 10.1 MiB/s) never shift the
+    rest of the line: 009.3MiB/s. Three integer digits cover the whole
+    range below yt-dlp's Global iB switch at 1024, so the field stays
+    exactly ten characters wide - the width yt-dlp itself pads its speed
+    to (pinned source common.py format_speed: >10s)."""
+    if not SPEED_RE.match(word):
+        return word
+    m = re.match(r"^(\d+)(\.\d+)?([A-Za-z/]+)$", one_dec_num(word))
+    if not m:
+        return word
+    return m.group(1).zfill(3) + (m.group(2) or "") + m.group(3)
+
+
 def color_progress(body):
     """Color one [download] body: four numbers, four colors.
 
     Percent amber 214, file size mint green 121, speed light blue 117, ETA
     desaturated purple 176; the plain words ("of", "at", "in", "ETA") are
-    grey 250. Pure function, testable without a tty; off a tty the caller
-    skips it entirely."""
+    grey 250. Numbers shrink to one decimal; the speed is zero-padded to
+    three integer digits so its width never changes. Pure function,
+    testable without a tty; off a tty the caller skips it entirely."""
     out = []
     for word in body.split(" "):
         if "%" in word:
-            out.append(A_AMBER + word + A_RESET)
-        elif SIZE_RE.match(word):
-            out.append(A_MINT + word + A_RESET)
+            out.append(A_AMBER + one_dec_num(word) + A_RESET)
+        elif SIZE_RE.match(word) or (word.startswith("~")
+                                     and SIZE_RE.match(word[1:])):
+            out.append(A_MINT + one_dec_num(word) + A_RESET)
         elif SPEED_RE.match(word):
-            out.append(A_LBLUE + word + A_RESET)
+            out.append(A_LBLUE + pad_speed(word) + A_RESET)
         elif TIME_RE.match(word):
             out.append(A_PURPLE + word + A_RESET)
         elif word in PLAIN_WORDS:
@@ -2286,8 +2313,8 @@ def selftest():
 
     cp = color_progress("15.2% of 198.15MiB at 2.32MiB/s ETA 01:12")
     check("progress percent amber", A_AMBER + "15.2%" + A_RESET in cp, cp)
-    check("progress size mint", A_MINT + "198.15MiB" + A_RESET in cp, cp)
-    check("progress speed lblue", A_LBLUE + "2.32MiB/s" + A_RESET in cp, cp)
+    check("progress size one decimal", A_MINT + "198.1MiB" + A_RESET in cp, cp)
+    check("progress speed padded", A_LBLUE + "002.3MiB/s" + A_RESET in cp, cp)
     check("progress eta purple", A_PURPLE + "01:12" + A_RESET in cp, cp)
     check("progress words grey", A_GREY + "of" + A_RESET in cp
           and A_GREY + "at" + A_RESET in cp
@@ -2295,6 +2322,16 @@ def selftest():
     check("progress final line",
           A_AMBER + "100%" + A_RESET
           in color_progress("100% of 198.15MiB in 00:45"))
+    cp2 = color_progress("5.0% of ~4.63MiB at 9.94MiB/s ETA 00:57")
+    check("speed pads the 9 to 10 crossing",
+          A_LBLUE + "009.9MiB/s" + A_RESET in cp2
+          and A_MINT + "~4.6MiB" + A_RESET in cp2, cp2)
+    check("speed keeps three digits unpadded",
+          pad_speed("999.9MiB/s") == "999.9MiB/s", pad_speed("999.9MiB/s"))
+    check("speed truncates one decimal",
+          pad_speed("99.99MiB/s") == "099.9MiB/s", pad_speed("99.99MiB/s"))
+    check("percent never gains a digit",
+          one_dec_num("15.2%") == "15.2%", one_dec_num("15.2%"))
 
     check("eight spinners", len(SPINNERS) == 8, [s[0] for s in SPINNERS])
     check("spinner names unique", len(set(s[0] for s in SPINNERS)) == 8,
