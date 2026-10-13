@@ -267,7 +267,7 @@ DEFAULTS = {
     "output_dir": "",
     "filename_template": "%(title)s",
     "subtitles": False,
-    "subtitle_langs": "en,nl",
+    "subtitle_langs": "en",
     "playlist": False,
     "playlist_max_items": 0,
 }
@@ -314,9 +314,21 @@ def load_settings():
 
 
 def save_settings(s):
+    """Write settings.json, then swap it in.
+
+    newline="\\n" on purpose: the default text mode would translate to CRLF on
+    windows, and the tracked file is LF, so every save would leave git
+    reporting the user's settings as modified."""
+    data = json.dumps(s, indent=2, sort_keys=True) + "\n"
+    try:
+        if CONFIG_PATH.read_text(encoding="utf-8") == data:
+            return
+    except OSError:
+        pass
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     tmp = CONFIG_PATH.with_suffix(".tmp")
-    tmp.write_text(json.dumps(s, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(data)
     tmp.replace(CONFIG_PATH)
 
 
@@ -1477,7 +1489,7 @@ def selftest():
     sa = build_sub_args(tmp, "https://x/y", fd)
     check("sub args skip download", "--skip-download" in sa, sa)
     check("sub args lang pattern", "--sub-langs" in sa
-          and a_index(sa, "--sub-langs") == "en(-.*)?,nl(-.*)?", sa)
+          and a_index(sa, "--sub-langs") == "en(-.*)?", sa)
     check("sub args convert srt with ffmpeg", a_index(sa, "--convert-subs") == "srt", sa)
     sa = build_sub_args(tmp, "https://x/y", None)
     check("sub args vtt without ffmpeg", a_index(sa, "--convert-subs") == "vtt", sa)
