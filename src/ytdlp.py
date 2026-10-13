@@ -282,17 +282,50 @@ def clean_url(text):
     return m.group(0).rstrip(".,;:!?)]\"'")
 
 
-def build_args(s, url, ffdir):
-    """Build yt-dlp argv (binary first, url last). ffdir is explicit: Path or
-    None for "no ffmpeg" (forces single-file / no-convert branches)."""
-    opts = []
+def js_runtime_args():
+    """Prefer a JS runtime when one is on PATH: silences yt-dlp's
+    deprecation warning and restores format coverage. Empty when absent."""
+    if shutil.which("node"):
+        return ["--js-runtimes", "node"]
+    return []
+
+
+def sub_lang_patterns(langs):
+    """'en,nl' -> 'en(-.*)?,nl(-.*)?' so en, en-GB, en-US and en-orig all
+    match. Entries that already are patterns (* ? ( [) pass through."""
+    out = []
+    for part in str(langs or "").split(","):
+        code = part.strip()
+        if not code:
+            continue
+        if any(ch in code for ch in "*?(["):
+            out.append(code)
+        else:
+            out.append(code + "(-.*)?")
+    return ",".join(out) or "en(-.*)?"
+
+
+def output_args(s):
+    """Shared -o/-P pair so the video run and the subtitle run agree on
+    filenames."""
     template = s["filename_template"] or DEFAULTS["filename_template"]
-    opts += ["-o", template]
+    opts = ["-o", template]
     if not ABS_RE.match(template):
         outdir = s["output_dir"] or "downloads"
         op = Path(outdir)
         opts += ["-P", "home:" + str(op if op.is_absolute() else resolve_outdir(s))]
+    return opts
+
+
+def build_args(s, url, ffdir):
+    """Build yt-dlp argv (binary first, url last). ffdir is explicit: Path or
+    None for "no ffmpeg" (forces single-file / no-convert branches).
+    Subtitles are NOT part of this run - build_sub_args handles them after
+    the video, so a rate-limited subtitle fetch cannot block the video."""
+    opts = []
+    opts += output_args(s)
     opts += ["--retries", "5"]
+    opts += js_runtime_args()
 
     kind = s.get("type", "video")
     if kind == "audio only":
@@ -328,12 +361,6 @@ def build_args(s, url, ffdir):
     else:
         opts += ["--no-playlist"]
 
-    if s.get("subtitles"):
-        opts += ["--write-subs", "--write-auto-subs",
-                 "--sub-langs", s["subtitle_langs"]]
-        if ffdir:
-            opts += ["--convert-subs", "srt"]
-
     if s.get("thumbnail"):
         if ffdir:
             opts += ["--embed-thumbnail"]
@@ -343,9 +370,24 @@ def build_args(s, url, ffdir):
     if s.get("embed_metadata") and ffdir:
         opts += ["--embed-metadata"]
 
-    if not sys.stdout.isatty():
-        opts += ["--newline"]
+    opts += ["--newline"]
 
+    return opts + [url]
+
+
+def build_sub_args(s, url, ffdir):
+    """Subtitle-only pass: same output template, skip the video. Never
+    counts as a failure for the download - it runs after the video file is
+    on disk."""
+    opts = output_args(s)
+    opts += ["--skip-download",
+             "--write-subs", "--write-auto-subs",
+             "--sub-langs", sub_lang_patterns(s["subtitle_langs"]),
+             "--no-playlist", "--newline"]
+    opts += ["--convert-subs", "srt" if ffdir else "vtt"]
+    if ffdir:
+        opts += ["--ffmpeg-location", str(ffdir)]
+    opts += js_runtime_args()
     return opts + [url]
 
 
@@ -369,6 +411,7 @@ class Stage:
         self.frames = frames
         self.color = color
         self.freeze = freeze
+        self.live = None
         self._stop = False
         self._th = None
 
@@ -381,11 +424,14 @@ class Stage:
     def _spin(self):
         i = 0
         while not self._stop:
-            sys.stdout.write("\r%s%s%s %s" % (self.color,
-                                              self.frames[i % len(self.frames)],
-                                              A_RESET, self.text))
+            if self.live:
+                frame, text = self.freeze, self.live
+            else:
+                frame, text = self.frames[i % len(self.frames)], self.text
+                i += 1
+            sys.stdout.write("\r%s%s%s %s" % (self.color, frame,
+                                              A_RESET, text))
             sys.stdout.flush()
-            i += 1
             time.sleep(FRAME_SECS)
 
     def done(self, text=None):
@@ -399,6 +445,18 @@ class Stage:
         else:
             print("%s %s" % (self.freeze, final))
         sys.stdout.flush()
+
+
+def ascii_safe(text):
+    """Console-safe copy of yt-dlp output. Windows cp1252 stdout cannot
+    encode titles like '... \uff5c ...' and would crash the print."""
+    s = str(text)
+    for bad, good in (("\uff5c", "|"), ("\u2013", "-"), ("\u2014", "-"),
+                      ("\u2018", "'"), ("\u2019", "'"),
+                      ("\u201c", "\""), ("\u201d", "\""),
+                      ("\u2026", "..."), ("\u00a0", " ")):
+        s = s.replace(bad, good)
+    return s.encode("ascii", "replace").decode("ascii")
 
 
 def newest_since(folder, since, slack=2.0):
@@ -493,33 +551,74 @@ def _kill_tree(proc):
     proc.wait()
 
 
-def run_download(binary, opts):
+def run_download(binary, opts, stage=None):
     """Run yt-dlp with no input; escape stops it and cleans partials.
 
-    Returns (rc, stopped) where stopped is True when escape killed it."""
+    stdout is piped so [download] progress lines can be shown on the stage
+    line as "15.2% of 198.15MiB at 2.32MiB/s ETA 01:12", the same numbers as
+    yt-dlp's own progress line. Subtitle write lines are collected for the
+    subtitle stage sentence; stderr is captured last-lines-first for the
+    failure sentence. Returns (rc, stopped, last_error, sub_codes)."""
     popen_kw = {}
     if os.name != "nt":
         popen_kw["start_new_session"] = True
     started = time.time()
     proc = subprocess.Popen([str(binary)] + opts,
-                            stdout=subprocess.DEVNULL,
-                            stderr=subprocess.DEVNULL,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
                             **popen_kw)
+    err_tail = []
+    sub_codes = []
+
+    def pump_out():
+        for raw in proc.stdout:
+            line = raw.decode("utf-8", "replace").rstrip() if isinstance(raw, bytes) else raw
+            if line.startswith("[download]"):
+                body = " ".join(line[len("[download]"):].split())
+                if stage is not None and body:
+                    stage.live = body
+            elif "Writing video subtitles to:" in line:
+                name = line.split("Writing video subtitles to:", 1)[1].strip()
+                code = name.rsplit(".", 2)[-2] if name.count(".") >= 2 else name
+                sub_codes.append(code)
+
+    def pump_err():
+        for raw in proc.stderr:
+            line = raw.decode("utf-8", "replace").rstrip() if isinstance(raw, bytes) else raw
+            if line:
+                err_tail.append(line)
+                del err_tail[:-6]
+
+    t_out = threading.Thread(target=pump_out, daemon=True)
+    t_err = threading.Thread(target=pump_err, daemon=True)
+    t_out.start()
+    t_err.start()
+
     watch = KeyWatch()
     try:
         while True:
             rc = proc.poll()
             if rc is not None:
-                return rc, False
+                break
             if watch.escape_hit():
                 _kill_tree(proc)
-                return proc.returncode if proc.returncode is not None else -1, True
+                return -1, True, "", []
             time.sleep(FRAME_SECS)
     except KeyboardInterrupt:
         _kill_tree(proc)
-        return -1, False
+        return -1, False, "cancelled", []
     finally:
         watch.restore()
+    t_out.join(timeout=2.0)
+    t_err.join(timeout=2.0)
+    err = ""
+    for line in reversed(err_tail):
+        if "ERROR" in line or "error" in line.lower():
+            err = line.strip()
+            break
+    if not err and err_tail:
+        err = err_tail[-1].strip()
+    return proc.returncode, False, ascii_safe(err)[:WIDTH], sub_codes
 
 
 def do_download(s, url):
@@ -559,7 +658,7 @@ def do_download(s, url):
     started = time.time()
     st = Stage("downloading (escape to stop)", CHEVRONS, A_LBLUE, ">>>")
     st.start()
-    rc, stopped = run_download(binary, opts)
+    rc, stopped, err, _codes = run_download(binary, opts, st)
     if stopped:
         removed = clean_partials(resolve_outdir(s), started)
         tail = ""
@@ -570,7 +669,7 @@ def do_download(s, url):
         st.done("downloading - stopped by escape%s" % tail)
         return 130
     if rc != 0:
-        st.done("downloading - failed, yt-dlp exited rc=%s" % rc)
+        st.done("downloading - failed (rc=%s)%s" % (rc, ": " + err if err else ""))
         return rc
 
     st.done("downloading - finished")
@@ -579,8 +678,22 @@ def do_download(s, url):
         print("saved to %s" % resolve_outdir(s))
     else:
         print("%s done - %s (%.1fMB)" % (c(A_AMBER, "..."),
-                                         newest.name,
+                                         ascii_safe(newest.name),
                                          newest.stat().st_size / 1048576.0))
+
+    if s.get("subtitles"):
+        st2 = Stage("subtitles (%s)" % s["subtitle_langs"], DOTS, A_AMBER, "...")
+        st2.start()
+        rc2, _stopped2, err2, codes = run_download(binary,
+                                                    build_sub_args(s, url, ffdir),
+                                                    st2)
+        if rc2 == 0:
+            st2.done("subtitles - %s" % (", ".join(ascii_safe(c2) for c2 in codes) if codes
+                                         else "none available"))
+        else:
+            short = err2[:37] + "..." if len(err2) > 40 else err2
+            st2.done("subtitles - not fetched (video kept)%s"
+                     % (": " + short if short else ""))
     return 0
 
 
@@ -999,6 +1112,9 @@ def selftest():
         if not cond:
             fails.append(name)
 
+    def a_index(argv, flag):
+        return argv[argv.index(flag) + 1] if flag in argv else None
+
     s = load_settings()
     d = json.loads(json.dumps(DEFAULTS))
     check("load_settings fills missing keys", all(k in s for k in d))
@@ -1051,12 +1167,24 @@ def selftest():
 
     tmp["subtitles"] = True
     a = build_args(tmp, "https://x/y", fd)
-    check("subs + langs", "--sub-langs" in a and a[a.index("--sub-langs") + 1] == "en,nl", a)
-    check("subs convert guarded by ffmpeg", "--convert-subs" in a, a)
+    check("video run carries no subs flags", "--sub-langs" not in a
+          and "--write-subs" not in a, a)
+    sa = build_sub_args(tmp, "https://x/y", fd)
+    check("sub args skip download", "--skip-download" in sa, sa)
+    check("sub args lang pattern", "--sub-langs" in sa
+          and a_index(sa, "--sub-langs") == "en(-.*)?,nl(-.*)?", sa)
+    check("sub args convert srt with ffmpeg", a_index(sa, "--convert-subs") == "srt", sa)
+    sa = build_sub_args(tmp, "https://x/y", None)
+    check("sub args vtt without ffmpeg", a_index(sa, "--convert-subs") == "vtt", sa)
+    check("sub args share output template", a_index(sa, "-o") == a_index(a, "-o"), sa)
+    check("lang pattern multi", sub_lang_patterns("en,nl") == "en(-.*)?,nl(-.*)?",
+          sub_lang_patterns("en,nl"))
+    check("lang pattern passthrough", sub_lang_patterns("en.*") == "en.*",
+          sub_lang_patterns("en.*"))
 
     tmp["subtitles"] = False
     a = build_args(tmp, "https://x/y", None)
-    check("no convert-subs without ffmpeg", "--convert-subs" not in a, a)
+    check("video run never has convert-subs", "--convert-subs" not in a, a)
 
     tmp["thumbnail"] = True
     a = build_args(tmp, "https://x/y", None)
