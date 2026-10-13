@@ -1,5 +1,6 @@
 Text-menu CLI around [yt-dlp](https://github.com/yt-dlp/yt-dlp). Paste a URL, press enter, the download runs with the saved defaults. This project is only the menu, the launchers and the defaults; every actual download is performed by yt-dlp, and this is not affiliated with or endorsed by the yt-dlp project.
-
+Not a single bit is changed in the original yt-dlp runtime. The CLI has an update functionand auto updater for both the runtime and the cli.
+For lean download only: on OS missing ffmpeg installation, CLI will offer to download from official FFMPEG github repository ( https://github.com/FFmpeg/FFmpeg )
 ## Pick your download
 
 | file | size | contains |
