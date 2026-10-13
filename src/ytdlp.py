@@ -55,6 +55,27 @@ def c(code, text):
     return code + text + A_RESET if USE_COLOR else text
 
 
+SIZE_RE = re.compile(r"^\d+(\.\d+)?[KMGT]?i?B(/s)?$")
+TIME_RE = re.compile(r"^\d{1,2}:\d{2}(:\d{2})?$")
+
+
+def color_progress(body):
+    """Color one [download] body: amber percent, grey size/speed/ETA.
+
+    Uses the on-screen scheme (amber dots and done marker, grey labels);
+    connectors like "of", "at" and "ETA" stay plain. Pure function, testable
+    without a tty."""
+    out = []
+    for word in body.split(" "):
+        if "%" in word:
+            out.append(A_AMBER + word + A_RESET)
+        elif SIZE_RE.match(word) or TIME_RE.match(word):
+            out.append(A_GREY + word + A_RESET)
+        else:
+            out.append(word)
+    return " ".join(out)
+
+
 class GoBack(Exception):
     """Escape pressed inside a submenu: return to the main menu."""
 
@@ -575,8 +596,9 @@ def run_download(binary, opts, stage=None):
             line = raw.decode("utf-8", "replace").rstrip() if isinstance(raw, bytes) else raw
             if line.startswith("[download]"):
                 body = " ".join(line[len("[download]"):].split())
-                if stage is not None and body:
-                    stage.live = body
+                # no Destination flash: it would replace the spinner frame
+                if stage is not None and body and not body.startswith("Destination:"):
+                    stage.live = color_progress(body) if USE_COLOR else body
             elif "Writing video subtitles to:" in line:
                 name = line.split("Writing video subtitles to:", 1)[1].strip()
                 code = name.rsplit(".", 2)[-2] if name.count(".") >= 2 else name
@@ -1181,6 +1203,18 @@ def selftest():
           sub_lang_patterns("en,nl"))
     check("lang pattern passthrough", sub_lang_patterns("en.*") == "en.*",
           sub_lang_patterns("en.*"))
+
+    cp = color_progress("15.2% of 198.15MiB at 2.32MiB/s ETA 01:12")
+    check("progress percent amber", A_AMBER + "15.2%" + A_RESET in cp, cp)
+    check("progress numbers grey",
+          A_GREY + "198.15MiB" + A_RESET in cp
+          and A_GREY + "2.32MiB/s" + A_RESET in cp
+          and A_GREY + "01:12" + A_RESET in cp, cp)
+    check("progress connectors plain", cp.count(A_RESET) == 4
+          and " of " + A_GREY in cp, cp)
+    check("progress final line",
+          A_AMBER + "100%" + A_RESET
+          in color_progress("100% of 198.15MiB in 00:45"))
 
     tmp["subtitles"] = False
     a = build_args(tmp, "https://x/y", None)
