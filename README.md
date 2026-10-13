@@ -12,7 +12,7 @@ app-python/          the portable app - move it anywhere, all paths resolve insi
   config/settings.json saved defaults (committed)
   bin/               yt-dlp.exe + ffmpeg.exe (gitignored)
   downloads/         output (gitignored)
-resources/           wiki/readme references and the yt-dlp master zip
+resources/           wiki/readme references and the yt-dlp master zip (gitignored)
 scripts-tools/       spinner-demo.py, 7-Zip installer
 CHANGELOG.md         commit-grouped history
 
