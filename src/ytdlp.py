@@ -698,7 +698,9 @@ def run_download(binary, opts, stage=None):
     line as "15.2% of 198.15MiB at 2.32MiB/s ETA 01:12", the same numbers as
     yt-dlp's own progress line. Subtitle write lines are collected for the
     subtitle stage sentence; stderr is captured last-lines-first for the
-    failure sentence. Returns (rc, stopped, last_error, sub_codes)."""
+    failure sentence. Returns (rc, stopped, last_error, sub_codes); the error
+    line is returned untruncated so sub_fail_reason can classify it and the
+    callers truncate it for display."""
     popen_kw = {}
     if os.name != "nt":
         popen_kw["start_new_session"] = True
@@ -759,7 +761,7 @@ def run_download(binary, opts, stage=None):
             break
     if not err and err_tail:
         err = err_tail[-1].strip()
-    return proc.returncode, False, ascii_safe(err)[:WIDTH], sub_codes
+    return proc.returncode, False, ascii_safe(err), sub_codes
 
 
 def do_download(s, url):
@@ -810,7 +812,8 @@ def do_download(s, url):
         st.done("downloading - stopped by escape%s" % tail)
         return 130
     if rc != 0:
-        st.done("downloading - failed (rc=%s)%s" % (rc, ": " + err if err else ""))
+        st.done("downloading - failed (rc=%s)%s"
+                % (rc, ": " + err[:WIDTH] if err else ""))
         return rc
 
     st.done("downloading - finished")
