@@ -5,6 +5,9 @@ Newest first. Current level: v1.2.
 
 ## v1.2
 
+- scripts-tools untracked and ignored (5e7c7d8)
+The dev folder holds no product code: spinner-demo.py (the standalone animation picker) and 7-Zip are on disk only now, added to .gitignore and removed with git rm --cached. The files are untouched on disk, the repo drops from nine tracked files to seven, and a fresh clone no longer receives the folder. Note the consequence: the standalone spinner-demo fix is disk-only and does not travel with a clone.
+
 - settings.json stays LF and is only written when it changes (a50d0b5)
 Windows default text mode translated every save to CRLF while the tracked file is LF, so git reported the user's settings as modified after every run and no-op runs touched their file. save_settings now opens with newline LF and returns early when the bytes are unchanged. Fresh install subtitle language is en, not en,nl.
 
