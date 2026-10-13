@@ -5,6 +5,12 @@ Newest first. Current level: v1.2.
 
 ## v1.2
 
+- subtitles menu: typed language codes are checked against the youtube list (bcee30b)
+The item 7 prompt took anything and saved it verbatim, which is how settings.json ended up holding the single character 8: it turned into --sub-langs 8(-.*)?, matched no subtitle track, and the menu still read "on". Input is now split and judged: a bare digit or junk is dropped and named in amber, a well formed code the reference list does not carry is kept and named in amber, case and spacing are cleaned up, and wildcards pass through untouched. If nothing valid is left the old value stands, so a mistyped line can never blank the setting. The reference is _SUPPORTED_LANG_CODES from the pinned yt-dlp source (83 codes including variants such as en-GB and zh-CN) reduced to the 74 base codes; it is deliberately not a gate, because subtitle codes arrive from captionTracks[].languageCode per video and youtube publishes no full list, so a rare real track like yue is kept instead of refused. Selftest 80 checks. The live settings.json value moved from 8 to en, which is also the fresh install default.
+
+- subtitles menu: grey reference line of language codes (13e4888)
+Choosing item 7 and switching subtitles on now prints the common codes before the prompt: europe first with the baltics in it (en de fr es it pt nl sv da no fi is pl cs sk hu ro el bg hr sr sl lv lt et), then ru zh ko ja id th vi, all space separated and filled to the 64 char box with the remainder on a second line. Dark grey 244, the tone the hint block already uses. The prompt changed from "languages (comma list, ...)" to "enter languages separated by commas (enter = keep)". ch is written zh: ch is the country code for Switzerland and no subtitle track uses it, so typing it would match nothing. sub_lang_lines is a pure function and the selftest pins the fill, the box width and the two-letter shape (73 checks).
+
 - scripts-tools untracked and ignored (5e7c7d8)
 The dev folder holds no product code: spinner-demo.py (the standalone animation picker) and 7-Zip are on disk only now, added to .gitignore and removed with git rm --cached. The files are untouched on disk, the repo drops from nine tracked files to seven, and a fresh clone no longer receives the folder. Note the consequence: the standalone spinner-demo fix is disk-only and does not travel with a clone.
 
