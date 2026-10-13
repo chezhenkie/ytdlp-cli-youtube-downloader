@@ -1,6 +1,7 @@
 bin/
 downloads/
 resources/
+handoff-*.txt
 __pycache__/
 *.pyc
 *.log
