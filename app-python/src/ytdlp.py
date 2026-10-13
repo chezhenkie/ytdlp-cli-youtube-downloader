@@ -792,6 +792,14 @@ def run_download(binary, opts, stage=None):
     return proc.returncode, False, ascii_safe(err), sub_codes
 
 
+def fail_sentence(rc, err):
+    """Frozen sentence for a failed run: the rc always, yt-dlp's error line
+    when there is one, full length - the old err[:WIDTH] cut kept the error
+    class but dropped the tail (a rename sharing violation lost the part
+    naming the holder). Single line, ascii_safe already applied."""
+    return "downloading - failed (rc=%s)%s" % (rc, ": " + err if err else "")
+
+
 def do_download(s, url):
     if not (url or "").lower().startswith(("http://", "https://")):
         print("not a URL: %r" % url)
@@ -835,8 +843,7 @@ def do_download(s, url):
         st.done("downloading - stopped by escape%s" % tail)
         return 130
     if rc != 0:
-        st.done("downloading - failed (rc=%s)%s"
-                % (rc, ": " + err[:WIDTH] if err else ""))
+        st.done(fail_sentence(rc, err))
         return rc
 
     st.done("downloading - finished")
@@ -1422,6 +1429,14 @@ def selftest():
     check("clean_url basic", clean_url("watch https://youtu.be/abc-123_x now") == "https://youtu.be/abc-123_x", clean_url("watch https://youtu.be/abc-123_x now"))
     check("clean_url trims punctuation", clean_url("https://youtu.be/z9?si=1, ok") == "https://youtu.be/z9?si=1", clean_url("https://youtu.be/z9?si=1, ok"))
     check("clean_url none", clean_url("no link here") is None, clean_url("no link here"))
+
+    long_err = ("ERROR: unable to rename file: [WinError 32] The process cannot"
+                " access the file because it is being used by another process")
+    check("fail sentence has rc", fail_sentence(7, "") == "downloading - failed (rc=7)", fail_sentence(7, ""))
+    check("fail sentence keeps whole error line",
+          fail_sentence(1, long_err) == "downloading - failed (rc=1): " + long_err,
+          fail_sentence(1, long_err))
+    check("fail sentence no width cut", len(fail_sentence(1, long_err)) > WIDTH, len(fail_sentence(1, long_err)))
 
     print("-" * WIDTH)
     print("selftest: %d checks, %d failed" % (count[0], len(fails)))
