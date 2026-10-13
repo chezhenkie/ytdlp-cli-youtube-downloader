@@ -5,6 +5,9 @@ Newest first. Current level: v1.3.
 
 ## v1.3
 
+- third history purge and the first push (67202b0)
+A third git filter-repo pass (2.47.0) ran immediately before the repository was first pushed, so nothing needed force-pushing and no published copy was ever rewritten. Two things went: the scripts-tools/7zip-2602-x64.exe blob, a 1657896 byte third-party binary untracked since 5e7c7d8 that still rode in every clone, and the literal string lap1user, present in about 25 old settings.json commits and in the paragraph above describing auto_outdir. A mailmap rewrote the author and committer of all 77 commits from the codename to the GitHub noreply address, so contributions attach to the profile instead of an unroutable local domain. That changed every commit hash, so all 40 hashes cited above were re-cited from a pairing proved by commit message rather than assumed from position; one non-hash token, the 93708417 byte count, was allowlisted by hand. The pack went from 1.64MiB to 345.75KiB and the largest blob is now the 73630 byte CLI source. Verified after the rewrite and before the push: a bundle of the pre-purge history verified complete, no secret pattern in any of the 77 commits, all 9 tracked files ASCII with no CRLF, the tracked tree byte-identical to the previous tip, and selftest 95 checks 0 failed.
+
 - version bump to v1.3 (47ecca3)
 Feature complete and user tested: the subtitle language menu is rebuilt end to end and every submenu message now survives the repaint. VERSION reads 1.3 in the menu header, the changelog is chaptered from v1.3, and the repository is prepared for public release (MIT LICENSE, .gitattributes, README credits). Selftest 95 checks. Live defaults moved to 1080p.
 
