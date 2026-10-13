@@ -903,9 +903,9 @@ class Stage:
     Every rewrite clears the line first (cursor to column zero, erase to
     end of line), so a shorter progress value never leaves the tail of a
     longer one behind and the final verdict never shares its line with the
-    last progress text. While live holds a progress text the spinner
-    stands still on its freeze frame and the text is shown instead.
-    done() ends the line with a newline, so finished stages stay on screen
+    last progress text. The animation runs the whole time: while live
+    holds a progress text it keeps spinning and shows the text instead of
+    the stage label. done() ends the line with a newline, so finished stages stay on screen
     under the input line until the next url, menu pick, or escape repaints
     the menu. Outside a tty the thread is skipped and only the final line
     prints."""
@@ -933,14 +933,10 @@ class Stage:
                 if self._stop:
                     break
                 live = self.live
-                if live:
-                    frame, text = self.freeze, live
-                else:
-                    frame = self.frames[i % len(self.frames)]
-                    text = self.text
-                    i += 1
-                sys.stdout.write("\r\x1b[K%s %s"
-                                 % (render_cells(frame), text))
+                frame = self.frames[i % len(self.frames)]
+                text = live if live else self.text
+                i += 1
+                sys.stdout.write("\r\x1b[K%s %s" % (render_cells(frame), text))
                 sys.stdout.flush()
             time.sleep(self.tick)
 
