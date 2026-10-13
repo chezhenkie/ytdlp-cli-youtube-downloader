@@ -975,17 +975,6 @@ def ask_bool(label, current):
     return current
 
 
-def notice(lines):
-    """Amber message the user must actually get to see.
-
-    The main loop clears the screen and re-renders the menu the moment a
-    submenu returns, so anything printed after the last read is wiped in the
-    same instant. Print the lines, then hold the screen until enter."""
-    for text in (lines if isinstance(lines, (list, tuple)) else [lines]):
-        print(c(A_AMBER, "  " + text))
-    read_esc("  press enter to go back: ")
-
-
 def batch_row(n, text):
     """One numbered row of the multi-url list: the url, or an error row
     when the entry holds no http(s) link. A wrong paste is kept in the list
@@ -1405,8 +1394,6 @@ def act(choice, s):
     elif choice == "7":
         s["subtitles"] = ask_bool("subtitles", s.get("subtitles"))
         if s.get("subtitles"):
-            for line in sub_lang_lines():
-                print(c(A_DARKGREY, line))
             raw = read_esc("  enter languages separated by commas (enter = keep): ")
             if raw is None:
                 raise GoBack()
@@ -1425,8 +1412,14 @@ def act(choice, s):
                 if bad and not kept:
                     said.append("nothing valid left, kept "
                                 + str(s["subtitle_langs"]))
-                if said:
-                    notice(said)
+                for text in said:
+                    print(c(A_AMBER, "  " + text))
+            # the code block closes the submenu: nothing prints after it. the
+            # menu repaints the moment this returns and would wipe the block,
+            # so hold on an unlabelled line below it before going back.
+            for line in sub_lang_lines():
+                print(c(A_DARKGREY, line))
+            read_esc("")
     elif choice == "8":
         s["playlist"] = ask_bool("playlist mode", s.get("playlist"))
         if s.get("playlist"):
@@ -1481,7 +1474,7 @@ def selftest():
     def check(name, cond, got=""):
         count[0] += 1
         ok = "PASS" if cond else "FAIL"
-        print("%-4s %s%s" % (ok, name, "" if cond else "  got: %s" % got))
+        print("%-4s %s%s" % (ok, name, "" if cond else "  got: %r" % (got,)))
         if not cond:
             fails.append(name)
 
@@ -1709,29 +1702,49 @@ def selftest():
     check("only digits leaves nothing", not k6 and b6 == ["8"] and not u6,
           (k6, b6, u6))
 
-    # the menu repaints the moment a submenu returns, so a notice has to hold
-    paused = []
+    # item 7 layout: input line, amber verdict, then the code block closing
+    # the submenu. nothing may print after the block, and the block needs an
+    # unlabelled hold or the menu repaint would wipe it.
+    order = []
     g = globals()
     real_esc = g["read_esc"]
     real_color = g["USE_COLOR"]
-    g["read_esc"] = lambda prompt: paused.append(prompt)
+
+    def fake_esc(prompt):
+        order.append(prompt)
+        if "y/n" in prompt:
+            return "y"
+        if "commas" in prompt:
+            return "en,8"
+        return ""
+
+    g["read_esc"] = fake_esc
     g["USE_COLOR"] = True
     cap3 = io.StringIO()
     old3 = sys.stdout
     sys.stdout = cap3
     try:
-        notice(["one line", "second line"])
-        notice("solo")
+        rep7 = act("7", load_settings())
     finally:
         sys.stdout = old3
         g["read_esc"] = real_esc
         g["USE_COLOR"] = real_color
-    body = cap3.getvalue()
-    check("notice holds the screen once per call",
-          len(paused) == 2 and "press enter" in paused[0], paused)
-    check("notice prints every line amber",
-          body.count(A_AMBER) == 3 and "one line" in body
-          and "second line" in body and "solo" in body, repr(body))
+    plain7 = [l.replace(A_AMBER, "").replace(A_DARKGREY, "")
+              .replace(A_RESET, "") for l in cap3.getvalue().splitlines()]
+    block7 = [l.strip() for l in sub_lang_lines()]
+    nb = len(block7)
+    head7 = plain7[:-nb]
+    check("item 7 asks y/n, then languages, then holds unlabelled",
+          len(order) == 3 and "y/n" in order[0] and "commas" in order[1]
+          and order[2] == "", order)
+    check("item 7 block closes the submenu",
+          [l.strip() for l in plain7[-nb:]] == block7 and rep7 is True,
+          plain7[-nb:][0])
+    check("item 7 amber sits directly above the block",
+          head7 == ["  not a language code, dropped: 8"], head7)
+    check("item 7 prints nothing after the block",
+          not [l for l in plain7[-nb:] if "not " in l or "press" in l],
+          plain7[-1])
 
     check("batch row keeps url", batch_row(1, "https://x/y").endswith("https://x/y"),
           batch_row(1, "https://x/y"))
