@@ -36,12 +36,10 @@ Menu options
 5  change output folder   default downloads/; native folder dialog first (SHBrowseForFolder / tkinter / zenity / kdialog), typed path as fallback; shows as "...\<folder name>"
 6  change filename template 4 standard lines to pick from, or type one
 7  change subtitles     on/off + language list
-8  change thumbnail     on/off
-9  change metadata      on/off (ffmpeg)
-10 change playlist      on/off + max items (0 = all)
-11 reset defaults       back to the values in config/settings.json
-12 update yt-dlp       runs `<yt-dlp> -U` on the resolved binary
-13 quit
+ 8 change playlist      on/off + max items (0 = all)
+ 9 reset defaults       back to the values in config/settings.json
+10 update yt-dlp       runs `<yt-dlp> -U` on the resolved binary
+11 quit
 
 Shipped filename template is now %(title)s.
 
@@ -53,7 +51,7 @@ Notes
 -----
 yt-dlp.exe and ffmpeg.exe ship in app-python/bin next to the launchers, so bin/ travels with the portable unit. The release zips are deleted and the old first-run unpack path is removed: on a machine without a usable binary in bin/, put yt-dlp on PATH or set yt_dlp_path in config/settings.json. app-python/ is the portable unit: run-ytdlp.bat resolves src/ytdlp.py through %~dp0 and the CLI resolves config/ and bin/ from its own __file__ (ROOT = app-python), so the folder works from any path on any drive.
 
-Merge, mp3/m4a conversion, srt subtitle conversion and thumbnail/metadata embedding need ffmpeg; without it the CLI says so and falls back to a single best file, so downloads keep working. ffmpeg sits in bin/ next to yt-dlp.exe, PATH-independently; ffmpeg_path in settings points elsewhere if wanted. bin/ is untracked - ~248MB (yt-dlp.exe 17.01MB + ffmpeg.exe 231.26MB, sizes from Get-ChildItem). ffprobe.exe (231.07MB) lives in scripts-tools/ for dev work, not in the product: the CLI never invokes it (zero references in src/ytdlp.py), and the pinned yt-dlp source (resources/yt-dlp-master.zip, 1128 py files scanned, 15 ffprobe mentions) only reaches it through fallback paths - get_audio_codec parses `ffmpeg -i` stderr when no probe is available (postprocessor/ffmpeg.py:240-243), check_version hard-fails only on missing ffmpeg (ffmpeg.py:223-225), so merge, audio extraction and srt conversion never need it. Only menu items 8 (thumbnail) and 9 (metadata) can fall back to ffmpeg+ffprobe paths (embedthumbnail.py:176-195 method 3, get_metadata_object), after mutagen and AtomicParsley both fail, and then want ffprobe from PATH.
+Merge, mp3/m4a conversion and srt subtitle conversion need ffmpeg; without it the CLI says so and falls back to a single best file, so downloads keep working. ffmpeg sits in bin/ next to yt-dlp.exe, PATH-independently; ffmpeg_path in settings points elsewhere if wanted. bin/ is untracked - ~248MB (yt-dlp.exe 17.01MB + ffmpeg.exe 231.26MB, sizes from Get-ChildItem). ffprobe.exe (231.07MB) lives in scripts-tools/ for dev work, not in the product: the CLI never invokes it (zero references in src/ytdlp.py), and the pinned yt-dlp source (resources/yt-dlp-master.zip, 1128 py files scanned, 15 ffprobe mentions) only reaches it through fallback paths - get_audio_codec parses `ffmpeg -i` stderr when no probe is available (postprocessor/ffmpeg.py:240-243), check_version hard-fails only on missing ffmpeg (ffmpeg.py:223-225), so merge, audio extraction and srt conversion never need it. With the thumbnail and metadata options dropped (fe9181b), no menu item reaches those ffmpeg+ffprobe fallback paths (embedthumbnail.py:176-195 method 3, get_metadata_object) at all - ffprobe.exe in scripts-tools/ is a dev extra with no consumer left in the product.
 
 Quick-arg overrides are one-shot, they do not change saved defaults.
 
