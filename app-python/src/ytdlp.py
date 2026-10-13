@@ -176,15 +176,41 @@ def _csi_final(fd):
             return ch
 
 
-def read_esc(prompt=""):
+def block_under_input(block):
+    """True when a reference block can be painted under a live input line.
+
+    Needs colour (the cursor-up escape), a real console, and room: a block
+    wider than the window would wrap and a block taller than the window
+    would scroll the prompt off the top, and in both cases counting rows to
+    move the caret back would land on the wrong line. False means the caller
+    paints the block above the prompt instead, where it is always safe."""
+    if not USE_COLOR or not sys.stdin.isatty():
+        return False
+    try:
+        size = os.get_terminal_size()
+    except Exception:
+        return False
+    return (max(len(l) for l in block) + 1 < size.columns
+            and len(block) + 2 < size.lines)
+
+
+def read_esc(prompt="", below=None):
     """One input line; returns None if Escape was pressed.
 
     Raw console reader so escape is detectable. Falls back to input() when
-    stdin is not a tty (pipes, tests)."""
+    stdin is not a tty (pipes, tests). `below` paints reference lines under
+    the prompt and moves the caret back to the prompt line, so a list can be
+    read while typing with the input above it."""
     if not sys.stdin.isatty():
+        for line in (below or ()):
+            print(line)
         return input(prompt)
     if prompt:
         sys.stdout.write(prompt)
+        sys.stdout.flush()
+    if below:
+        sys.stdout.write("\n" + "\n".join(below) + "\n")
+        sys.stdout.write("\033[%dA" % (len(below) + 1))
         sys.stdout.flush()
     if os.name == "nt":
         import msvcrt
@@ -1394,7 +1420,16 @@ def act(choice, s):
     elif choice == "7":
         s["subtitles"] = ask_bool("subtitles", s.get("subtitles"))
         if s.get("subtitles"):
-            raw = read_esc("  enter languages separated by commas (enter = keep): ")
+            plain = sub_lang_lines()
+            block = [c(A_DARKGREY, line) for line in plain]
+            under = block_under_input(plain)
+            if not under:
+                # no room under a live cursor: the block goes above the input,
+                # where it is on screen while the value is being typed
+                for line in block:
+                    print(line)
+            print("  enter languages separated by commas (enter = keep):")
+            raw = read_esc("", below=block if under else None)
             if raw is None:
                 raise GoBack()
             raw = raw.strip()
@@ -1412,14 +1447,24 @@ def act(choice, s):
                 if bad and not kept:
                     said.append("nothing valid left, kept "
                                 + str(s["subtitle_langs"]))
-                for text in said:
-                    print(c(A_AMBER, "  " + text))
-            # the code block closes the submenu: nothing prints after it. the
-            # menu repaints the moment this returns and would wipe the block,
-            # so hold on an unlabelled line below it before going back.
-            for line in sub_lang_lines():
-                print(c(A_DARKGREY, line))
-            read_esc("")
+                if under and said:
+                    # the input row becomes the verdict and the block is
+                    # repainted under it, so nothing prints below the block.
+                    # after Enter the caret sits on the first block row, so
+                    # step back onto the input row before rewriting it.
+                    sys.stdout.write("\033[1A\r\033[2K")
+                    for text in said:
+                        print(c(A_AMBER, "  " + text))
+                    for line in block:
+                        print(line)
+                    sys.stdout.write("\033[%dA" % (len(block) + 1))
+                    sys.stdout.flush()
+                    read_esc("")
+                else:
+                    for text in said:
+                        print(c(A_AMBER, "  " + text))
+                    if not under:
+                        read_esc("")
     elif choice == "8":
         s["playlist"] = ask_bool("playlist mode", s.get("playlist"))
         if s.get("playlist"):
@@ -1702,20 +1747,29 @@ def selftest():
     check("only digits leaves nothing", not k6 and b6 == ["8"] and not u6,
           (k6, b6, u6))
 
-    # item 7 layout: input line, amber verdict, then the code block closing
-    # the submenu. nothing may print after the block, and the block needs an
-    # unlabelled hold or the menu repaint would wipe it.
+    # item 7 paints the block under the input line. the selftest is not a tty so
+    # block_under_input is False here and the safe fallback (block above the
+    # prompt) is what runs; the under-input path is covered by the escape
+    # checks below.
     order = []
     g = globals()
     real_esc = g["read_esc"]
     real_color = g["USE_COLOR"]
 
-    def fake_esc(prompt):
-        order.append(prompt)
-        if "y/n" in prompt:
+    def fake_esc(prompt, below=None):
+        order.append((prompt, below))
+        if prompt:                       # read_esc writes the prompt first
+            sys.stdout.write(prompt)
+        if below:
+            sys.stdout.write("\n" + "\n".join(below) + "\n")
+            sys.stdout.write("\033[%dA" % (len(below) + 1))
+        if len(order) == 1:
+            sys.stdout.write("y\n")      # echo inline, newline on Enter
             return "y"
-        if "commas" in prompt:
+        if len(order) == 2:
+            sys.stdout.write("en,8\n")
             return "en,8"
+        sys.stdout.write("\n")           # the unlabelled hold
         return ""
 
     g["read_esc"] = fake_esc
@@ -1733,18 +1787,57 @@ def selftest():
               .replace(A_RESET, "") for l in cap3.getvalue().splitlines()]
     block7 = [l.strip() for l in sub_lang_lines()]
     nb = len(block7)
-    head7 = plain7[:-nb]
-    check("item 7 asks y/n, then languages, then holds unlabelled",
-          len(order) == 3 and "y/n" in order[0] and "commas" in order[1]
-          and order[2] == "", order)
-    check("item 7 block closes the submenu",
-          [l.strip() for l in plain7[-nb:]] == block7 and rep7 is True,
-          plain7[-nb:][0])
-    check("item 7 amber sits directly above the block",
-          head7 == ["  not a language code, dropped: 8"], head7)
-    check("item 7 prints nothing after the block",
-          not [l for l in plain7[-nb:] if "not " in l or "press" in l],
-          plain7[-1])
+    check("item 7 fallback puts the block above the input",
+          len(order) == 3 and order[1] == ("", None)
+          and block_under_input(block7) is False
+          and [l.strip() for l in plain7[1:1 + nb]] == block7,
+          (len(order), plain7[:2]))
+    check("item 7 label gets its own typing line",
+          len(order) == 3 and order[1] == ("", None)
+          and plain7[1 + nb].endswith("(enter = keep):")
+          and plain7[2 + nb] == "en,8", plain7[1 + nb:3 + nb])
+    check("item 7 verdict follows the typed value",
+          plain7[3 + nb] == "  not a language code, dropped: 8"
+          and plain7[4 + nb] == "", plain7[3 + nb:])
+
+    # the under-input path: the block is written, then the caret is moved back
+    # up to the prompt line, and the amber rewinds one row and repaints it.
+    class FakeStdin:
+        @staticmethod
+        def isatty():
+            return True
+
+    real_stdin = g["sys"].stdin
+    real_size = os.get_terminal_size
+    g["USE_COLOR"] = True
+    g["sys"].stdin = FakeStdin
+    os.get_terminal_size = lambda: os.terminal_size((120, 50))
+    try:
+        roomy = block_under_input(sub_lang_lines())
+        os.get_terminal_size = lambda: os.terminal_size((120, 12))
+        tight = block_under_input(sub_lang_lines())
+        os.get_terminal_size = lambda: os.terminal_size((60, 50))
+        narrow = block_under_input(sub_lang_lines())
+        cap4 = io.StringIO()
+        old4 = sys.stdout
+        sys.stdout = cap4
+        try:
+            sys.stdout.write("  enter languages: ")
+            sys.stdout.write("\n" + "\n".join(["  x"] * 3) + "\n")
+            sys.stdout.write("\033[%dA" % 4)
+        finally:
+            sys.stdout = old4
+    finally:
+        g["USE_COLOR"] = real_color
+        g["sys"].stdin = real_stdin
+        os.get_terminal_size = real_size
+    painted = cap4.getvalue()
+    check("block fits under a live cursor when the window is roomy",
+          roomy is True, roomy)
+    check("block under input ends with the cursor back on the prompt",
+          painted.endswith("\033[4A") and painted.count("\n") == 4, repr(painted))
+    check("a block taller than the window falls back", tight is False, tight)
+    check("a block wider than the window falls back", narrow is False, narrow)
 
     check("batch row keeps url", batch_row(1, "https://x/y").endswith("https://x/y"),
           batch_row(1, "https://x/y"))
