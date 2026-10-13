@@ -1,66 +1,58 @@
-ytdlp-youtube-proj
-==================
+Text-menu CLI around [yt-dlp](https://github.com/yt-dlp/yt-dlp). Paste a URL, press enter, the download runs with the saved defaults. This project is only the menu, the launchers and the defaults; every actual download is performed by yt-dlp, and this is not affiliated with or endorsed by the yt-dlp project.
 
-Text-menu CLI around [yt-dlp](https://github.com/yt-dlp/yt-dlp). Paste a URL, press enter, the download runs with the saved defaults. This project is only the menu, the launchers and the defaults: every actual download is performed by yt-dlp, and this is not affiliated with or endorsed by the yt-dlp project. Defaults live in app-python/config/settings.json, so everyday use is: start, paste URL, done. History in CHANGELOG.md.
+## Pick your download
 
-Credits and licensing
----------------------
-- This CLI (src/ytdlp.py and the launchers): MIT, see LICENSE.
-- yt-dlp, which does all the downloading: Unlicense (public domain), https://github.com/yt-dlp/yt-dlp. Its own bundled-executable third-party notices ship with the binary as THIRD_PARTY_LICENSES.txt.
-- ffmpeg, used for merging streams, audio conversion and subtitle conversion: a separate program with its own license, not part of this source tree. FFmpeg is LGPL-2.1-or-later by default, but per ffmpeg.org/legal.html it "incorporates several optional parts and optimizations that are covered by the GNU General Public License (GPL) version 2 or later. If those parts get used the GPL applies to all of FFmpeg." The binary in app-python/bin is ffmpeg 8.1.2 "full build" from gyan.dev, built with --enable-gpl --enable-version3 (and libx264), so that binary is GPL-2.0-or-later. It is not committed here (bin/ is gitignored). Bundling it with this MIT CLI is mere aggregation, not a combined work: the FSF GPL FAQ allows distributing separate programs together "even when the licenses of the other software are nonfree or GPL-incompatible", and command-line invocation is explicitly one of the mechanisms "normally used between two separate programs". So this CLI stays MIT. What you must do is comply with GPL for the ffmpeg binary itself - ship the GPL-2.0 text with the bundle and point to its corresponding source (gyan.dev publishes it, as does ffmpeg.org/download.html) - and, the one real trap, do not write anything into the bundle or an EULA that restricts what the GPL grants ffmpeg users. Shipping a smaller LGPL-only build, or no ffmpeg at all, avoids the obligations entirely; the CLI runs fine without ffmpeg, it says so and falls back to a single best file.
+| file | size | contains |
+|---|---|---|
+| `ytdlp-cli-v1.3-windows-lean.zip` | 17.6 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
+| `ytdlp-cli-v1.3-windows-portable.zip` | 109.6 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
+| `ytdlp-cli-v1.3-linux-lean.tar.gz` | 2.96 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
+| `ytdlp-cli-v1.3-linux-portable.tar.gz` | 70.7 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
 
-Layout
-------
-app-python/          the portable app - move it anywhere, all paths resolve inside it
-  src/ytdlp.py       the CLI - Python 3 stdlib only, no pip installs
-  run-ytdlp.bat      Windows launcher (menu or quick args)
-  run-ytdlp.sh       Linux launcher
-  config/settings.json saved defaults (committed)
-  bin/               yt-dlp.exe + ffmpeg.exe (gitignored)
-  downloads/         last-resort output when no desktop/downloads folder exists (gitignored)
-resources/           wiki/readme references and the yt-dlp master zip (gitignored)
-scripts-tools/       dev tools, spinner-demo.py + 7-Zip installer (gitignored, untracked)
-CHANGELOG.md         commit-grouped history
+The two portable bundles are the larger downloads and the ones most people want. The lean bundles skip ffmpeg, and the CLI says so and falls back to a single best file rather than failing.
 
-Usage
------
-app-python\run-ytdlp.bat                          menu
-app-python\run-ytdlp.bat https://youtu.be/xxxx    quick download with saved defaults
-app-python\run-ytdlp.bat <url> -a                 audio only (mp3)
-app-python\run-ytdlp.bat <url> -f mkv -r 720      overrides, one run only
-app-python\run-ytdlp.bat <url> --subs --playlist  subtitles + playlist
-python app-python\src\ytdlp.py --check            resolved paths and versions
-python app-python\src\ytdlp.py --selftest         built-in logic tests (no network)
-python app-python\src\ytdlp.py --update           yt-dlp self-update (same as menu item 11
+## Requirements
 
-Menu options
-------------
- 1  video/audio       video / video no audio (no audio track) / audio only
- 2  format container  mp4 / mkv / webm / best (type video)
- 3  video resolution  max height, 360p..2160p / best (not audio only)
- 4  audio format      mp3 / m4a / opus / wav / best (needs ffmpeg)
- 5  output folder     default: the OS desktop, fallback the OS download folder (auto, so settings.json ships no path); native folder dialog first (SHBrowseForFolder / tkinter / zenity / kdialog), typed path as fallback; shows as "...\<folder name>"
- 6  filename template 4 standard lines to pick from, or type one
- 7  subtitles         on/off + language list
- 8  playlist on/off   on/off + max items (0 = all)
- 9  add multiple youtube urls  one per line; empty line starts the downloads, escape returns to the menu
- 10  reset defaults    back to the values in config/settings.json
- 11  update yt-dlp cli runs `<yt-dlp> -U` on the resolved binary
- 12  quit
-Shipped filename template is now %(title)s.
+Python 3. No pip install, no dependencies: the CLI is stdlib only.
 
-Escape backs out of a submenu. The prompt takes either a URL (download starts right away) or a number. Up and down arrows recall previously submitted entries (urls and menu numbers alike, newest first), the half-typed line comes back as the draft when walking back down, and left/right arrows are swallowed - arrow keys never put characters into the line. Every change writes to config/settings.json immediately, so seeding defaults for the paste-url flow needs no menu.
+- Windows: `run-ytdlp.bat`, or `python app-python\src\ytdlp.py`
+- Linux: `./run-ytdlp.sh`, which also works under `bash` and `sh`
 
-Item 9 takes several urls: paste one, enter, paste the next, enter on an empty line to start the downloads. The list redraws on every paste with the menu on top, so the input line never scrolls away. A line with no http(s) link stays in the list as "error in url" and is skipped when the downloads run, so one bad paste never stops the others. Downloads run one at a time in paste order - no concurrency - and escape during a run stops that run and the rest of the batch, returning to the menu.
+Linux builds are x86_64 glibc. On any other architecture put `yt-dlp` on PATH or set `yt_dlp_path` in `config/settings.json`.
 
-A download runs below the input line with the menu always on screen, one line per stage, animated prefixes of at most three characters: amber dots for the preflight stages, light-blue chevrons for the download itself. The sub-second yt-dlp and ffmpeg checks share a single grouped line ("ready - yt-dlp v..., ffmpeg found"), then "downloading (escape to stop)" spins until the run ends while its line carries yt-dlp's own progress numbers in the palette ("94.8% of 53.55MiB at 10.59MiB/s ETA 00:00": percent amber, file size mint green, speed light blue, ETA desaturated purple, plain words grey, chevron prefix light blue), and the result is a short sentence ("... done - <file> (<size>MB)"). A failed run freezes its stage line with the rc and yt-dlp's error line in full (no width cut), so a rename that fails with [WinError 32] keeps the part naming the holder; yt-dlp's own console output is otherwise suppressed. No input is accepted while a download runs - only escape, which stops yt-dlp (and any ffmpeg child it spawned) and deletes the fresh partial files, printing ">>> downloading - stopped by escape, cleaned N partial files". The stage lines stay on screen until the next URL, a menu pick, or escape repaints the menu. Subtitles are fetched after the video in a separate best-effort pass, so a rate-limited subtitle API (YouTube answers HTTP 429) can never block the video again: the line reads "subtitles - en-orig, en", "subtitles - none available", or "subtitles - not fetched (video kept). unable to download subtitles" followed by a second short line with the reason when it is recognizable (for example "subtitle error - the subtitle api answered 429 too many requests"). The language list is turned into patterns ("en" matches en, en-GB, en-US and en-orig), and when node is on PATH it is passed to yt-dlp as a JS runtime, which removes the deprecation warning and restores format coverage.
+## Using it
 
-Notes
------
-yt-dlp.exe and ffmpeg.exe ship in app-python/bin next to the launchers, so bin/ travels with the portable unit. The release zips are deleted and the old first-run unpack path is removed: on a machine without a usable binary in bin/, put yt-dlp on PATH or set yt_dlp_path in config/settings.json. app-python/ is the portable unit: run-ytdlp.bat resolves src/ytdlp.py through %~dp0 and the CLI resolves config/ and bin/ from its own __file__ (ROOT = app-python), so the folder works from any path on any drive.
+Start it and paste a URL. Or skip the menu:
 
-Merge, mp3/m4a conversion and srt subtitle conversion need ffmpeg; without it the CLI says so and falls back to a single best file, so downloads keep working. ffmpeg sits in bin/ next to yt-dlp.exe, PATH-independently; ffmpeg_path in settings points elsewhere if wanted. bin/ is untracked - ~248MB (yt-dlp.exe 17.01MB + ffmpeg.exe 231.26MB, sizes from Get-ChildItem). ffprobe.exe used to live in scripts-tools/ for dev work and has since been deleted, so the product tree has no ffprobe: the CLI never invokes it (zero references in src/ytdlp.py), and the pinned yt-dlp source (resources/yt-dlp-master.zip, 1128 py files scanned, 15 ffprobe mentions) only reaches it through fallback paths - get_audio_codec parses `ffmpeg -i` stderr when no probe is available (postprocessor/ffmpeg.py:240-243), check_version hard-fails only on missing ffmpeg (ffmpeg.py:223-225), so merge, audio extraction and srt conversion never need it. With the thumbnail and metadata options dropped (fe9181b), no menu item reaches those ffmpeg+ffprobe fallback paths (embedthumbnail.py:176-195 method 3, get_metadata_object) at all, so ffprobe.exe was deleted outright: zero consumers remain, and a dev copy can be re-taken from the same ffmpeg release whenever one is wanted.
+```
+app-python\run-ytdlp.bat https://youtu.be/xxxx
+```
 
-Quick-arg overrides are one-shot, they do not change saved defaults.
+One-shot overrides look like `-f mkv -r 720 --subs`, also `-a`, `--af`, `-o`, `--template`, `--playlist`. Overrides apply to that run only and are never written to your settings.
 
-Running the CLI directly (python app-python/src/ytdlp.py) uses the same defaults and resolves config/ and bin/ next to the script, so it works from any working directory and any copy of the folder.
+The menu itself is where the defaults live: type/video mode, container, resolution, audio format, output folder, filename template, subtitles, playlists, and reset. Item 9 takes several URLs and downloads them one after another. Escape stops a running download and removes the partial files.
+
+Output goes to your desktop by default, falling back to your downloads folder. Change it with menu item 5.
+
+## Checksums
+
+```
+db7809d6cd74b4870ef3c9fadd1e68c37c04b6e46b592b9245f2bcc36dfc3edb  ytdlp-cli-v1.3-linux-lean.tar.gz
+1cffb6443d13c419b74ecdd18e6da9313740f98f25c94216128d563d737c477b  ytdlp-cli-v1.3-linux-portable.tar.gz
+22b7e5d7ea458652090752540b26b62d635e2497999feed7058711c60756cb7f  ytdlp-cli-v1.3-windows-lean.zip
+f098e1c7709f2d23b8539a7bb26f2dbf61e6bb58cd84c02e2409b6aed6ed2f25  ytdlp-cli-v1.3-windows-portable.zip
+```
+
+The bundled yt-dlp is the official 2026.08.19 release and matches the SHA-256 sums published with it. The Windows ffmpeg tarball is the gyan.dev 8.1.2 full build and the Linux one is the BtbN n8.1.3 build; both matched their providers' published checksums at build time.
+
+## Licensing
+
+The menu, the launchers and the defaults are **MIT**. See `LICENSE` in the bundle.
+
+yt-dlp, which does all the downloading, is **Unlicense**, a public domain dedication. It ships its own `THIRD_PARTY_LICENSES.txt` listing every library inside it.
+
+The portable bundles also contain **ffmpeg**, built `--enable-gpl --enable-version3`, so it is distributed under the GNU General Public License version 2 or later and includes components under GPL version 3 or later. Both license texts ship in those bundles as `GPL-2.0.txt` and `GPL-3.0.txt`, and `THIRD-PARTY-NOTICES.md` points at the corresponding source for each build.
+
+ffmpeg is free software and you may use, study, modify and redistribute it under the terms of the GPL, exactly as its authors intend. Nothing here adds to, limits or restricts the rights the GPL grants you for it.
+
+See [README.md](https://github.com/chezhenkie/ytdlp-cli-youtube-downloader) for the full behaviour, and [CHANGELOG.md](https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/main/CHANGELOG.md) for the history.
