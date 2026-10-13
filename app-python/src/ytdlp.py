@@ -263,7 +263,8 @@ DEFAULTS = {
     "video_resolution": "1080",
     "audio_format": "mp3",
     "audio_quality": "0",
-    "output_dir": "downloads",
+    # empty = auto-resolve: OS desktop, fallback OS download folder
+    "output_dir": "",
     "filename_template": "%(title)s",
     "subtitles": False,
     "subtitle_langs": "en,nl",
@@ -323,8 +324,73 @@ def onoff(flag):
     return "on" if flag else "off"
 
 
+def _win_shell_folder(key):
+    """Path from the Windows Shell Folders registry key (Desktop, Downloads),
+    or None. The key follows folder redirection (OneDrive, moved profiles)."""
+    try:
+        import winreg
+    except ImportError:
+        return None
+    try:
+        with winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders") as k:
+            val, _ = winreg.QueryValueEx(k, key)
+    except OSError:
+        return None
+    return os.path.expandvars(val) if val else None
+
+
+def _home_dir(name):
+    return str(Path.home() / name)
+
+
+def _xdg_dir(key):
+    """Value of a key in ~/.config/user-dirs.dirs, expanded, or None."""
+    cfg = Path.home() / ".config" / "user-dirs.dirs"
+    try:
+        txt = cfg.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    m = re.search(r'^\s*%s\s*=\s*"([^"]*)"' % key, txt, re.M)
+    if not m:
+        return None
+    val = os.path.expandvars(m.group(1).replace("$HOME", str(Path.home())))
+    return val
+
+
+def auto_outdir():
+    """Default output folder: the OS desktop, fallback the OS download folder.
+    Returns None when neither exists (caller uses downloads/ at the project
+    root). Desktop first on windows (Shell Folders key) and XDG on unix, with
+    ~/Desktop and ~/Downloads as the last candidates; every candidate is
+    gated on os.path.isdir so a redirected-but-missing folder falls through."""
+    if os.name == "nt":
+        cands = [
+            _win_shell_folder("Desktop"),
+            _win_shell_folder("{374DE290-123F-4565-9164-39C4925E467B}"),
+        ]
+    else:
+        cands = [
+            _xdg_dir("XDG_DESKTOP_DIR"),
+            _xdg_dir("XDG_DOWNLOAD_DIR"),
+        ]
+    cands.append(_home_dir("Desktop"))
+    cands.append(_home_dir("Downloads"))
+    for c in cands:
+        if c and os.path.isdir(c):
+            return c
+    return None
+
+
 def resolve_outdir(s):
-    out = s["output_dir"] or "downloads"
+    """Output folder for downloads: the saved folder when the user set one,
+    else the OS default (Desktop, fallback the OS download folder), else
+    downloads/ under the project root."""
+    out = (s.get("output_dir") or "").strip()
+    if not out:
+        auto = auto_outdir()
+        out = auto if auto else "downloads"
     p = Path(out)
     return p if p.is_absolute() else (ROOT / p)
 
@@ -410,9 +476,7 @@ def output_args(s):
     template = s["filename_template"] or DEFAULTS["filename_template"]
     opts = ["-o", template]
     if not ABS_RE.match(template):
-        outdir = s["output_dir"] or "downloads"
-        op = Path(outdir)
-        opts += ["-P", "home:" + str(op if op.is_absolute() else resolve_outdir(s))]
+        opts += ["-P", "home:" + str(resolve_outdir(s))]
     return opts
 
 
@@ -928,7 +992,7 @@ def render(s):
         (3, "video resolution", media, True),
         (4, "audio format", s["audio_format"], True),
         (5, "output folder",
-         short_path(s["output_dir"] or "downloads",
+         short_path(str(resolve_outdir(s)),
                     WIDTH - len("  5  output folder") - 3), True),
         (6, "filename template", s["filename_template"], True),
         (7, "subtitles", "%s (%s)" % (onoff(s.get("subtitles")), s["subtitle_langs"]), True),
@@ -1340,6 +1404,20 @@ def selftest():
     tmp["filename_template"] = "play/%(title)s.%(ext)s"
     a = build_args(tmp, "https://x/y", fd)
     check("relative template keeps -P", a[a.index("-P") + 1].startswith("home:"), a)
+
+    cwd = str(Path.cwd())
+    fixed = json.loads(json.dumps(d))
+    fixed["output_dir"] = cwd
+    check("resolve_outdir keeps saved folder",
+          str(resolve_outdir(fixed)) == cwd, resolve_outdir(fixed))
+    auto = auto_outdir()
+    check("auto_outdir is an existing folder or None",
+          auto is None or os.path.isdir(auto), auto)
+    empty = json.loads(json.dumps(d))
+    empty["output_dir"] = ""
+    a = build_args(empty, "https://x/y", fd)
+    check("empty output_dir still passes -P home",
+          a[a.index("-P") + 1].startswith("home:"), a)
 
     check("clean_url basic", clean_url("watch https://youtu.be/abc-123_x now") == "https://youtu.be/abc-123_x", clean_url("watch https://youtu.be/abc-123_x now"))
     check("clean_url trims punctuation", clean_url("https://youtu.be/z9?si=1, ok") == "https://youtu.be/z9?si=1", clean_url("https://youtu.be/z9?si=1, ok"))

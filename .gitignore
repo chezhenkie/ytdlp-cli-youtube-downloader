@@ -2,6 +2,7 @@ bin/
 downloads/
 resources/
 handoff-*.txt
+README.html
 __pycache__/
 *.pyc
 *.log

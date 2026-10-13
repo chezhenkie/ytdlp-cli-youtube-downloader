@@ -11,7 +11,7 @@ app-python/          the portable app - move it anywhere, all paths resolve insi
   run-ytdlp.sh       Linux launcher
   config/settings.json saved defaults (committed)
   bin/               yt-dlp.exe + ffmpeg.exe (gitignored)
-  downloads/         output (gitignored)
+  downloads/         last-resort output when no desktop/downloads folder exists (gitignored)
 resources/           wiki/readme references and the yt-dlp master zip (gitignored)
 scripts-tools/       spinner-demo.py, 7-Zip installer
 CHANGELOG.md         commit-grouped history
@@ -33,7 +33,7 @@ Menu options
  2  format container  mp4 / mkv / webm / best (type video)
  3  video resolution  max height, 360p..2160p / best (not audio only)
  4  audio format      mp3 / m4a / opus / wav / best (needs ffmpeg)
- 5  output folder     default downloads/; native folder dialog first (SHBrowseForFolder / tkinter / zenity / kdialog), typed path as fallback; shows as "...\<folder name>"
+ 5  output folder     default: the OS desktop, fallback the OS download folder (auto, so settings.json ships no path); native folder dialog first (SHBrowseForFolder / tkinter / zenity / kdialog), typed path as fallback; shows as "...\<folder name>"
  6  filename template 4 standard lines to pick from, or type one
  7  subtitles         on/off + language list
  8  playlist on/off   on/off + max items (0 = all)
