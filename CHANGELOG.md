@@ -1,7 +1,12 @@
 changelog
 =========
 
-Newest first. Current level: v1.4.1.
+Newest first. Current level: v1.4.1 (fixes below are post-release dev-tree changes, unreleased).
+
+## unreleased
+
+- audit fix pass F1-F8, F10 (788845d specsheet, ee947fc code)
+audit-app-python-2026-10-14.md findings fixed in one pass. F1/F2: settings.json boundary values no longer flow raw into int() and yt-dlp argv - coerce_settings in load_settings int-parses playlist_max_items (fallback 0 = all), whitelists type/video_container/video_resolution/audio_format against the code's own vocabularies, and accepts audio_quality only as a number or "<n>K" per the pinned yt-dlp source (yt_dlp/options.py --audio-quality help, read 2026-10-14), fallback "0"; coercion is in memory only and never rewrites the file. F3: the daily auto-update check now asks for the owner-pinned 6 s timeout (CHECK_TIMEOUT); forced paths keep 60 s. F4: probe_version memoizes successful answers per binary path+mtime, so a batch no longer pays one ~0.85 s spawn per download for a version the session already saw (audit timing 828-930 ms per spawn on this machine, 3 runs). F6: auto_outdir is memoized for the process; menu repaints and download paths no longer re-read the registry or user-dirs file. F7: offer_ffmpeg looks the ffmpeg directory up once instead of twice. F8: item 12 leaves the save to the one save point in main_menu; quit keeps its own. F10: menu truncation counts terminal columns via unicodedata.east_asian_width (wide/fullwidth = 2), so a CJK or emoji output folder can no longer push the row past the box. Specsheet reconciled first per the manual rule: the "all validated per code sites" claim replaced by per-field truth, stale byte figure corrected, audit OQ-3/OQ-4 closed by citation, OQ-B opened for concurrent settings writers. Selftest grew 145 -> 162 checks, 0 failed (live run 2026-10-14); F11 (stable-contract output parsing) deferred by owner call, F9 (module split) stays closed by the pinned single-module decision.
 
 ## v1.4.1
 
