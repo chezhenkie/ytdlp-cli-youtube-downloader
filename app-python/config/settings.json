@@ -1,7 +1,6 @@
 {
   "audio_format": "mp3",
   "audio_quality": "0",
-  "embed_metadata": false,
   "ffmpeg_path": "",
   "filename_template": "%(title)s",
   "output_dir": "C:\\Users\\youruser\\Desktop",
@@ -10,7 +9,6 @@
   "settings_version": 1,
   "subtitle_langs": "en",
   "subtitles": true,
-  "thumbnail": false,
   "type": "video",
   "video_container": "mp4",
   "video_resolution": "720",

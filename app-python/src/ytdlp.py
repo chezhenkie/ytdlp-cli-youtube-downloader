@@ -267,8 +267,6 @@ DEFAULTS = {
     "filename_template": "%(title)s",
     "subtitles": False,
     "subtitle_langs": "en,nl",
-    "thumbnail": False,
-    "embed_metadata": False,
     "playlist": False,
     "playlist_max_items": 0,
 }
@@ -461,15 +459,6 @@ def build_args(s, url, ffdir):
             opts += ["--playlist-items", "1-%d" % n]
     else:
         opts += ["--no-playlist"]
-
-    if s.get("thumbnail"):
-        if ffdir:
-            opts += ["--embed-thumbnail"]
-        else:
-            opts += ["--write-thumbnail"]
-
-    if s.get("embed_metadata") and ffdir:
-        opts += ["--embed-metadata"]
 
     opts += ["--newline"]
 
@@ -943,12 +932,10 @@ def render(s):
                     WIDTH - len("  5  change output folder") - 3), True),
         (6, "change filename template", s["filename_template"], True),
         (7, "change subtitles", "%s (%s)" % (onoff(s.get("subtitles")), s["subtitle_langs"]), True),
-        (8, "change thumbnail", onoff(s.get("thumbnail")), True),
-        (9, "change metadata", onoff(s.get("embed_metadata")), True),
-        (10, "change playlist", pl, True),
-        (11, "reset defaults", "config/settings.json", True),
-        (12, "update yt-dlp", "", True),
-        (13, "quit", "", False),
+        (8, "change playlist", pl, True),
+        (9, "reset defaults", "config/settings.json", True),
+        (10, "update yt-dlp", "", True),
+        (11, "quit", "", False),
     ]
     header()
     m = c(A_DARKGREY, "|")
@@ -1166,10 +1153,6 @@ def act(choice, s):
             if raw:
                 s["subtitle_langs"] = raw
     elif choice == "8":
-        s["thumbnail"] = ask_bool("thumbnail", s.get("thumbnail"))
-    elif choice == "9":
-        s["embed_metadata"] = ask_bool("embed metadata", s.get("embed_metadata"))
-    elif choice == "10":
         s["playlist"] = ask_bool("playlist mode", s.get("playlist"))
         if s.get("playlist"):
             raw = read_esc("  max items (0 = all, enter = keep %s): "
@@ -1182,19 +1165,19 @@ def act(choice, s):
                     s["playlist_max_items"] = int(raw)
                 except ValueError:
                     print("  not a number - kept %s" % s.get("playlist_max_items"))
-    elif choice == "11":
+    elif choice == "9":
         for k, v in DEFAULTS.items():
             s[k] = json.loads(json.dumps(v)) if isinstance(v, (dict, list)) else v
         print("  defaults restored")
-    elif choice == "12":
+    elif choice == "10":
         update_yt_dlp(s)
         read_esc("  press enter to go back: ")
-    elif choice in ("13", "q", "quit", "exit"):
+    elif choice in ("11", "q", "quit", "exit"):
         save_settings(s)
         print("bye. defaults saved to %s" % CONFIG_PATH)
         raise SystemExit(0)
     elif choice:
-        print("  pick 1-13 or paste a url")
+        print("  pick 1-11 or paste a url")
 
 
 # ---------------------------------------------------------------- cli/self-test
@@ -1349,10 +1332,6 @@ def selftest():
     tmp["subtitles"] = False
     a = build_args(tmp, "https://x/y", None)
     check("video run never has convert-subs", "--convert-subs" not in a, a)
-
-    tmp["thumbnail"] = True
-    a = build_args(tmp, "https://x/y", None)
-    check("write thumbnail without ffmpeg", "--write-thumbnail" in a and "--embed-thumbnail" not in a, a)
 
     tmp["filename_template"] = "C:/out/%(title)s.%(ext)s"
     a = build_args(tmp, "https://x/y", fd)
