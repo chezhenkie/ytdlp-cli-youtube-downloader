@@ -971,6 +971,17 @@ def ask_bool(label, current):
     return current
 
 
+def notice(lines):
+    """Amber message the user must actually get to see.
+
+    The main loop clears the screen and re-renders the menu the moment a
+    submenu returns, so anything printed after the last read is wiped in the
+    same instant. Print the lines, then hold the screen until enter."""
+    for text in (lines if isinstance(lines, (list, tuple)) else [lines]):
+        print(c(A_AMBER, "  " + text))
+    read_esc("  press enter to go back: ")
+
+
 def batch_row(n, text):
     """One numbered row of the multi-url list: the url, or an error row
     when the entry holds no http(s) link. A wrong paste is kept in the list
@@ -1398,17 +1409,20 @@ def act(choice, s):
             raw = raw.strip()
             if raw:
                 kept, bad, unknown = parse_lang_input(raw)
-                if bad:
-                    print(c(A_AMBER, "  not a language code, dropped: "
-                          + ", ".join(bad)))
-                if unknown:
-                    print(c(A_AMBER, "  not in the youtube list, kept: "
-                          + ", ".join(unknown)))
                 if kept:
                     s["subtitle_langs"] = ",".join(kept)
-                elif bad:
-                    print(c(A_AMBER, "  nothing valid left, kept "
-                          + str(s["subtitle_langs"])))
+                said = []
+                if bad:
+                    said.append("not a language code, dropped: "
+                                + ", ".join(bad))
+                if unknown:
+                    said.append("not in the youtube list, kept: "
+                                + ", ".join(unknown))
+                if bad and not kept:
+                    said.append("nothing valid left, kept "
+                                + str(s["subtitle_langs"]))
+                if said:
+                    notice(said)
     elif choice == "8":
         s["playlist"] = ask_bool("playlist mode", s.get("playlist"))
         if s.get("playlist"):
@@ -1681,6 +1695,30 @@ def selftest():
     k6, b6, u6 = parse_lang_input("8")
     check("only digits leaves nothing", not k6 and b6 == ["8"] and not u6,
           (k6, b6, u6))
+
+    # the menu repaints the moment a submenu returns, so a notice has to hold
+    paused = []
+    g = globals()
+    real_esc = g["read_esc"]
+    real_color = g["USE_COLOR"]
+    g["read_esc"] = lambda prompt: paused.append(prompt)
+    g["USE_COLOR"] = True
+    cap3 = io.StringIO()
+    old3 = sys.stdout
+    sys.stdout = cap3
+    try:
+        notice(["one line", "second line"])
+        notice("solo")
+    finally:
+        sys.stdout = old3
+        g["read_esc"] = real_esc
+        g["USE_COLOR"] = real_color
+    body = cap3.getvalue()
+    check("notice holds the screen once per call",
+          len(paused) == 2 and "press enter" in paused[0], paused)
+    check("notice prints every line amber",
+          body.count(A_AMBER) == 3 and "one line" in body
+          and "second line" in body and "solo" in body, repr(body))
 
     check("batch row keeps url", batch_row(1, "https://x/y").endswith("https://x/y"),
           batch_row(1, "https://x/y"))
