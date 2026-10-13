@@ -289,6 +289,20 @@ SUB_LANG_CODES = (
     "en de fr es it pt nl sv da no fi is pl cs sk hu ro el bg hr sr sl "
     "lv lt et ru zh ko ja id th vi"
 )
+# base codes youtube itself advertises, taken from the pinned yt-dlp source
+# (_SUPPORTED_LANG_CODES in yt_dlp/extractor/youtube/_base.py, 83 codes with
+# variants like en-GB and zh-CN, reduced to the 74 base codes). it is a
+# reference, not a gate: subtitle codes arrive from captionTracks and youtube
+# publishes no full list, so a code missing here is kept, not refused.
+YOUTUBE_LANG_CODES = frozenset("""
+    af  am  ar  as  az  be  bg  bn  bs  ca  cs  da  de  el  en  es
+    et  eu  fa  fi  fil  fr  gl  gu  hi  hr  hu  hy  id  is  it  iw
+    ja  ka  kk  km  kn  ko  ky  lo  lt  lv  mk  ml  mn  mr  ms  my
+    ne  nl  no  or  pa  pl  pt  ro  ru  si  sk  sl  sq  sr  sv  sw
+    ta  te  th  tr  uk  ur  uz  vi  zh  zu
+""".split())
+# a language code with optional subtags: en, fil, en-GB, sr-Latn, es-419, zh-Hans
+LANG_CODE_RE = re.compile(r"^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$")
 PLATFORM_BIN = {"windows": "yt-dlp.exe", "linux": "yt-dlp", "macos": "yt-dlp"}
 
 
@@ -487,6 +501,31 @@ def sub_lang_patterns(langs):
         else:
             out.append(code + "(-.*)?")
     return ",".join(out) or "en(-.*)?"
+
+
+def parse_lang_input(raw):
+    """Split a typed language list into what to keep and what to say about it.
+
+    Returns (kept, bad, unknown). bad is anything that cannot be a language
+    code at all (a bare digit, junk); unknown is a well formed code that our
+    reference list does not carry, kept anyway because subtitle codes come
+    from youtube per video. Tokens carrying a wildcard pass through, matching
+    what sub_lang_patterns already accepts."""
+    kept = []
+    bad = []
+    unknown = []
+    for part in str(raw or "").split(","):
+        code = part.strip().lower()
+        if not code:
+            continue
+        if any(ch in code for ch in "*?([") or LANG_CODE_RE.match(code):
+            kept.append(code)
+            if not any(ch in code for ch in "*?([") \
+                    and code.split("-")[0] not in YOUTUBE_LANG_CODES:
+                unknown.append(code)
+        else:
+            bad.append(code)
+    return kept, bad, unknown
 
 
 def output_args(s):
@@ -1358,7 +1397,18 @@ def act(choice, s):
                 raise GoBack()
             raw = raw.strip()
             if raw:
-                s["subtitle_langs"] = raw
+                kept, bad, unknown = parse_lang_input(raw)
+                if bad:
+                    print(c(A_AMBER, "  not a language code, dropped: "
+                          + ", ".join(bad)))
+                if unknown:
+                    print(c(A_AMBER, "  not in the youtube list, kept: "
+                          + ", ".join(unknown)))
+                if kept:
+                    s["subtitle_langs"] = ",".join(kept)
+                elif bad:
+                    print(c(A_AMBER, "  nothing valid left, kept "
+                          + str(s["subtitle_langs"])))
     elif choice == "8":
         s["playlist"] = ask_bool("playlist mode", s.get("playlist"))
         if s.get("playlist"):
@@ -1609,6 +1659,28 @@ def selftest():
           langs)
     check("lang lines wrap narrow", all(len(l) <= 24 for l in sub_lang_lines(24)),
           sub_lang_lines(24))
+
+    check("lang ref covers every shown code",
+          all(w in YOUTUBE_LANG_CODES for w in SUB_LANG_CODES.split()),
+          [w for w in SUB_LANG_CODES.split() if w not in YOUTUBE_LANG_CODES])
+    k1, b1, u1 = parse_lang_input("en,8")
+    check("digit dropped, en kept", k1 == ["en"] and b1 == ["8"] and not u1,
+          (k1, b1, u1))
+    k2, b2, u2 = parse_lang_input("yue,nl-BE")
+    check("unknown kept, variant kept",
+          k2 == ["yue", "nl-be"] and not b2 and u2 == ["yue"], (k2, b2, u2))
+    k3, b3, u3 = parse_lang_input("en-GB, sr-Latn, zh-Hans, es-419")
+    check("variants all kept", k3 == ["en-gb", "sr-latn", "zh-hans", "es-419"]
+          and not b3 and not u3, (k3, b3, u3))
+    k4, b4, u4 = parse_lang_input("  EN , , de  ")
+    check("spaces, case and empties",
+          k4 == ["en", "de"] and not b4 and not u4, (k4, b4, u4))
+    k5, b5, u5 = parse_lang_input("en.*,nl,xx!!")
+    check("wildcard passes through", k5[0] == "en.*" and b5 == ["xx!!"]
+          and not u5, (k5, b5, u5))
+    k6, b6, u6 = parse_lang_input("8")
+    check("only digits leaves nothing", not k6 and b6 == ["8"] and not u6,
+          (k6, b6, u6))
 
     check("batch row keeps url", batch_row(1, "https://x/y").endswith("https://x/y"),
           batch_row(1, "https://x/y"))
