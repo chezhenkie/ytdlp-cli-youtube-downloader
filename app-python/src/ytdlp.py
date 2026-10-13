@@ -18,7 +18,7 @@ import threading
 import time
 from pathlib import Path
 
-VERSION = "1.2"
+VERSION = "1.3"
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = ROOT / "config" / "settings.json"
 BIN_DIR = ROOT / "bin"

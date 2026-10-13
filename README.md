@@ -1,7 +1,13 @@
 ytdlp-youtube-proj
 ==================
 
-Text-menu CLI around standalone yt-dlp, plus reference docs and release zips. Defaults live in app-python/config/settings.json, so everyday use is: start, paste URL, done. History in CHANGELOG.md; next-session notes live in the handoff store.
+Text-menu CLI around [yt-dlp](https://github.com/yt-dlp/yt-dlp). Paste a URL, press enter, the download runs with the saved defaults. This project is only the menu, the launchers and the defaults: every actual download is performed by yt-dlp, and this is not affiliated with or endorsed by the yt-dlp project. Defaults live in app-python/config/settings.json, so everyday use is: start, paste URL, done. History in CHANGELOG.md.
+
+Credits and licensing
+---------------------
+- This CLI (src/ytdlp.py and the launchers): MIT, see LICENSE.
+- yt-dlp, which does all the downloading: Unlicense (public domain), https://github.com/yt-dlp/yt-dlp. Its own bundled-executable third-party notices ship with the binary as THIRD_PARTY_LICENSES.txt.
+- ffmpeg, used for merging streams, audio conversion and subtitle conversion: a separate program with its own license, not part of this source tree. The binary currently in app-python/bin is ffmpeg 8.1.2 "full build" from gyan.dev, built with --enable-gpl --enable-version3, so it is GPL-2.0-or-later. It is not committed here (bin/ is gitignored). If you redistribute a bundle that contains that binary, the GPL-2.0-or-later terms apply to it and to that bundle; shipping a smaller LGPL-only build instead avoids that. The CLI runs fine with no ffmpeg at all - it says so and falls back to a single best file.
 
 Layout
 ------

@@ -1,0 +1,12 @@
+# Normalise to LF in the repository and check it out as LF everywhere.
+# Without this, a clone on Windows rewrites every tracked file to CRLF, which
+# silently breaks the regex anchors and trailing-space work in the CLI and
+# makes git report the whole tree as modified.
+* text=auto eol=lf
+
+# Binaries must never be line-ending converted.
+*.exe binary
+*.zip binary
+*.mp4 binary
+*.png binary
+*.pdf binary
