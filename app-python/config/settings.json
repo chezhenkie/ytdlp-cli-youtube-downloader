@@ -1,6 +1,8 @@
 {
   "audio_format": "mp3",
   "audio_quality": "0",
+  "auto_update": true,
+  "auto_update_last_check": 1791925032,
   "ffmpeg_path": "",
   "filename_template": "%(title)s",
   "output_dir": "",
