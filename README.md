@@ -8,8 +8,6 @@ Layout
 src/ytdlp.py         the CLI - Python 3 stdlib only, no pip installs
 run-ytdlp.bat        Windows launcher (menu or quick args)
 run-ytdlp.sh         Linux launcher
-
-Both launchers set a navy background for their own console window before the menu starts (Windows: the cmd builtin "color 1F"; Linux: the xterm OSC 11 sequence for #141f3d) because the palette on screen (amber 214, mint 121, light blue 117, grey 250 labels) is built for a dark background. A terminal that ignores OSC 11 simply keeps its own background, and the CLI itself never touches the console background. Change or drop the line in the launcher to use a different color.
 config/settings.json saved defaults (committed)
 ytdlp-files/         yt-dlp release zips + 7-Zip installer (tracked)
 ytdlp-docs/          wiki/readme references
