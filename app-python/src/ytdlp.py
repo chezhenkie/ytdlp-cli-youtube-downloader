@@ -871,8 +871,8 @@ def short_path(p, maxv):
 def hint(s):
     """Amber instructions plus grey detail lines, above the input field."""
     div = "-" * (WIDTH + 2)
-    l1 = "enter number to change default settings"
-    l2 = "paste url, press enter and download will start."
+    l1 = "paste url, press enter and download will start."
+    l2 = "enter number to change default settings"
     l3 = "change download location by choosing menu item: 5"
     l4 = "DL location: %s" % resolve_outdir(s)
     print(c(A_AMBER, l1))
@@ -923,18 +923,18 @@ def render(s):
     else:
         pl = "off"
     items = [
-        (1, "change video/audio", shown, True),
-        (2, "change container", container, True),
-        (3, "change resolution", media, True),
-        (4, "change audio format", s["audio_format"], True),
-        (5, "change output folder",
+        (1, "video/audio", shown, True),
+        (2, "format container", container, True),
+        (3, "video resolution", media, True),
+        (4, "audio format", s["audio_format"], True),
+        (5, "output folder",
          short_path(s["output_dir"] or "downloads",
-                    WIDTH - len("  5  change output folder") - 3), True),
-        (6, "change filename template", s["filename_template"], True),
-        (7, "change subtitles", "%s (%s)" % (onoff(s.get("subtitles")), s["subtitle_langs"]), True),
-        (8, "change playlist", pl, True),
+                    WIDTH - len("  5  output folder") - 3), True),
+        (6, "filename template", s["filename_template"], True),
+        (7, "subtitles", "%s (%s)" % (onoff(s.get("subtitles")), s["subtitle_langs"]), True),
+        (8, "playlist on/off", pl, True),
         (9, "reset defaults", "config/settings.json", True),
-        (10, "update yt-dlp", "", True),
+        (10, "update yt-dlp cli", "", True),
         (11, "quit", "", False),
     ]
     header()

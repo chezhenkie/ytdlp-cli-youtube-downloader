@@ -29,17 +29,17 @@ python app-python\src\ytdlp.py --update           yt-dlp self-update (same as me
 
 Menu options
 ------------
-1  change video/audio   video / video no audio (no audio track) / audio only
-2  change container      mp4 / mkv / webm / best (type video)
-3  change resolution     max height, 360p..2160p / best (not audio only)
-4  change audio format   mp3 / m4a / opus / wav / best (needs ffmpeg)
-5  change output folder   default downloads/; native folder dialog first (SHBrowseForFolder / tkinter / zenity / kdialog), typed path as fallback; shows as "...\<folder name>"
-6  change filename template 4 standard lines to pick from, or type one
-7  change subtitles     on/off + language list
- 8 change playlist      on/off + max items (0 = all)
- 9 reset defaults       back to the values in config/settings.json
-10 update yt-dlp       runs `<yt-dlp> -U` on the resolved binary
-11 quit
+ 1  video/audio       video / video no audio (no audio track) / audio only
+ 2  format container  mp4 / mkv / webm / best (type video)
+ 3  video resolution  max height, 360p..2160p / best (not audio only)
+ 4  audio format      mp3 / m4a / opus / wav / best (needs ffmpeg)
+ 5  output folder     default downloads/; native folder dialog first (SHBrowseForFolder / tkinter / zenity / kdialog), typed path as fallback; shows as "...\<folder name>"
+ 6  filename template 4 standard lines to pick from, or type one
+ 7  subtitles         on/off + language list
+ 8  playlist on/off   on/off + max items (0 = all)
+ 9  reset defaults    back to the values in config/settings.json
+10  update yt-dlp cli runs `<yt-dlp> -U` on the resolved binary
+11  quit              
 
 Shipped filename template is now %(title)s.
 
