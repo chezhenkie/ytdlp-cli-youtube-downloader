@@ -63,7 +63,7 @@ NFR-8 Licensing compliance as a design property: MIT CLI (LICENSE), Unlicense yt
 
 ## 4. Architecture
 
-Single module src/ytdlp.py (108022 bytes, 2899 lines, 2026-10-13 run of os.path.getsize and line count). Layers by responsibility: terminal plumbing (colors, c(), read_esc/LineEdit, Stage, KeyWatch), configuration (DEFAULTS, load/save), resolution (find_yt_dlp, find_ffmpeg_dir, auto_outdir), argument construction (build_args, build_sub_args, output_args), process execution (run_download, probe_version, kill/clean), update machinery (update_yt_dlp, fetch_cli, install_cli, install_ffmpeg, offer_ffmpeg), and UI (menu_items, render, act, submenus, selftest). It imports stdlib only, including math and random (L26-28).
+Single module src/ytdlp.py (107980 bytes, 2899 lines, 2026-10-14 run at c1cd030, sha256 B7254710E79FEAF03AB4EE0E501021CDEECA1B56A84445482C0BC945BE152BBA; figures re-verified at closure of the audit fix). Layers by responsibility: terminal plumbing (colors, c(), read_esc/LineEdit, Stage, KeyWatch), configuration (DEFAULTS, load/save), resolution (find_yt_dlp, find_ffmpeg_dir, auto_outdir), argument construction (build_args, build_sub_args, output_args), process execution (run_download, probe_version, kill/clean), update machinery (update_yt_dlp, fetch_cli, install_cli, install_ffmpeg, offer_ffmpeg), and UI (menu_items, render, act, submenus, selftest). It imports stdlib only, including math and random (L26-28).
 
 Data ownership: settings.json is the single source of truth for user defaults; the product owns it exclusively. Known language codes are a pinned source reference, not a setting (L348-370). All 16 schema fields, types, defaults, validation and code sites are listed in the Data section.
 
@@ -85,7 +85,7 @@ IF-5 ffmpeg subprocess. probe_version asks "--version" then "-version" on both s
 
 IF-6 Os folder providers. Windows registry Shell Folders (HKCU, expandvars) L458-472; POSIX XDG user-dirs L479-490; folder dialogs per FR-6.
 
-IF-7 Network endpoints. CLI self-update fetches the raw main-branch ytdlp.py (one GET, CLI_UPDATE_URL L399-400); yt-dlp updates via its own -U; ffmpeg provider urls and their published digests are pinned in FFMPEG_SOURCES L386-394 with digest sources consulted first (FR-14); timeouts 60 s for text, 1800 s for binary download (DL_TIMEOUT L403, http_text L1230-1233). All non-forced network touches require either the menu (user action) or auto_update on plus a tty; a failed network contact is silent except when forced (L1999-2004).
+IF-7 Network endpoints. CLI self-update fetches the raw main-branch ytdlp.py (one GET, CLI_UPDATE_URL L399-400); yt-dlp updates via its own -U; ffmpeg provider urls and their published digests are pinned in FFMPEG_SOURCES L386-394 with digest sources consulted first (FR-14); timeouts: 60 s for forced text fetches, 6 s for the non-forced daily auto-update check (owner-pinned 2026-10-14, audit F3), 1800 s for binary download (DL_TIMEOUT L403, http_text L1230-1233). All non-forced network touches require either the menu (user action) or auto_update on plus a tty; a failed network contact is silent except when forced (L1999-2004).
 
 IF-8 CI and selftest (IF to developers): offline; every push and pull request runs selftest + --check on windows/ubuntu/macos (workflow L1-27).
 
@@ -121,7 +121,7 @@ Processes must start and stop cleanly and release everything they acquire (NFR-3
 
 ## 8. Data
 
-settings.json fields; all strings unless stated, all validated per code sites, none sensitive (no secrets, no machine-derived values shipped), owner chezhenkie, retained indefinitely in the user's copy, migration via settings_version (currently unused, OQ-6):
+settings.json fields; all strings unless stated, none sensitive (no secrets, no machine-derived values shipped), owner chezhenkie, retained indefinitely in the user's copy, migration via settings_version (currently unused, OQ-6). Boundary validation (audit F1/F2, 2026-10-14): bool fields are safe by truthiness; playlist_max_items, video_resolution, video_container, audio_format and audio_quality reach their consumers raw from the editable file. Fix design: load_settings coerces these in memory only - playlist_max_items int-parsed with fallback 0 (= all), the three vocabulary fields whitelisted against RESOLUTIONS/CONTAINERS/AUDIO_FORMATS with fallback to the default, audio_quality accepted only as a number or "<n>K" per yt-dlp --audio-quality SPEC semantics, fallback "0". Coercion never rewrites settings.json (user settings are theirs):
 
 | key | type | shipped | allowed/default | consumed by |
 |---|---|---|---|---|
@@ -164,6 +164,7 @@ Define and Design closed with the repo's early commits (v1.0, v1.1 chapters) and
 
 | id | decision required | owner | needed | risk if left |
 |---|---|---|---|---|
+| OQ-B | policy for two instances writing settings.json concurrently | chezhenkie | when multi-instance use appears | one side's changes silently dropped |
 
 None open as of 2026-10-14. Closed items are recorded in the decision history.
 
@@ -180,3 +181,4 @@ None open as of 2026-10-14. Closed items are recorded in the decision history.
 - 2026-10-14: OQ-3 closed: the two-line subtitle verdict (outcome line, then a reason line only when the cause is recognizable) is confirmed intended per the v1.2 design; no code change.
 - 2026-10-14: OQ-6 closed: settings_version stays as a schema marker with no reader; migration logic is deferred until a settings format change actually needs one.
 - 2026-10-14: OQ-9 closed by owner call: v1.4.1 is released - tag on the changelog commit, four assets published, sizes and digests recorded in README.md and releases/v1.4.1/RELEASE-NOTES.md; every bundle was extracted and run on its target platform before upload.
+- 2026-10-14: audit-app-python-2026-10-14.md reconciled into this spec. The "all validated per code sites" claim is replaced by the per-field boundary-validation truth (audit F1/F2, reproduced); audit OQ-3 closed by citation (FR-9 pins the separate subtitle pass), audit OQ-4 closed by citation (FR-3 pins quick-mode non-persistence). Owner decisions: non-forced auto-update check timeout pinned at 6 s, forced path stays 60 s (audit F3); audio_quality validation policy set to number-or-"<n>K" with fallback "0"; audit F11 (stable-contract output parsing) deferred, not now; F9 single-module architecture stays pinned (section 4); new OQ-B opened for concurrent settings writers.
