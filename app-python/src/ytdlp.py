@@ -913,6 +913,87 @@ def ask_bool(label, current):
     return current
 
 
+def batch_row(n, text):
+    """One numbered row of the multi-url list: the url, or an error row
+    when the entry holds no http(s) link. A wrong paste is kept in the list
+    and marked, never dropped and never a showstopper for the rest."""
+    url = clean_url(text)
+    if url:
+        return c(A_GREY, "  %d  " % n) + url
+    return c(A_GREY, "  %d  " % n) + c(A_AMBER, "error in url")
+
+
+def paint_batch(s, entries):
+    """Menu on top, the collected list under it, input line last."""
+    if USE_COLOR:
+        sys.stdout.write(CLEAR)
+        sys.stdout.flush()
+    render(s)
+    hint(s)
+    print(c(A_AMBER, "  multiple urls - one per line,"
+                     " empty line starts the downloads"))
+    print(c(A_DARKGREY, "  escape returns to the menu"))
+    for n, text in enumerate(entries, 1):
+        print(batch_row(n, text))
+
+
+def run_batch(s, entries, download=None):
+    """Download the collected entries in order, one at a time - no
+    concurrency, so youtube sees the same single-connection pattern as a
+    normal download. The menu is repainted above every run.
+
+    An entry with no http(s) link is marked "error in url" and skipped.
+    Escape during a run stops that run and the whole batch.
+
+    Returns True when at least one download started, so the caller knows
+    whether the screen still needs a repaint."""
+    download = download or do_download
+    total = len(entries)
+    started = False
+    for i, text in enumerate(entries, 1):
+        if USE_COLOR:
+            sys.stdout.write(CLEAR)
+            sys.stdout.flush()
+        render(s)
+        hint(s)
+        url = clean_url(text)
+        print(c(A_GREY, "  url %d of %d" % (i, total)) + "  "
+              + (url if url else c(A_AMBER, "error in url")))
+        if url is None:
+            print("  %s not a url - skipped" % c(A_AMBER, "..."))
+            continue
+        if download(s, url) == 130:
+            break
+        started = True
+    return started
+
+
+def multi_url(s):
+    """Menu item 11: collect urls one per line, then download them in order.
+
+    Paste a url, enter, paste the next; an empty line is the enter that
+    confirms the end of the list and starts the downloads, escape returns to
+    the menu at any point. Returns True when the main menu must repaint,
+    False when downloads ran - the screen then already holds the menu with
+    the last run's result lines underneath it."""
+    entries = []
+    while True:
+        paint_batch(s, entries)
+        try:
+            raw = read_esc("  url %d: " % (len(entries) + 1))
+        except (EOFError, KeyboardInterrupt):
+            return True
+        if raw is None:
+            return True
+        text = (raw or "").strip()
+        if not text:
+            break
+        entries.append(text)
+    if not entries:
+        return True
+    return not run_batch(s, entries)
+
+
 def menu_line(idx, label, value="", grey=True):
     plain = " %2d  %s" % (idx, label)
     left = c(A_GREY, plain) if grey else plain
@@ -945,10 +1026,12 @@ def hint(s):
     l1 = "paste url, press enter and download will start."
     l2 = "enter number to change default settings"
     l3 = "change download location by choosing menu item: 5"
+    l3b = "download several urls at once by choosing menu item: 11"
     l4 = "DL location: %s" % resolve_outdir(s)
     print(c(A_AMBER, l1))
     print(c(A_AMBER, l2))
     print(c(A_DARKGREY, l3))
+    print(c(A_DARKGREY, l3b))
     print(c(A_DARKGREY, l4))
     print(c(A_LBLUE, div))
 
@@ -973,7 +1056,8 @@ def header():
     print(c(A_LBLUE, div))
 
 
-def render(s):
+def menu_items(s):
+    """The menu rows as (number, label, value, grey), numbered 1 to 12."""
     kind = s.get("type", "video")
     res = s["video_resolution"]
     if kind == "audio only":
@@ -1006,8 +1090,14 @@ def render(s):
         (8, "playlist on/off", pl, True),
         (9, "reset defaults", "config/settings.json", True),
         (10, "update yt-dlp cli", "", True),
-        (11, "quit", "", False),
+        (11, "add multiple youtube urls", "", True),
+        (12, "quit", "", False),
     ]
+    return items
+
+
+def render(s):
+    items = menu_items(s)
     header()
     m = c(A_DARKGREY, "|")
     print(m + " " * WIDTH + m)
@@ -1064,13 +1154,15 @@ def main_menu(s):
             save_settings(s)
             continue
         try:
-            act(choice, s)
+            repaint = act(choice, s)
         except GoBack:
-            pass
-        dirty = True
-        results = False
+            repaint = True
+        # item 11 answers False when downloads ran: the screen then already
+        # holds the menu with the last result lines under it, and those stay
+        # until the next url, menu pick or escape
+        dirty = bool(repaint)
+        results = not dirty
         save_settings(s)
-
 
 def folder_dialog(initial):
     """Native folder picker. Returns a path or None (cancel / not available).
@@ -1172,6 +1264,10 @@ def update_yt_dlp(s):
 
 
 def act(choice, s):
+    """One menu pick. Returns True when the main menu must repaint.
+
+    Only item 11 returns False, and only when downloads ran: the screen then
+    already shows the menu with the last result lines underneath it."""
     if choice == "1":
         s["type"] = pick_list("change type: video / video no audio / audio only",
                               TYPES, s.get("type", "video"))
@@ -1243,12 +1339,15 @@ def act(choice, s):
     elif choice == "10":
         update_yt_dlp(s)
         read_esc("  press enter to go back: ")
-    elif choice in ("11", "q", "quit", "exit"):
+    elif choice == "11":
+        return multi_url(s)
+    elif choice in ("12", "q", "quit", "exit"):
         save_settings(s)
         print("bye. defaults saved to %s" % CONFIG_PATH)
         raise SystemExit(0)
     elif choice:
-        print("  pick 1-11 or paste a url")
+        print("  pick 1-12 or paste a url")
+    return True
 
 
 # ---------------------------------------------------------------- cli/self-test
@@ -1437,6 +1536,71 @@ def selftest():
           fail_sentence(1, long_err) == "downloading - failed (rc=1): " + long_err,
           fail_sentence(1, long_err))
     check("fail sentence no width cut", len(fail_sentence(1, long_err)) > WIDTH, len(fail_sentence(1, long_err)))
+
+    rows = menu_items(load_settings())
+    nums = [r[0] for r in rows]
+    check("menu has 12 rows", len(rows) == 12 and nums == list(range(1, 13)), nums)
+    check("menu row 11 is multi url",
+          rows[10][1] == "add multiple youtube urls", rows[10])
+    check("menu row 12 is quit", rows[11][1] == "quit", rows[11])
+    check("menu row 11 has no value",
+          rows[10][2] == "" and rows[10][3] is True, rows[10])
+
+    check("batch row keeps url", batch_row(1, "https://x/y").endswith("https://x/y"),
+          batch_row(1, "https://x/y"))
+    check("batch row marks bad entry",
+          batch_row(2, "nope") == c(A_GREY, "  2  ") + c(A_AMBER, "error in url"),
+          batch_row(2, "nope"))
+
+    seen = []
+
+    def fake(s2, url):
+        seen.append(url)
+        return 0
+
+    cap2 = io.StringIO()
+    sys.stdout = cap2
+    try:
+        ran = run_batch(load_settings(),
+                        ["https://a/1", "not a url", "https://b/2"], fake)
+        body = cap2.getvalue()
+    finally:
+        sys.stdout = real_out
+    check("batch skips bad entry, keeps order",
+          seen == ["https://a/1", "https://b/2"], seen)
+    check("batch marks bad entry in run", "error in url" in body, body)
+    check("batch reports position",
+          "url 2 of 3" in body and "url 3 of 3" in body, body)
+    check("batch ran -> no repaint", ran is True, ran)
+
+    attempts = []
+
+    def stopper(s2, url):
+        attempts.append(url)
+        return 130
+
+    cap3 = io.StringIO()
+    sys.stdout = cap3
+    try:
+        stopped = run_batch(load_settings(),
+                            ["https://a/1", "https://b/2"], stopper)
+    finally:
+        sys.stdout = real_out
+    check("batch stops on escape",
+          stopped is False and attempts == ["https://a/1"], (stopped, attempts))
+
+    cap4 = io.StringIO()
+    sys.stdout = cap4
+    try:
+        hint(load_settings())
+        hbody = cap4.getvalue()
+        r13 = act("13", d)
+        abody = cap4.getvalue()
+    finally:
+        sys.stdout = real_out
+    check("hint points at item 11", "menu item: 11" in hbody, hbody)
+    check("act rejects 13 with new range",
+          "1-12" in abody and r13 is True, (abody, r13))
 
     print("-" * WIDTH)
     print("selftest: %d checks, %d failed" % (count[0], len(fails)))

@@ -25,7 +25,7 @@ app-python\run-ytdlp.bat <url> -f mkv -r 720      overrides, one run only
 app-python\run-ytdlp.bat <url> --subs --playlist  subtitles + playlist
 python app-python\src\ytdlp.py --check            resolved paths and versions
 python app-python\src\ytdlp.py --selftest         built-in logic tests (no network)
-python app-python\src\ytdlp.py --update           yt-dlp self-update (same as menu item 12)
+python app-python\src\ytdlp.py --update           yt-dlp self-update (same as menu item 10)
 
 Menu options
 ------------
@@ -39,11 +39,13 @@ Menu options
  8  playlist on/off   on/off + max items (0 = all)
  9  reset defaults    back to the values in config/settings.json
 10  update yt-dlp cli runs `<yt-dlp> -U` on the resolved binary
-11  quit              
-
+ 11  add multiple youtube urls  one per line; empty line starts the downloads, escape returns to the menu
+ 12  quit
 Shipped filename template is now %(title)s.
 
 Escape backs out of a submenu. The prompt takes either a URL (download starts right away) or a number. Up and down arrows recall previously submitted entries (urls and menu numbers alike, newest first), the half-typed line comes back as the draft when walking back down, and left/right arrows are swallowed - arrow keys never put characters into the line. Every change writes to config/settings.json immediately, so seeding defaults for the paste-url flow needs no menu.
+
+Item 11 takes several urls: paste one, enter, paste the next, enter on an empty line to start the downloads. The list redraws on every paste with the menu on top, so the input line never scrolls away. A line with no http(s) link stays in the list as "error in url" and is skipped when the downloads run, so one bad paste never stops the others. Downloads run one at a time in paste order - no concurrency - and escape during a run stops that run and the rest of the batch, returning to the menu.
 
 A download runs below the input line with the menu always on screen, one line per stage, animated prefixes of at most three characters: amber dots for the preflight stages, light-blue chevrons for the download itself. The sub-second yt-dlp and ffmpeg checks share a single grouped line ("ready - yt-dlp v..., ffmpeg found"), then "downloading (escape to stop)" spins until the run ends while its line carries yt-dlp's own progress numbers in the palette ("94.8% of 53.55MiB at 10.59MiB/s ETA 00:00": percent amber, file size mint green, speed light blue, ETA desaturated purple, plain words grey, chevron prefix light blue), and the result is a short sentence ("... done - <file> (<size>MB)"). A failed run freezes its stage line with the rc and yt-dlp's error line in full (no width cut), so a rename that fails with [WinError 32] keeps the part naming the holder; yt-dlp's own console output is otherwise suppressed. No input is accepted while a download runs - only escape, which stops yt-dlp (and any ffmpeg child it spawned) and deletes the fresh partial files, printing ">>> downloading - stopped by escape, cleaned N partial files". The stage lines stay on screen until the next URL, a menu pick, or escape repaints the menu. Subtitles are fetched after the video in a separate best-effort pass, so a rate-limited subtitle API (YouTube answers HTTP 429) can never block the video again: the line reads "subtitles - en-orig, en", "subtitles - none available", or "subtitles - not fetched (video kept). unable to download subtitles" followed by a second short line with the reason when it is recognizable (for example "subtitle error - the subtitle api answered 429 too many requests"). The language list is turned into patterns ("en" matches en, en-GB, en-US and en-orig), and when node is on PATH it is passed to yt-dlp as a JS runtime, which removes the deprecation warning and restores format coverage.
 
