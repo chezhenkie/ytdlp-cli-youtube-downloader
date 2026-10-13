@@ -282,24 +282,28 @@ TEMPLATE_PRESETS = [
     "%(title)s %(timestamp>%Y-%m-%d %H-%M)s",
     "%(title)s %(id)s",
 ]
-# reference codes for the subtitles menu: europe first (baltics are
-# european), then the rest. two-letter codes only, the ones you type back
-# into the languages prompt.
-SUB_LANG_CODES = (
-    "en de fr es it pt nl sv da no fi is pl cs sk hu ro el bg hr sr sl "
-    "lv lt et ru zh ko ja id th vi"
-)
-# base codes youtube itself advertises, taken from the pinned yt-dlp source
-# (_SUPPORTED_LANG_CODES in yt_dlp/extractor/youtube/_base.py, 83 codes with
-# variants like en-GB and zh-CN, reduced to the 74 base codes). it is a
-# reference, not a gate: subtitle codes arrive from captionTracks and youtube
-# publishes no full list, so a code missing here is kept, not refused.
-YOUTUBE_LANG_CODES = frozenset("""
-    af  am  ar  as  az  be  bg  bn  bs  ca  cs  da  de  el  en  es
-    et  eu  fa  fi  fil  fr  gl  gu  hi  hr  hu  hy  id  is  it  iw
-    ja  ka  kk  km  kn  ko  ky  lo  lt  lv  mk  ml  mn  mr  ms  my
-    ne  nl  no  or  pa  pl  pt  ro  ru  si  sk  sl  sq  sr  sv  sw
-    ta  te  th  tr  uk  ur  uz  vi  zh  zu
+# every language code the menu offers and validates against, 191 in all.
+# the 190 two-letter primary subtags of the IANA BCP 47 language subtag
+# registry (iana.org, fetched 2026-10-13), which is ISO 639-1 plus the
+# grandfathered aliases youtube still serves (in, iw, ji, mo, sh), plus fil:
+# that one came from the pinned yt-dlp source (_SUPPORTED_LANG_CODES in
+# yt_dlp/extractor/youtube/_base.py) because filipino has no two-letter form.
+# it is a reference and not a gate: subtitle codes arrive from
+# captionTracks[].languageCode per video and youtube publishes no full list,
+# so a well formed code missing here is kept with a note, never refused.
+KNOWN_LANG_CODES = frozenset("""
+    aa  ab  ae  af  ak  am  an  ar  as  av  ay  az  ba  be  bg  bh
+    bi  bm  bn  bo  br  bs  ca  ce  ch  co  cr  cs  cu  cv  cy  da
+    de  dv  dz  ee  el  en  eo  es  et  eu  fa  ff  fi  fil  fj  fo
+    fr  fy  ga  gd  gl  gn  gu  gv  ha  he  hi  ho  hr  ht  hu  hy
+    hz  ia  id  ie  ig  ii  ik  in  io  is  it  iu  iw  ja  ji  jv
+    jw  ka  kg  ki  kj  kk  kl  km  kn  ko  kr  ks  ku  kv  kw  ky
+    la  lb  lg  li  ln  lo  lt  lu  lv  mg  mh  mi  mk  ml  mn  mo
+    mr  ms  mt  my  na  nb  nd  ne  ng  nl  nn  no  nr  nv  ny  oc
+    oj  om  or  os  pa  pi  pl  ps  pt  qu  rm  rn  ro  ru  rw  sa
+    sc  sd  se  sg  sh  si  sk  sl  sm  sn  so  sq  sr  ss  st  su
+    sv  sw  ta  te  tg  th  ti  tk  tl  tn  to  tr  ts  tt  tw  ty
+    ug  uk  ur  uz  ve  vi  vo  wa  wo  xh  yi  yo  za  zh  zu
 """.split())
 # a language code with optional subtags: en, fil, en-GB, sr-Latn, es-419, zh-Hans
 LANG_CODE_RE = re.compile(r"^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$")
@@ -507,8 +511,8 @@ def parse_lang_input(raw):
     """Split a typed language list into what to keep and what to say about it.
 
     Returns (kept, bad, unknown). bad is anything that cannot be a language
-    code at all (a bare digit, junk); unknown is a well formed code that our
-    reference list does not carry, kept anyway because subtitle codes come
+    code at all (a bare digit, junk); unknown is a well formed code that
+    KNOWN_LANG_CODES does not carry, kept anyway because subtitle codes come
     from youtube per video. Tokens carrying a wildcard pass through, matching
     what sub_lang_patterns already accepts."""
     kept = []
@@ -518,10 +522,10 @@ def parse_lang_input(raw):
         code = part.strip().lower()
         if not code:
             continue
-        if any(ch in code for ch in "*?([") or LANG_CODE_RE.match(code):
+        wild = any(ch in code for ch in "*?([")
+        if wild or LANG_CODE_RE.match(code):
             kept.append(code)
-            if not any(ch in code for ch in "*?([") \
-                    and code.split("-")[0] not in YOUTUBE_LANG_CODES:
+            if not wild and code.split("-")[0] not in KNOWN_LANG_CODES:
                 unknown.append(code)
         else:
             bad.append(code)
@@ -1090,12 +1094,12 @@ def short_path(p, maxv):
 
 
 def sub_lang_lines(width=WIDTH):
-    """The subtitle code reference for menu item 7: space separated codes,
-    filled to the box width with the remainder on the next line. Pure
-    function, so the selftest can pin the layout without a tty."""
+    """The subtitle code reference for menu item 7: every known code, space
+    separated, alphabetical, filled to the box width. Pure function, so the
+    selftest can pin the layout without a tty."""
     lines = []
     row = ""
-    for code in SUB_LANG_CODES.split():
+    for code in sorted(KNOWN_LANG_CODES):
         if not row:
             row = code
         elif len(row) + 1 + len(code) + 2 <= width:
@@ -1416,7 +1420,7 @@ def act(choice, s):
                     said.append("not a language code, dropped: "
                                 + ", ".join(bad))
                 if unknown:
-                    said.append("not in the youtube list, kept: "
+                    said.append("not in the language list, kept: "
                                 + ", ".join(unknown))
                 if bad and not kept:
                     said.append("nothing valid left, kept "
@@ -1660,23 +1664,29 @@ def selftest():
           all(l.startswith("  ") and "  " not in l.strip() and l == l.rstrip()
               for l in langs), langs)
     flat = [w for l in langs for w in l.split()]
-    check("lang line carries the groups",
+    check("lang list carries the expected codes",
           "en" in flat and "lt" in flat and "et" in flat and "ru" in flat
-          and "zh" in flat and "vi" in flat, langs)
-    check("lang codes are two letters",
-          all(w.isalpha() and len(w) == 2 and w.islower() for w in flat), flat)
+          and "zh" in flat and "vi" in flat and "ja" in flat and "ko" in flat,
+          langs)
+    check("lang codes are two letters, fil aside",
+          all(w.isalpha() and 2 <= len(w) <= 3 and w.islower() for w in flat)
+          and "fil" in flat, [w for w in flat if not w.isalpha()])
     check("lang first line fills the box", len(langs[0]) == WIDTH,
           len(langs[0]))
-    check("lang rest on one second line",
-          len(langs) == 2
-          and [w for l in langs for w in l.split()] == SUB_LANG_CODES.split(),
-          langs)
+    check("lang list is the whole reference, alphabetical",
+          flat == sorted(KNOWN_LANG_CODES) and len(flat) == 191,
+          (len(flat), len(KNOWN_LANG_CODES)))
+    check("lang list fits in ten lines", len(langs) == 10, len(langs))
     check("lang lines wrap narrow", all(len(l) <= 24 for l in sub_lang_lines(24)),
           sub_lang_lines(24))
 
-    check("lang ref covers every shown code",
-          all(w in YOUTUBE_LANG_CODES for w in SUB_LANG_CODES.split()),
-          [w for w in SUB_LANG_CODES.split() if w not in YOUTUBE_LANG_CODES])
+    check("lang ref is what the list shows",
+          set(flat) == set(KNOWN_LANG_CODES)
+          and all(len(w) == 2 or w == "fil" for w in KNOWN_LANG_CODES),
+          sorted(set(flat) ^ set(KNOWN_LANG_CODES)))
+    check("lang ref has no yt-dlp-only leftovers",
+          not [w for w in KNOWN_LANG_CODES if len(w) > 3],
+          sorted(KNOWN_LANG_CODES))
     k1, b1, u1 = parse_lang_input("en,8")
     check("digit dropped, en kept", k1 == ["en"] and b1 == ["8"] and not u1,
           (k1, b1, u1))
@@ -1692,6 +1702,9 @@ def selftest():
     k5, b5, u5 = parse_lang_input("en.*,nl,xx!!")
     check("wildcard passes through", k5[0] == "en.*" and b5 == ["xx!!"]
           and not u5, (k5, b5, u5))
+    k5b, b5b, u5b = parse_lang_input("fil,yue")
+    check("fil known, yue kept with note",
+          k5b == ["fil", "yue"] and not b5b and u5b == ["yue"], (k5b, b5b, u5b))
     k6, b6, u6 = parse_lang_input("8")
     check("only digits leaves nothing", not k6 and b6 == ["8"] and not u6,
           (k6, b6, u6))
