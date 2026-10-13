@@ -1,8 +1,8 @@
 bin/
 downloads/
+resources/
 __pycache__/
 *.pyc
 *.log
 *.tmp
 .vscode/
-scripts-tools/ffprobe.exe
