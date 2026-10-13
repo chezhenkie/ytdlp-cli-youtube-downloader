@@ -7,7 +7,7 @@
 - Owner: chezhenkie (all components, interfaces and open questions).
 - Stakeholders: chezhenkie (user, engineer, tester, reviewer); consumers of the public repo and the release bundles; yt-dlp and ffmpeg upstreams as read-only dependencies.
 - Approvers: chezhenkie approves every gate.
-- Status: implemented. This spec documents the shipped v1.4 tree (HEAD 7c03b63, 2026-10-13, remote https://github.com/chezhenkie/ytdlp-cli-youtube-downloader). First document review is open question OQ-1.
+- Status: implemented. This spec documents the shipped v1.4 line (2026-10-13, remote https://github.com/chezhenkie/ytdlp-cli-youtube-downloader) plus the v1.4.1 rebuild cut on 2026-10-14. Approved by the owner on 2026-10-14.
 - Related documents: README.md (published usage), CHANGELOG.md (history with hashes), THIRD-PARTY-NOTICES.md (bundle licensing), LICENSE (MIT), .github/workflows/selftest.yml (CI).
 
 ## 1. Problem, goals, non-goals
@@ -137,12 +137,12 @@ settings.json fields; all strings unless stated, all validated per code sites, n
 | audio_quality | str | "0" | ffmpeg audio -q value | build_args L670 |
 | output_dir | str | "" | "" = resolve per FR-6 | resolve_outdir L521-524 |
 | filename_template | str | "%(title)s" | yt-dlp -o template | output_args L647 |
-| subtitles | bool | true* | on/off | do_download L1485 |
+| subtitles | bool | true (default on, L332) | on/off | do_download L1485 |
 | subtitle_langs | str | "en" | comma list, wildcards pass | build_sub_args L710 |
 | playlist | bool | false | on/off | build_args L691-696 |
 | playlist_max_items | int | 0 | 0 = all | build_args L692-694 |
 
-*shipped values differ from DEFAULTS (subtitles False, stamp 0; DEFAULTS L318-336) because the user's live file carries their own state (OQ-2). Loader copies only known keys and ignores unknown json (L427-429).
+*Only auto_update_last_check differs from the code default: DEFAULTS carries 0, the live settings.json carries the stamp from the last tested run - live state, committed on purpose (DEFAULTS L318-336). Loader copies only known keys and ignores unknown json (L427-429).
 
 ## 9. Documentation
 
@@ -164,18 +164,17 @@ Define and Design closed with the repo's early commits (v1.0, v1.1 chapters) and
 
 | id | decision required | owner | needed | risk if left |
 |---|---|---|---|---|
-| OQ-1 | Review and sign off ytdlp-cli-specsheet.md (gate 1 equivalent) | chezhenkie | review | spec drift from live text |
-| OQ-2 | Reconcile shipped subtitles=true with DEFAULTS false; confirm intended reset-defaults behavior (menu 10 would turn subtitles off) | chezhenkie | user call | surprise at reset |
-| OQ-3 | Subtitle-failure path calls Stage.done twice (L1495 and L1499), producing two frozen lines from one stage; decide whether that is the intended two-line verdict or a bug | chezhenkie | code read | double-freeze edge case |
-| OQ-4 | Verify the Rust licensing premise before any rewrite plan: whether a permissively licensed H.264 encoder exists and the mux-versus-encode division holds (agreed, not yet verified) | chezhenkie | research | wasted plan work |
-| OQ-5 | Fix "## v1.3" missing chapter heading in CHANGELOG.md next changelog pass | chezhenkie | changelog edit | misleading history |
-| OQ-6 | settings_version is written but never read or branched (L319); either implement migration or drop from docs | chezhenkie | code change | dead schema |
-| OQ-7 | Remove stale CLI byte-count comment (73630 bytes) at L396 vs measured 108022 bytes | chezhenkie | code edit | misleading pin |
-| OQ-8 | Raise yt-dlp --file-access-retries above 5 only if the WinError 32 rename failure recurs (carried note) | chezhenkie | recurrence | slow retry loop |
-| OQ-9 | Next release cut must rebuild bundles from the live tree (v1.4 tag sits four commits behind HEAD) | chezhenkie | next release | stale artifacts |
+| OQ-3 | Subtitle-failure path freezes two lines because Stage.done runs twice (L1495-1499); judged intended per the v1.2 design "subtitle failure line split into two short lines" | chezhenkie | confirmation | none while open |
+| OQ-6 | settings_version is written but never read or branched (L319); either implement schema migration when needed or drop the key | chezhenkie | user call | harmless dead key |
+| OQ-9 | v1.4.1 bundles are rebuilt from the live tree; uploading to GitHub is the owner's action, never pushed from here | chezhenkie | build plus upload | stale artifacts if skipped |
 
 ## 14. Decision history
 
 - 2026-10-13: adopted specsheet-design-and-review-manual.md as lead; this spec written from code evidence (two fact sheets, spec-scratch/, deleted after staging) and reconciled against README, CHANGELOG, THIRD-PARTY-NOTICES and release listings; base draft "temp spec base ytdlp.md" (9472 bytes, untracked) became obsolete when this specsheet existed and is now deleted.
 - 2026-10-13: v1.4 shipped (tag e3869b8): cli self-update, ffmpeg download offer with digest-first verification, auto-update toggle, menu 12 to 13 rows.
 - 2026-10-13: spinner/stage rework sessions (commits 27e0563, a35e1e7, 79b2bb9, 7541ab9, 7c03b63): eight random animations, erase-to-EOL rewrites, write lock, width-stable numbers, live stamp.
+- 2026-10-14: the specsheet is approved by the owner; the gate-1-equivalent review is closed.
+- 2026-10-14: subtitle default is on with langs en in DEFAULTS (L332), so the code default and the shipped file agree and menu 10 keeps subtitles on.
+- 2026-10-14: the "## v1.3" chapter heading is restored in CHANGELOG.md; the update-source comment loses its stale byte pin.
+- 2026-10-14: closed in one short check: permissive pure-Rust H.264 encoders exist (rusty_h264 and less-avc are pure Rust under permissive terms; the openh264 crate ships BSD-licensed openh264 source). Mux-versus-encode division unchanged.
+- 2026-10-14: version bumped to 1.4.1; four bundles rebuilt from the live tree with the v1.4 platform binaries; upload to the GitHub release is the owner's action.

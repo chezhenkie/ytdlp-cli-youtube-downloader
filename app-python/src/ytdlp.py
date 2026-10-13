@@ -26,7 +26,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-VERSION = "1.4"
+VERSION = "1.4.1"
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = ROOT / "config" / "settings.json"
 BIN_DIR = ROOT / "bin"
@@ -329,7 +329,7 @@ DEFAULTS = {
     # empty = auto-resolve: OS desktop, fallback OS download folder
     "output_dir": "",
     "filename_template": "%(title)s",
-    "subtitles": False,
+    "subtitles": True,
     "subtitle_langs": "en",
     "playlist": False,
     "playlist_max_items": 0,
@@ -392,8 +392,8 @@ FFMPEG_SOURCES = {
               "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/checksums.sha256",
               "ffmpeg", "tar.xz"),
 }
-# the CLI's own source: the raw file on the default branch. it is small (73630
-# bytes on 2026-10-13) so a version check costs one GET, and the version is read
+# the CLI's own source: the raw file on the default branch. a version check
+# costs one GET, and the version is read
 # from the same bytes that replace the file, so there is no second request that
 # could disagree with it.
 CLI_UPDATE_URL = ("https://raw.githubusercontent.com/chezhenkie/"
