@@ -21,6 +21,7 @@ import tarfile
 import tempfile
 import threading
 import time
+import unicodedata
 import urllib.error
 import urllib.request
 import zipfile
@@ -401,6 +402,11 @@ CLI_UPDATE_URL = ("https://raw.githubusercontent.com/chezhenkie/"
 CLI_SELF_PATH = Path(__file__).resolve()
 UPDATE_TAG = "https://www.gyan.dev/ffmpeg/ and github.com/BtbN/FFmpeg-Builds"
 DL_TIMEOUT = 1800
+# audit F3 (2026-10-14): the daily auto-update check inherited the fetch
+# helper's 60 s timeout on the main thread, so a black-holed connection froze
+# the menu for a minute before the first keystroke was read. Owner-pinned:
+# 6 s for the non-forced check, 60 s stays for the forced paths.
+CHECK_TIMEOUT = 6
 
 
 
@@ -416,6 +422,46 @@ def platform_name():
 
 # ---------------------------------------------------------------- settings
 
+# yt-dlp --audio-quality SPEC (pinned source yt_dlp/options.py, read
+# 2026-10-14): "a value between 0 (best) and 10 (worst) for VBR or a specific
+# bitrate like 128K". The accepted forms are therefore a plain number or
+# "<number>K"; anything else is a hand-edit mistake, not a setting.
+AUDIO_QUALITY_RE = re.compile(r"^\d+(?:\.\d+)?K?$", re.IGNORECASE)
+
+
+def coerce_settings(s):
+    """audit F1/F2 (2026-10-14): settings.json is user-editable and its
+    values flow raw into int() and yt-dlp argv. Coerce at this one boundary
+    so a mistyped value can never raise and never reaches argv unvalidated.
+    Coercion happens in memory only - the file is never rewritten (user
+    settings are theirs). Returns the notes."""
+    d = DEFAULTS
+    notes = []
+
+    def keep_default(key, why):
+        notes.append("setting %s %s - keeping default %r" % (key, why, d[key]))
+        s[key] = json.loads(json.dumps(d[key]))
+
+    raw = s.get("playlist_max_items")
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        try:
+            s["playlist_max_items"] = int(str(raw).strip())
+        except (TypeError, ValueError):
+            keep_default("playlist_max_items", "is not a number")
+    for key, vocab in (("type", TYPES),
+                       ("video_container", CONTAINERS),
+                       ("video_resolution", RESOLUTIONS),
+                       ("audio_format", AUDIO_FORMATS)):
+        if s.get(key) not in vocab:
+            keep_default(key, "is not one of " + "|".join(vocab))
+    q = str(s.get("audio_quality", "")).strip()
+    if not AUDIO_QUALITY_RE.match(q):
+        keep_default("audio_quality", "is not a quality value")
+    else:
+        s["audio_quality"] = q or d["audio_quality"]
+    return notes
+
+
 def load_settings():
     s = json.loads(json.dumps(DEFAULTS))
     if CONFIG_PATH.exists():
@@ -429,6 +475,8 @@ def load_settings():
                 s[key] = data[key]
         if "type" not in data and data.get("audio_only"):
             s["type"] = "audio only"
+    for note in coerce_settings(s):
+        print("  %s" % c(A_AMBER, "note: " + note))
     return s
 
 
@@ -490,12 +538,26 @@ def _xdg_dir(key):
     return val
 
 
+_outdir_cache = []
+
+
 def auto_outdir():
     """Default output folder: the OS desktop, fallback the OS download folder.
     Returns None when neither exists (caller uses downloads/ at the project
     root). Desktop first on windows (Shell Folders key) and XDG on unix, with
     ~/Desktop and ~/Downloads as the last candidates; every candidate is
-    gated on os.path.isdir so a redirected-but-missing folder falls through."""
+    gated on os.path.isdir so a redirected-but-missing folder falls through.
+
+    Memoized for the process (audit F6, 2026-10-14): every menu repaint and
+    several download-path resolutions re-ran the registry / user-dirs reads.
+    The inputs (registry, user-dirs file, home) cannot change within a
+    process, so one lookup answers for all of them."""
+    if not _outdir_cache:
+        _outdir_cache.append(_auto_outdir_lookup())
+    return _outdir_cache[0]
+
+
+def _auto_outdir_lookup():
     if os.name == "nt":
         cands = [
             _win_shell_folder("Desktop"),
@@ -561,13 +623,29 @@ def find_ffmpeg_dir(s):
     return None
 
 
+_VERSION_CACHE = {}
+
+
 def probe_version(binary):
     """Version line and rc for a binary. It is asked the double-dash way first
     because yt-dlp wants that spelling, then the single-dash way, because
     ffmpeg 9 rejects "--version" outright - it prints its banner to stderr and
     exits 0xABAFB008 - and answers "-version" on stdout with rc 0. ffmpeg also
     writes to stderr where yt-dlp writes to stdout, so both streams are read
-    and the first attempt with rc 0 wins."""
+    and the first attempt with rc 0 wins.
+
+    Successful answers are memoized per binary path+mtime for the process
+    (audit F4, 2026-10-14): the preflight re-probed on every download, one
+    extra process spawn (~0.85 s, audit timing) for a version the session
+    already saw. Failures are not memoized - a retry must stay a retry. A
+    self-update or a replaced binary changes mtime, so the cache cannot
+    answer for a binary it did not see."""
+    try:
+        key = (str(binary), os.path.getmtime(binary))
+    except OSError:
+        key = (str(binary), None)
+    if key in _VERSION_CACHE:
+        return _VERSION_CACHE[key]
     last = ("no version output", -1)
     for flag in ("--version", "-version"):
         try:
@@ -578,6 +656,7 @@ def probe_version(binary):
         blob = ((r.stdout or "") + (r.stderr or "")).strip()
         line = blob.splitlines()[0].strip() if blob else ""
         if r.returncode == 0 and line:
+            _VERSION_CACHE[key] = (line, 0)
             return line, 0
         if line:
             last = (line, r.returncode)
@@ -1381,8 +1460,9 @@ def offer_ffmpeg(s, kind):
     """A lean install that has no ffmpeg: offer the published build before the
     run silently degrades to single files. Returns the resolved ffmpeg dir on
     success, else None. Silent, and declining, when nobody can answer."""
-    if find_ffmpeg_dir(s):
-        return find_ffmpeg_dir(s)
+    ffdir = find_ffmpeg_dir(s)
+    if ffdir:
+        return ffdir
     if not can_ask():
         return None
     plat = platform_name()
@@ -1633,15 +1713,51 @@ def multi_url(s):
     return not run_batch(s, entries)
 
 
+def dwidth(text):
+    """Display width in terminal columns (audit F10): east-asian wide and
+    fullwidth code points take 2 columns (Unicode EastAsianWidth via the
+    stdlib unicodedata), everything else 1. len() counts code points, not
+    columns, so a CJK or emoji value overflowed the menu box."""
+    return sum(2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+               for ch in text)
+
+
+def cut_to_width(text, maxw):
+    """Longest prefix of text whose display width is <= maxw."""
+    out = []
+    w = 0
+    for ch in text:
+        cw = 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+        if w + cw > maxw:
+            break
+        out.append(ch)
+        w += cw
+    return "".join(out)
+
+
+def tail_to_width(text, maxw):
+    """Longest suffix of text whose display width is <= maxw."""
+    out = []
+    w = 0
+    for ch in reversed(text):
+        cw = 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+        if w + cw > maxw:
+            break
+        out.append(ch)
+        w += cw
+    return "".join(reversed(out))
+
+
 def menu_line(idx, label, value="", grey=True):
     plain = " %2d  %s" % (idx, label)
     left = c(A_GREY, plain) if grey else plain
-    maxv = WIDTH - len(plain) - 3
+    maxv = WIDTH - dwidth(plain) - 3
     if maxv < 1:
         maxv = 1
-    if len(value) > maxv:
-        value = ("..." + value[-(maxv - 3):]) if maxv > 3 else value[:maxv]
-    pad = WIDTH - len(plain) - len(value)
+    if dwidth(value) > maxv:
+        value = ("..." + tail_to_width(value, maxv - 3)) if maxv > 3 \
+            else cut_to_width(value, maxv)
+    pad = WIDTH - dwidth(plain) - dwidth(value)
     if pad < 1:
         pad = 1
     m = c(A_DARKGREY, "|")
@@ -1654,9 +1770,9 @@ def short_path(p, maxv):
     parts = [x for x in p.replace("/", sep).split(sep) if x]
     name = parts[-1] if parts else "downloads"
     out = "..." + sep + name
-    if len(out) <= maxv:
+    if dwidth(out) <= maxv:
         return out
-    return out[:maxv]
+    return cut_to_width(out, maxv)
 
 
 def sub_lang_lines(width=WIDTH):
@@ -1997,7 +2113,7 @@ def auto_update_check(s, force=False):
         if time.time() - last < 86400:
             return False
     try:
-        newver, raw = fetch_cli()
+        newver, raw = fetch_cli(timeout=60 if force else CHECK_TIMEOUT)
     except Exception as exc:
         if force:
             print("  could not reach the update source: %s" % ascii_safe(exc))
@@ -2161,7 +2277,8 @@ def act(choice, s):
         read_esc("  press enter to go back: ")
     elif choice == "12":
         s["auto_update"] = not s.get("auto_update")
-        save_settings(s)
+        # no save here (audit F8): main_menu saves after act() returns, so
+        # every action has exactly one save site; quit keeps its own.
         print("  auto update %s - checked once a day at start"
               % onoff(s.get("auto_update")))
         hold()
@@ -2838,6 +2955,144 @@ def selftest():
     finally:
         globals()["multi_url"] = real_multi
     check("act 9 is multi url", hit == ["multi"] and rep9 is False, (hit, rep9))
+
+    # ---- audit fix regressions (2026-10-14) ----
+
+    # F1/F2: junk hand-edited settings coerce at the boundary, never raise,
+    # never reach argv, and never rewrite the file
+    junk = json.loads(json.dumps(DEFAULTS))
+    junk["playlist"] = True
+    junk["playlist_max_items"] = "abc"
+    junk["video_resolution"] = "not-a-number"
+    junk["audio_quality"] = "banana"
+    junk["video_container"] = "avi"
+    junk["type"] = "tunnel"
+    settings_before = CONFIG_PATH.read_bytes() if CONFIG_PATH.exists() else b""
+    capj = io.StringIO()
+    sys.stdout = capj
+    try:
+        coerce_settings(junk)
+        mj = menu_items(junk)
+        aj = build_args(junk, "https://x/y", Path("FFMPEG_DIR_SENTINEL"))
+    finally:
+        sys.stdout = real_out
+    jargv = " ".join(aj)
+    check("coerce fixes junk max_items",
+          junk["playlist_max_items"] == 0, junk["playlist_max_items"])
+    check("coerce keeps junk out of argv",
+          "height<=not-a-number" not in jargv and "banana" not in jargv, jargv)
+    check("coerce fixes junk vocabularies",
+          junk["video_resolution"] == "1080" and junk["video_container"] == "mp4"
+          and junk["audio_format"] == "mp3" and junk["type"] == "video", junk)
+    check("coerce renders the menu without raising", len(mj) == 13, len(mj))
+    check("coerce never rewrites settings.json",
+          (CONFIG_PATH.read_bytes() if CONFIG_PATH.exists() else b"")
+          == settings_before, CONFIG_PATH)
+    q9 = json.loads(json.dumps(DEFAULTS))
+    q9["audio_quality"] = "9"
+    coerce_settings(q9)
+    check("coerce keeps number quality", q9["audio_quality"] == "9", q9["audio_quality"])
+    q320 = json.loads(json.dumps(DEFAULTS))
+    q320["audio_quality"] = "320K"
+    coerce_settings(q320)
+    check("coerce keeps bitrate quality", q320["audio_quality"] == "320K", q320["audio_quality"])
+    n5 = json.loads(json.dumps(DEFAULTS))
+    n5["playlist_max_items"] = "5"
+    coerce_settings(n5)
+    check("coerce parses numeric string max_items",
+          n5["playlist_max_items"] == 5, n5["playlist_max_items"])
+
+    # F3: the non-forced daily check asks for the short timeout, forced keeps 60
+    got_timeouts = []
+
+    def fake_fetch(url=CLI_UPDATE_URL, timeout=60):
+        got_timeouts.append(timeout)
+        raise Exception("offline")
+
+    g = globals()
+    real_fetch, real_ask = g["fetch_cli"], g["can_ask"]
+    g["fetch_cli"], g["can_ask"] = fake_fetch, (lambda: True)
+    s_auto = json.loads(json.dumps(DEFAULTS))
+    capf = io.StringIO()
+    sys.stdout = capf
+    try:
+        auto_update_check(s_auto)
+        auto_update_check(s_auto, force=True)
+    finally:
+        sys.stdout = real_out
+        g["fetch_cli"], g["can_ask"] = real_fetch, real_ask
+    check("auto check uses the pinned 6s timeout",
+          got_timeouts[:1] == [CHECK_TIMEOUT], got_timeouts)
+    check("forced check keeps the 60s timeout",
+          got_timeouts[1:] == [60], got_timeouts)
+
+    # F4: a second probe of the same binary must not spawn it again
+    calls = []
+    real_run = subprocess.run
+
+    def counting_run(argv, **kw):
+        calls.append(argv)
+        return real_run(argv, **kw)
+
+    subprocess.run = counting_run
+    try:
+        probe_version(sys.executable)
+        spawns_first = len(calls)
+        probe_version(sys.executable)
+        spawns_second = len(calls)
+    finally:
+        subprocess.run = real_run
+    check("probe memo skips the second spawn",
+          spawns_first in (1, 2) and spawns_second == spawns_first,
+          (spawns_first, spawns_second))
+
+    # F6: the OS lookup runs once, repaints and downloads reuse the memo
+    real_lookup = g["_auto_outdir_lookup"]
+    lookups = []
+
+    def counting_lookup():
+        lookups.append(1)
+        return real_lookup()
+
+    g["_auto_outdir_lookup"] = counting_lookup
+    g["_outdir_cache"].clear()
+    try:
+        a1 = auto_outdir()
+        a2 = auto_outdir()
+    finally:
+        g["_auto_outdir_lookup"] = real_lookup
+    check("auto_outdir memo skips the second lookup",
+          len(lookups) == 1 and a1 == a2, (len(lookups), a1, a2))
+
+    # F8: item 12 leaves the save to the one save point in main_menu
+    saves = []
+    real_save = g["save_settings"]
+    real_esc2 = g["read_esc"]
+    g["save_settings"] = lambda s2: saves.append("save")
+    g["read_esc"] = lambda prompt="", **kw: ""
+    try:
+        act("12", d)
+    finally:
+        g["save_settings"], g["read_esc"] = real_save, real_esc2
+    check("item 12 leaves the save to main_menu", saves == [], saves)
+
+    # F10: wide code points count columns, and the box row keeps its width
+    wide = chr(0x4E00)
+    check("dwidth counts wide chars as two columns",
+          dwidth("ab") == 2 and dwidth(wide) == 2 and dwidth("a" + wide) == 3,
+          (dwidth("ab"), dwidth(wide)))
+    check("cut_to_width cuts by columns",
+          cut_to_width("ab" + wide * 3, 6) == "ab" + wide * 2
+          and cut_to_width("ab", 1) == "a",
+          (cut_to_width("ab" + wide * 3, 6), cut_to_width("ab", 1)))
+    check("tail_to_width keeps the tail by columns",
+          tail_to_width("ab" + wide * 3, 6) == wide * 3, tail_to_width("ab" + wide * 3, 6))
+    ansi = re.compile("\x1b\\[[0-9;]*m")
+    base_row = ansi.sub("", menu_line(1, "x", "plain"))
+    wide_row = ansi.sub("", menu_line(1, "x", wide * 100))
+    check("menu line keeps box width with a wide value",
+          dwidth(base_row) == dwidth(wide_row) == WIDTH + 2,
+          (dwidth(base_row), dwidth(wide_row)))
 
     print("-" * WIDTH)
     print("selftest: %d checks, %d failed" % (count[0], len(fails)))
