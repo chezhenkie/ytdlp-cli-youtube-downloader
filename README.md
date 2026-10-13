@@ -1,30 +1,31 @@
 ytdlp-youtube-proj
 ==================
 
-Text-menu CLI around standalone yt-dlp, plus reference docs and release zips. Defaults live in config/settings.json, so everyday use is: start, paste URL, done. History in CHANGELOG.md; next-session notes live in the handoff store.
+Text-menu CLI around standalone yt-dlp, plus reference docs and release zips. Defaults live in app-python/config/settings.json, so everyday use is: start, paste URL, done. History in CHANGELOG.md; next-session notes live in the handoff store.
 
 Layout
 ------
-src/ytdlp.py         the CLI - Python 3 stdlib only, no pip installs
-run-ytdlp.bat        Windows launcher (menu or quick args)
-run-ytdlp.sh         Linux launcher
-config/settings.json saved defaults (committed)
-ytdlp-files/         yt-dlp release zips + 7-Zip installer (tracked)
-ytdlp-docs/          wiki/readme references
-bin/                 yt-dlp.exe + ffmpeg.exe + ffprobe.exe (gitignored)
-downloads/           output (gitignored)
+app-python/          the portable app - move it anywhere, all paths resolve inside it
+  src/ytdlp.py       the CLI - Python 3 stdlib only, no pip installs
+  run-ytdlp.bat      Windows launcher (menu or quick args)
+  run-ytdlp.sh       Linux launcher
+  config/settings.json saved defaults (committed)
+  bin/               yt-dlp.exe + ffmpeg.exe + ffprobe.exe (gitignored)
+  downloads/         output (gitignored)
+resources/           wiki/readme references and the yt-dlp master zip
+scripts-tools/       spinner-demo.py, 7-Zip installer
 CHANGELOG.md         commit-grouped history
 
 Usage
 -----
-run-ytdlp.bat                          menu
-run-ytdlp.bat https://youtu.be/xxxx    quick download with saved defaults
-run-ytdlp.bat <url> -a                 audio only (mp3)
-run-ytdlp.bat <url> -f mkv -r 720      overrides, one run only
-run-ytdlp.bat <url> --subs --playlist  subtitles + playlist
-python src/ytdlp.py --check            resolved paths and versions
-python src/ytdlp.py --selftest         built-in logic tests (no network)
-python src/ytdlp.py --update           yt-dlp self-update (same as menu item 12)
+app-python\run-ytdlp.bat                          menu
+app-python\run-ytdlp.bat https://youtu.be/xxxx    quick download with saved defaults
+app-python\run-ytdlp.bat <url> -a                 audio only (mp3)
+app-python\run-ytdlp.bat <url> -f mkv -r 720      overrides, one run only
+app-python\run-ytdlp.bat <url> --subs --playlist  subtitles + playlist
+python app-python\src\ytdlp.py --check            resolved paths and versions
+python app-python\src\ytdlp.py --selftest         built-in logic tests (no network)
+python app-python\src\ytdlp.py --update           yt-dlp self-update (same as menu item 12)
 
 Menu options
 ------------
@@ -50,8 +51,10 @@ A download runs below the input line with the menu always on screen, one line pe
 
 Notes
 -----
-First run unpacks yt-dlp from ytdlp-files on Windows and Linux. No macOS zip shipped: put yt-dlp on PATH or set yt_dlp_path in config/settings.json.
+yt-dlp.exe, ffmpeg.exe and ffprobe.exe ship in app-python/bin next to the launchers, so bin/ travels with the portable unit. The release zips are deleted, which retires the old first-run unpack path: on a machine without a usable binary in bin/, put yt-dlp on PATH or set yt_dlp_path in config/settings.json. app-python/ is the portable unit: run-ytdlp.bat resolves src/ytdlp.py through %~dp0 and the CLI resolves config/ and bin/ from its own __file__ (ROOT = app-python), so the folder works from any path on any drive.
 
-Merge, mp3/m4a conversion, srt subtitle conversion and thumbnail/metadata embedding need ffmpeg; without it the CLI says so and falls back to a single best file, so downloads keep working. On this Windows box ffmpeg/ffprobe sit in bin/ next to yt-dlp.exe, PATH-independently; ffmpeg_path in settings points elsewhere if wanted. bin/ is untracked - ~480MB for the full builds here.
+Merge, mp3/m4a conversion, srt subtitle conversion and thumbnail/metadata embedding need ffmpeg; without it the CLI says so and falls back to a single best file, so downloads keep working. ffmpeg/ffprobe sit in bin/ next to yt-dlp.exe, PATH-independently; ffmpeg_path in settings points elsewhere if wanted. bin/ is untracked - ~480MB for the full builds here.
 
 Quick-arg overrides are one-shot, they do not change saved defaults.
+
+Running the CLI directly (python app-python/src/ytdlp.py) uses the same defaults and resolves config/ and bin/ next to the script, so it works from any working directory and any copy of the folder.
