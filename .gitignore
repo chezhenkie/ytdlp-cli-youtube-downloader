@@ -5,3 +5,4 @@ __pycache__/
 *.log
 *.tmp
 .vscode/
+scripts-tools/ffprobe.exe
