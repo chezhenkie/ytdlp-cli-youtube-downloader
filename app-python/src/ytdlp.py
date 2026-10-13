@@ -968,6 +968,16 @@ def sel_mark(sel):
     return c(A_AMBER, "[x]") if sel else "[ ]"
 
 
+def hold():
+    """Wait for enter without printing a prompt.
+
+    The menu clears the screen and re-renders the instant a submenu returns,
+    so a line printed after that submenu's last read is wiped in the same
+    instant. A caller with something to say prints it, then holds. Unlabelled
+    on purpose, so the message stays the last thing visible."""
+    read_esc("")
+
+
 def pick_list(title, options, current):
     print("  %s" % title)
     for i, o in enumerate(options, 1):
@@ -982,10 +992,12 @@ def pick_list(title, options, current):
         idx = int(raw)
     except ValueError:
         print("  invalid number")
+        hold()
         return current
     if 1 <= idx <= len(options):
         return options[idx - 1]
     print("  out of range")
+    hold()
     return current
 
 
@@ -1459,12 +1471,12 @@ def act(choice, s):
                         print(line)
                     sys.stdout.write("\033[%dA" % (len(block) + 1))
                     sys.stdout.flush()
-                    read_esc("")
+                    hold()
                 else:
                     for text in said:
                         print(c(A_AMBER, "  " + text))
                     if not under:
-                        read_esc("")
+                        hold()
     elif choice == "8":
         s["playlist"] = ask_bool("playlist mode", s.get("playlist"))
         if s.get("playlist"):
@@ -1477,13 +1489,16 @@ def act(choice, s):
                 try:
                     s["playlist_max_items"] = int(raw)
                 except ValueError:
-                    print("  not a number - kept %s" % s.get("playlist_max_items"))
+                    print("  not a number - kept %s"
+                          % s.get("playlist_max_items"))
+                    hold()
     elif choice == "9":
         return multi_url(s)
     elif choice == "10":
         for k, v in DEFAULTS.items():
             s[k] = json.loads(json.dumps(v)) if isinstance(v, (dict, list)) else v
         print("  defaults restored")
+        hold()
     elif choice == "11":
         update_yt_dlp(s)
         read_esc("  press enter to go back: ")
@@ -1838,6 +1853,69 @@ def selftest():
           painted.endswith("\033[4A") and painted.count("\n") == 4, repr(painted))
     check("a block taller than the window falls back", tight is False, tight)
     check("a block wider than the window falls back", narrow is False, narrow)
+
+    # every message printed after a submenu's last read has to hold, or the
+    # menu repaint eats it. this bit twice live, so pin every call site.
+    held = []
+
+    def held_esc(prompt=""):
+        held.append(prompt)
+        return ""
+
+    # run each case under capture, then report with stdout restored, so a
+    # FAIL line is never swallowed into the capture
+    def run_pick(typed):
+        held.clear()
+        cap = io.StringIO()
+        old = sys.stdout
+        g["read_esc"] = lambda prompt="", _t=typed: (
+            held.append(prompt), _t)[1]
+        sys.stdout = cap
+        try:
+            got = pick_list("t", ["a", "b"], "a")
+        finally:
+            sys.stdout = old
+            g["read_esc"] = real_esc
+        return got, list(held), cap.getvalue()
+
+    got_bad, hs_bad, out_bad = run_pick("abc")
+    check("pick_list holds on invalid number",
+          got_bad == "a" and len(hs_bad) == 2 and hs_bad[-1] == ""
+          and "invalid number" in out_bad, (hs_bad, out_bad))
+    got_range, hs_range, out_range = run_pick("9")
+    check("pick_list holds on out of range",
+          got_range == "a" and len(hs_range) == 2 and hs_range[-1] == ""
+          and "out of range" in out_range, (hs_range, out_range))
+    got_ok, hs_ok, out_ok = run_pick("2")
+    check("pick_list does not hold on a good pick",
+          got_ok == "b" and len(hs_ok) == 1 and hs_ok[0].strip()
+          and "range" not in out_ok and "invalid" not in out_ok,
+          (hs_ok, out_ok))
+
+    # item 8 and item 10 print after their last read and must hold as well
+    for choice, replies, expect in (("8", ["y", "abc"], "not a number - kept"),
+                                   ("10", [], "defaults restored")):
+        got_replies = list(replies)
+        prompts = []
+
+        def queued(prompt="", _r=got_replies, _p=prompts):
+            _p.append(prompt)
+            return _r.pop(0) if _r else ""
+
+        st = load_settings()
+        st["playlist"] = True
+        g["read_esc"] = queued
+        cap6 = io.StringIO()
+        old6 = sys.stdout
+        sys.stdout = cap6
+        try:
+            act(choice, st)
+        finally:
+            sys.stdout = old6
+            g["read_esc"] = real_esc
+        body6 = cap6.getvalue()
+        check("item %s holds its message" % choice,
+              expect in body6 and prompts[-1:] == [""], (body6[-60:], prompts))
 
     check("batch row keeps url", batch_row(1, "https://x/y").endswith("https://x/y"),
           batch_row(1, "https://x/y"))
