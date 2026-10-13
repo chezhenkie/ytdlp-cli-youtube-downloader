@@ -8,17 +8,23 @@ Checks:      python app-python/src/ytdlp.py --check | --selftest
 Stdlib only. Windows / Linux / macOS. Defaults persist in app-python/config/settings.json.
 """
 import argparse
+import hashlib
 import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tarfile
+import tempfile
 import threading
 import time
+import urllib.error
+import urllib.request
+import zipfile
 from pathlib import Path
 
-VERSION = "1.3"
+VERSION = "1.4"
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = ROOT / "config" / "settings.json"
 BIN_DIR = ROOT / "bin"
@@ -284,6 +290,8 @@ DEFAULTS = {
     "settings_version": 1,
     "yt_dlp_path": "",
     "ffmpeg_path": "",
+    "auto_update": True,
+    "auto_update_last_check": 0,
     "type": "video",
     "video_container": "mp4",
     "video_resolution": "1080",
@@ -334,6 +342,37 @@ KNOWN_LANG_CODES = frozenset("""
 # a language code with optional subtags: en, fil, en-GB, sr-Latn, es-419, zh-Hans
 LANG_CODE_RE = re.compile(r"^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$")
 PLATFORM_BIN = {"windows": "yt-dlp.exe", "linux": "yt-dlp", "macos": "yt-dlp"}
+
+# where a lean install fetches ffmpeg from, per platform, with the file that
+# carries the published hash. gyan.dev publishes only windows binaries and its
+# zip is the release "essentials" build; BtbN/FFmpeg-Builds serves the linux
+# tarball under a stable "latest" tag and publishes one checksums.sha256 for
+# every asset in the release. macos has no source here: no free static build is
+# published for it, so that platform gets instructions instead of a download.
+# the essentials build was probed 2026-10-13: ffmpeg 9.0.2, 114768076 bytes,
+# sha256 60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba,
+# --enable-gpl --enable-version3, with libmp3lame, aac, libopus, pcm_s16le,
+# the mp4/matroska/ipod muxers and the subrip/ass/webvtt demuxers all present,
+# i.e. everything merge, mp3/m4a/opus/wav conversion and srt subtitles need.
+FFMPEG_SOURCES = {
+    "windows": ("https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip",
+                "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip.sha256",
+                "ffmpeg.exe", "zip"),
+    "linux": ("https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/"
+              "ffmpeg-n9.0-latest-linux64-gpl-9.0.tar.xz",
+              "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/checksums.sha256",
+              "ffmpeg", "tar.xz"),
+}
+# the CLI's own source: the raw file on the default branch. it is small (73630
+# bytes on 2026-10-13) so a version check costs one GET, and the version is read
+# from the same bytes that replace the file, so there is no second request that
+# could disagree with it.
+CLI_UPDATE_URL = ("https://raw.githubusercontent.com/chezhenkie/"
+                  "ytdlp-cli-youtube-downloader/main/app-python/src/ytdlp.py")
+CLI_SELF_PATH = Path(__file__).resolve()
+UPDATE_TAG = "https://www.gyan.dev/ffmpeg/ and github.com/BtbN/FFmpeg-Builds"
+DL_TIMEOUT = 1800
+
 
 
 def platform_name():
@@ -494,11 +533,26 @@ def find_ffmpeg_dir(s):
 
 
 def probe_version(binary):
-    try:
-        r = subprocess.run([str(binary), "--version"], capture_output=True, text=True, timeout=60)
-        return (r.stdout or "").strip(), r.returncode
-    except Exception as exc:
-        return "error: %s" % exc, -1
+    """Version line and rc for a binary. It is asked the double-dash way first
+    because yt-dlp wants that spelling, then the single-dash way, because
+    ffmpeg 9 rejects "--version" outright - it prints its banner to stderr and
+    exits 0xABAFB008 - and answers "-version" on stdout with rc 0. ffmpeg also
+    writes to stderr where yt-dlp writes to stdout, so both streams are read
+    and the first attempt with rc 0 wins."""
+    last = ("no version output", -1)
+    for flag in ("--version", "-version"):
+        try:
+            r = subprocess.run([str(binary), flag], capture_output=True,
+                               text=True, timeout=60)
+        except Exception as exc:
+            return "error: %s" % exc, -1
+        blob = ((r.stdout or "") + (r.stderr or "")).strip()
+        line = blob.splitlines()[0].strip() if blob else ""
+        if r.returncode == 0 and line:
+            return line, 0
+        if line:
+            last = (line, r.returncode)
+    return last
 
 
 # ---------------------------------------------------------------- arg builder
@@ -888,6 +942,248 @@ def fail_sentence(rc, err):
     return "downloading - failed (rc=%s)%s" % (rc, ": " + err if err else "")
 
 
+# --------------------------------------------------------------- ffmpeg fetch
+
+def can_ask():
+    """True only when a human is on the other end. A pipe, a redirect or CI
+    must never be blocked by a download prompt, and cannot answer one."""
+    try:
+        return sys.stdin.isatty()
+    except Exception:
+        return False
+
+
+def sha256_file(path, chunk=1 << 20):
+    """Streaming sha256, so a 200MB download never sits in memory."""
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        while True:
+            block = fh.read(chunk)
+            if not block:
+                break
+            h.update(block)
+    return h.hexdigest()
+
+
+def parse_sha256(text):
+    """The digest out of a single-asset checksum file. gyan.dev publishes a
+    bare 64-char hash, a github checksums.sha256 publishes "<hash>  <file>",
+    so take the first field that is a digest rather than assuming a shape."""
+    for field in text.split():
+        cand = field.lower().strip("*")
+        if len(cand) == 64 and re.fullmatch(r"[0-9a-f]{64}", cand):
+            return cand
+    return None
+
+
+def pick_checksum(text, filename):
+    """The digest for one asset out of a multi-asset checksums file, where the
+    digest is the line that names that file."""
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and parts[1].strip("*") == filename:
+            cand = parts[0].lower()
+            if len(cand) == 64 and re.fullmatch(r"[0-9a-f]{64}", cand):
+                return cand
+    return None
+
+
+def http_text(url, timeout=60):
+    req = urllib.request.Request(url, headers={"User-Agent": "yt-dlp-cli"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read().decode("utf-8", "replace")
+
+
+def http_file(url, dest, stage=None, timeout=DL_TIMEOUT):
+    """Stream url to dest through a .part name, so a failure never leaves a
+    half-written binary that a later run would mistake for a good one. Returns
+    (bytes, final url, content length)."""
+    tmp = dest.with_name(dest.name + ".part")
+    got, total, final = 0, 0, url
+    req = urllib.request.Request(url, headers={"User-Agent": "yt-dlp-cli"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        final = r.geturl()
+        hdr = r.headers.get("Content-Length") or ""
+        total = int(hdr) if hdr.isdigit() else 0
+        with open(tmp, "wb") as fh:
+            while True:
+                block = r.read(1 << 16)
+                if not block:
+                    break
+                fh.write(block)
+                got += len(block)
+                if stage is not None and total:
+                    stage.live = "downloading ffmpeg - %.1f / %.1f MB" % (
+                        got / 1048576.0, total / 1048576.0)
+    os.replace(tmp, dest)
+    return got, final, total
+
+
+def expected_sha(url, sha_url, asset_name):
+    """The published digest for the asset. Raises nothing: returns None with a
+    reason printed, because a download with nothing to check it against is not
+    a download this CLI should perform."""
+    try:
+        text = http_text(sha_url)
+    except Exception as exc:
+        print("  could not read the published checksum: %s" % exc)
+        return None
+    digest = pick_checksum(text, asset_name) or parse_sha256(text)
+    if digest is None:
+        print("  the published checksum did not name this build")
+    return digest
+
+
+def extract_member(blob, how, binname, outdir):
+    """Lift the single needed binary out of a downloaded archive into outdir.
+    Every provider nests one versioned folder with bin/<binname> inside, so the
+    nested part is skipped and only the binary is written. Returns the path or
+    None."""
+    out = outdir / binname
+    try:
+        if how == "zip":
+            with zipfile.ZipFile(blob) as zf:
+                named = [n for n in zf.namelist()
+                         if n.rsplit("/", 1)[-1] == binname
+                         and not n.endswith("/")]
+                if not named:
+                    return None
+                with zf.open(named[0]) as src, open(out, "wb") as dst:
+                    shutil.copyfileobj(src, dst)
+        elif how == "tar.xz":
+            with tarfile.open(blob, "r:xz") as tf:
+                hit = None
+                for m in tf.getmembers():
+                    if m.isfile() and m.name.rsplit("/", 1)[-1] == binname:
+                        hit = m
+                        break
+                if hit is None:
+                    return None
+                with tf.extractfile(hit) as src, open(out, "wb") as dst:
+                    shutil.copyfileobj(src, dst)
+        else:
+            return None
+    except (zipfile.BadZipFile, tarfile.TarError, OSError, EOFError) as exc:
+        print("  the downloaded archive was unreadable: %s" % exc)
+        return None
+    return out
+
+
+def install_ffmpeg(stage=None):
+    """Fetch, verify, test and install ffmpeg into bin/ for this platform.
+
+    Verification order is deliberate: the published digest is read first and the
+    download is discarded on any mismatch, and the extracted binary must answer
+    --version on this machine before it is moved over whatever is already in
+    bin/. So a truncated or wrong-platform build can never replace a working
+    ffmpeg. Returns the binary path, or None with the reason printed."""
+    plat = platform_name()
+    src = FFMPEG_SOURCES.get(plat)
+    if src is None:
+        print("  no published ffmpeg download for %s" % plat)
+        print("  install it with your package manager - it is then found on PATH")
+        return None
+    url, sha_url, binname, how = src
+    asset = url.rsplit("/", 1)[-1]
+    digest = expected_sha(url, sha_url, asset)
+    if digest is None:
+        return None
+    try:
+        BIN_DIR.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        print("  bin/ is not writable: %s" % exc)
+        return None
+
+    tmpdir = Path(tempfile.mkdtemp(prefix=".ff-", dir=str(BIN_DIR)))
+    try:
+        blob = tmpdir / asset
+        try:
+            http_file(url, blob, stage)
+        except Exception as exc:
+            print("  download failed: %s" % ascii_safe(exc))
+            return None
+        if stage is not None:
+            stage.live = "verifying the checksum"
+        if sha256_file(blob) != digest:
+            print("  checksum mismatch - nothing was changed")
+            return None
+        if stage is not None:
+            stage.live = "unpacking"
+        fresh = extract_member(blob, how, binname, tmpdir)
+        if fresh is None:
+            print("  no %s inside the downloaded archive" % binname)
+            return None
+        if stage is not None:
+            stage.live = "testing the binary"
+        # one exec can fail transiently right after a large download burst, so
+        # probe three times before declaring the build unusable. a genuinely
+        # incompatible binary (wrong arch, missing glibc) fails all three.
+        ver, rc = "", -1
+        for attempt in range(3):
+            ver, rc = probe_version(fresh)
+            if rc == 0 and ver:
+                break
+            if attempt < 2:
+                time.sleep(1.0)
+        if rc != 0 or not ver:
+            print("  the downloaded ffmpeg did not run on this system"
+                  " (rc=%s)" % rc)
+            return None
+        target = BIN_DIR / binname
+        os.replace(fresh, target)
+        if os.name != "nt":
+            os.chmod(target, 0o755)
+        return target
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def offer_ffmpeg(s, kind):
+    """A lean install that has no ffmpeg: offer the published build before the
+    run silently degrades to single files. Returns the resolved ffmpeg dir on
+    success, else None. Silent, and declining, when nobody can answer."""
+    if find_ffmpeg_dir(s):
+        return find_ffmpeg_dir(s)
+    if not can_ask():
+        return None
+    plat = platform_name()
+    src = FFMPEG_SOURCES.get(plat)
+    if kind == "audio only":
+        why = "without it the audio is saved as-is, no mp3/opus/wav conversion"
+    else:
+        why = "without it you get one single best file - no separate audio" \
+              " track, no merge, no mp3, no srt subtitles"
+    print("")
+    print(c(A_AMBER, "  ffmpeg is not installed"))
+    print("  %s" % why)
+    if src is None:
+        print("  no published download for %s - install it with your package"
+              " manager instead" % plat)
+        return None
+    url, _sha, _bin, how = src
+    print("  download the official %s build? (%s)" % (plat, "zip" if how == "zip"
+                                                      else "tar.xz"))
+    print("  %s" % url)
+    raw = read_esc("  y/n (enter = no): ")
+    if raw is None or raw.strip().lower() not in ("y", "yes"):
+        print("  continuing without ffmpeg")
+        return None
+    st = Stage("downloading ffmpeg", DOTS, A_AMBER, "...")
+    st.start()
+    try:
+        got = install_ffmpeg(st)
+    finally:
+        st.done("ffmpeg - %s" % ("installed in bin/" if got else "not installed"))
+    if got is None:
+        return None
+    ffdir = find_ffmpeg_dir(s)
+    if ffdir is None:
+        print("  installed, but it is still not found - check ffmpeg_path")
+        return None
+    print("  ffmpeg ready: %s" % ffdir)
+    return ffdir
+
+
 def do_download(s, url):
     if not (url or "").lower().startswith(("http://", "https://")):
         print("not a URL: %r" % url)
@@ -915,6 +1211,9 @@ def do_download(s, url):
     else:
         ffs = "no ffmpeg - single best file"
     st.done("ready - yt-dlp v%s, %s" % (ver, ffs))
+
+    if ffdir is None:
+        ffdir = offer_ffmpeg(s, kind)
 
     opts = build_args(s, url, ffdir)
     started = time.time()
@@ -1176,7 +1475,7 @@ def header():
 
 
 def menu_items(s):
-    """The menu rows as (number, label, value, grey), numbered 1 to 12."""
+    """The menu rows as (number, label, value, grey), numbered 1 to 13."""
     kind = s.get("type", "video")
     res = s["video_resolution"]
     if kind == "audio only":
@@ -1209,8 +1508,9 @@ def menu_items(s):
         (8, "playlist on/off", pl, True),
         (9, "add multiple youtube urls", "", True),
         (10, "reset defaults", "config/settings.json", True),
-        (11, "update yt-dlp cli", "", True),
-        (12, "quit", "", False),
+        (11, "update yt-dlp + cli", "", True),
+        (12, "auto update", onoff(s.get("auto_update")), True),
+        (13, "quit", "", False),
     ]
     return items
 
@@ -1240,6 +1540,7 @@ def main_menu(s):
     enable_vt_output()
     dirty = True
     results = False
+    started = False
     while True:
         if dirty:
             if USE_COLOR:
@@ -1249,6 +1550,11 @@ def main_menu(s):
             hint(s)
             dirty = False
             results = False
+        if not started:
+            # after the first paint, so the notice is not wiped by the clear
+            started = True
+            auto_update_check(s)
+            save_settings(s)
         try:
             choice = read_esc("> ")
         except (EOFError, KeyboardInterrupt):
@@ -1382,6 +1688,117 @@ def update_yt_dlp(s):
     return rc == 0
 
 
+def version_tuple(v):
+    """A version string as a comparable tuple. Non-numeric pieces count as 0
+    rather than raising, because the published string is not under our control."""
+    parts = [int(p) if p.isdigit() else 0
+             for p in re.split(r"[.\-+]", str(v or "")) if p != ""]
+    return tuple(parts) if parts else (0,)
+
+
+def running_from_source():
+    """True when this file is a plain .py and so may replace itself. A zipapp
+    or a frozen exe must be replaced by reinstalling the bundle."""
+    return CLI_SELF_PATH.suffix == ".py" and CLI_SELF_PATH.is_file()
+
+
+def fetch_cli(url=CLI_UPDATE_URL, timeout=60):
+    """(published VERSION, raw bytes) from one request. Reading the version and
+    the replacement from the same bytes means no second request can disagree
+    with the first."""
+    req = urllib.request.Request(url, headers={"User-Agent": "yt-dlp-cli"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        raw = r.read().decode("utf-8", "replace")
+    m = re.search(r'^VERSION\s*=\s*"([^"]*)"', raw, re.M)
+    return (m.group(1) if m else None), raw
+
+
+def install_cli(raw, target=None):
+    """Replace this file with the published bytes. The new bytes are parsed
+    before they are written and land beside the target first, so a truncated or
+    syntax-broken download can never leave the CLI unbootable. Returns
+    (ok, message)."""
+    target = target or CLI_SELF_PATH
+    if not running_from_source():
+        return False, ("this is not a plain .py file - update by reinstalling"
+                       " the bundle")
+    try:
+        compile(raw, str(target), "exec")
+    except SyntaxError as exc:
+        return False, "the published version did not parse (%s)" % exc
+    tmp = target.with_name(target.name + ".new")
+    try:
+        with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(raw)
+        os.replace(tmp, target)
+    except OSError as exc:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        return False, "could not write the new file: %s" % exc
+    return True, str(target)
+
+
+def auto_update_check(s, force=False):
+    """Startup notice for a newer published version, or the forced form menu
+    item 11 runs. It asks before it touches anything and, unless forced,
+    throttles itself to one network check a day and stays silent when the
+    network is gone. Returns True only when the file was replaced."""
+    if not force:
+        if not s.get("auto_update"):
+            return False
+        if not can_ask():
+            return False
+        try:
+            last = float(s.get("auto_update_last_check") or 0)
+        except (TypeError, ValueError):
+            last = 0.0
+        if time.time() - last < 86400:
+            return False
+    try:
+        newver, raw = fetch_cli()
+    except Exception as exc:
+        if force:
+            print("  could not reach the update source: %s" % ascii_safe(exc))
+        return False
+    if not force:
+        s["auto_update_last_check"] = int(time.time())
+    if newver is None:
+        if force:
+            print("  no version found in the published file")
+        return False
+    if version_tuple(newver) <= version_tuple(VERSION):
+        if force:
+            print("  published v%s, this is v%s - already current"
+                  % (newver, VERSION))
+        return False
+    print("  a newer version is published: v%s (this is v%s)"
+          % (newver, VERSION))
+    print("  %s" % CLI_UPDATE_URL)
+    raw = read_esc("  update now? y/n (enter = no): ")
+    if raw is None or raw.strip().lower() not in ("y", "yes"):
+        print("  not updated")
+        return False
+    if not force:
+        s["auto_update_last_check"] = int(time.time())
+    ok, msg = install_cli(raw)
+    print("  %s" % msg)
+    if ok:
+        print("  updated - the new version runs from the next start")
+    return ok
+
+
+def update_all(s):
+    """Menu item 11: both updatable halves, the yt-dlp runtime and this CLI.
+    Returns True when either one moved."""
+    print("  yt-dlp")
+    moved_yt = update_yt_dlp(s)
+    print("  cli")
+    moved_cli = auto_update_check(s, force=True)
+    return bool(moved_yt or moved_cli)
+
+
 def act(choice, s):
     """One menu pick. Returns True when the main menu must repaint.
 
@@ -1500,14 +1917,20 @@ def act(choice, s):
         print("  defaults restored")
         hold()
     elif choice == "11":
-        update_yt_dlp(s)
+        update_all(s)
         read_esc("  press enter to go back: ")
-    elif choice in ("12", "q", "quit", "exit"):
+    elif choice == "12":
+        s["auto_update"] = not s.get("auto_update")
+        save_settings(s)
+        print("  auto update %s - checked once a day at start"
+              % onoff(s.get("auto_update")))
+        hold()
+    elif choice in ("13", "q", "quit", "exit"):
         save_settings(s)
         print("bye. defaults saved to %s" % CONFIG_PATH)
         raise SystemExit(0)
     elif choice:
-        print("  pick 1-12 or paste a url")
+        print("  pick 1-13 or paste a url")
     return True
 
 
@@ -1700,15 +2123,152 @@ def selftest():
 
     rows = menu_items(load_settings())
     nums = [r[0] for r in rows]
-    check("menu has 12 rows", len(rows) == 12 and nums == list(range(1, 13)), nums)
+    check("menu has 13 rows", len(rows) == 13 and nums == list(range(1, 14)), nums)
     check("menu row 9 is multi url",
           rows[8][1] == "add multiple youtube urls", rows[8])
-    check("menu row 12 is quit", rows[11][1] == "quit", rows[11])
+    check("menu row 13 is quit", rows[12][1] == "quit", rows[12])
     check("menu row 9 has no value",
           rows[8][2] == "" and rows[8][3] is True, rows[8])
-    check("menu rows 10 and 11 shifted",
+    check("menu rows 10 to 12 shifted",
           rows[9][1] == "reset defaults"
-          and rows[10][1] == "update yt-dlp cli", (rows[9], rows[10]))
+          and rows[10][1] == "update yt-dlp + cli"
+          and rows[11][1] == "auto update", (rows[9], rows[10], rows[11]))
+    check("auto update row shows its state",
+          rows[11][2] in ("on", "off"), rows[11])
+
+    check("auto update default is on",
+          DEFAULTS["auto_update"] is True, DEFAULTS)
+    check("auto update stamps its last check",
+          "auto_update_last_check" in DEFAULTS, sorted(DEFAULTS))
+    check("ffmpeg sources cover windows and linux",
+          sorted(FFMPEG_SOURCES) == ["linux", "windows"], sorted(FFMPEG_SOURCES))
+    check("no ffmpeg download for macos",
+          "macos" not in FFMPEG_SOURCES, sorted(FFMPEG_SOURCES))
+    for _p, (_u, _s, _b, _h) in sorted(FFMPEG_SOURCES.items()):
+        check("ffmpeg source %s is well formed" % _p,
+              _u.startswith("https://") and _s.startswith("https://")
+              and _b in ("ffmpeg", "ffmpeg.exe") and _h in ("zip", "tar.xz"),
+              (_u, _s, _b, _h))
+    check("windows ffmpeg source is gyan.dev",
+          "gyan.dev" in FFMPEG_SOURCES["windows"][0],
+          FFMPEG_SOURCES["windows"][0])
+    check("linux ffmpeg source is BtbN",
+          "BtbN/FFmpeg-Builds" in FFMPEG_SOURCES["linux"][0],
+          FFMPEG_SOURCES["linux"][0])
+    check("cli update url is raw main branch",
+          CLI_UPDATE_URL.endswith("/main/app-python/src/ytdlp.py")
+          and "raw.githubusercontent" in CLI_UPDATE_URL, CLI_UPDATE_URL)
+
+    check("version_tuple compares numerically",
+          version_tuple("1.10.0") > version_tuple("1.9.0")
+          and version_tuple("1.2.0") < version_tuple("1.3")
+          and version_tuple("") == (0,)
+          and version_tuple("1.3") == (1, 3),
+          (version_tuple("1.10.0"), version_tuple("1.9")))
+    check("version_tuple counts junk pieces as 0",
+          version_tuple("1.3-beta") >= version_tuple("1.3")
+          and version_tuple("dev") == (0,), version_tuple("1.3-beta"))
+    check("parse_sha256 reads a bare 64 char digest",
+          parse_sha256("60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba")
+          == "60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba")
+    check("parse_sha256 reads digest then filename",
+          parse_sha256("60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba"
+                       "  ffmpeg-9.0.2.zip")
+          == "60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba")
+    check("parse_sha256 refuses anything without a digest",
+          parse_sha256("no digest here") is None
+          and parse_sha256("") is None
+          and parse_sha256("tooshort") is None
+          and parse_sha256("g" * 64) is None)
+    check("pick_checksum picks the line naming the asset",
+          pick_checksum("aaa  x.zip\n"
+                        "afa2b69c9965919e0b519a633520321f838d74690f8fb28c76393c54a9448d60"
+                        "  ffmpeg-n9.0-latest-linux64-gpl-9.0.tar.xz\nbbb  y.zip\n",
+                        "ffmpeg-n9.0-latest-linux64-gpl-9.0.tar.xz")
+          == "afa2b69c9965919e0b519a633520321f838d74690f8fb28c76393c54a9448d60")
+    check("pick_checksum misses an asset it was not given",
+          pick_checksum("aaa  x.zip\nbbb  y.zip\n", "z.zip") is None
+          and pick_checksum("", "z.zip") is None)
+
+    check("install_cli refuses a file that does not parse",
+          install_cli("def broken(:\n", CLI_SELF_PATH)[0] is False)
+    check("install_cli wrote nothing when it refused",
+          not CLI_SELF_PATH.with_name(CLI_SELF_PATH.name + ".new").exists())
+    check("install_cli writes exactly the bytes it was given",
+          install_cli('VERSION = "9.9.9"\n',
+                      CLI_SELF_PATH.with_name(CLI_SELF_PATH.name + ".new"))[0]
+          is True
+          and CLI_SELF_PATH.with_name(CLI_SELF_PATH.name + ".new")
+          .read_text(encoding="utf-8") == 'VERSION = "9.9.9"\n')
+    CLI_SELF_PATH.with_name(CLI_SELF_PATH.name + ".new").unlink()
+
+    import io
+    _ex = Path(tempfile.mkdtemp(prefix="ytdlp-st-"))
+    try:
+        _zd, _td, _ed = _ex / "z", _ex / "t", _ex / "e"
+        for _d in (_zd, _td, _ed):
+            _d.mkdir()
+        _zip = _ex / "a.zip"
+        with zipfile.ZipFile(_zip, "w") as zf:
+            zf.writestr("ffmpeg-9.0.2-essentials_build/bin/ffmpeg.exe", "BINARY")
+            zf.writestr("ffmpeg-9.0.2-essentials_build/bin/ffplay.exe", "OTHER")
+        _got = extract_member(_zip, "zip", "ffmpeg.exe", _zd)
+        check("extract_member lifts the nested binary from a zip",
+              _got is not None and _got.read_bytes() == b"BINARY", _got)
+        check("extract_member takes only the named binary",
+              not (_zd / "ffplay.exe").exists(), list(_zd.iterdir()))
+        _tar = _ex / "a.tar.xz"
+        _data = b"TARDATA"
+        _info = tarfile.TarInfo("ffmpeg-n9.0-linux64-gpl-9.0/bin/ffmpeg")
+        _info.size = len(_data)
+        with tarfile.open(_tar, "w:xz") as tf:
+            tf.addfile(_info, io.BytesIO(_data))
+        _got2 = extract_member(_tar, "tar.xz", "ffmpeg", _td)
+        check("extract_member lifts the nested binary from a tar.xz",
+              _got2 is not None and _got2.read_bytes() == _data, _got2)
+        _bad = _ex / "bad.zip"
+        _bad.write_bytes(b"this is not a zip")
+        check("extract_member reports an unreadable archive",
+              extract_member(_bad, "zip", "ffmpeg.exe", _ed) is None)
+        _miss = _ex / "m.zip"
+        with zipfile.ZipFile(_miss, "w") as zf:
+            zf.writestr("ffmpeg-9.0.2/bin/ffplay.exe", "x")
+        check("extract_member returns None when the binary is absent",
+              extract_member(_miss, "zip", "ffmpeg.exe", _ed) is None)
+        check("extract_member refuses an unknown format",
+              extract_member(_zip, "rar", "ffmpeg.exe", _ed) is None)
+
+        # the exact bug this code shipped with: ffmpeg 9 rejects "--version",
+        # prints its banner to stderr and exits 0xABAFB008, then answers
+        # "-version" on stdout with rc 0. probe_version must not read that as
+        # a broken binary.
+        _sd = _ex / "shim"
+        _sd.mkdir()
+        if os.name == "nt":
+            _shim = _sd / "ff9.bat"
+            _shim.write_text(
+                "@echo off\r\n"
+                "if \"%~1\"==\"--version\" echo ffmpeg version 9.0.2 fake 1>&2"
+                " & exit /b 2880417800\r\n"
+                "echo ffmpeg version 9.0.2 fake\r\nexit /b 0\r\n",
+                encoding="ascii")
+        else:
+            _shim = _sd / "ff9.sh"
+            _shim.write_text(
+                "#!/bin/sh\n"
+                "if [ \"$1\" = \"--version\" ]; then\n"
+                "  echo 'ffmpeg version 9.0.2 fake' >&2\n"
+                "  exit 2880417800\n"
+                "fi\n"
+                "echo 'ffmpeg version 9.0.2 fake'\n"
+                "exit 0\n",
+                encoding="ascii")
+            os.chmod(_shim, 0o755)
+        _v, _rc = probe_version(_shim)
+        check("probe_version survives a binary that rejects --version",
+              _rc == 0 and "9.0.2" in _v, (_v, _rc))
+    finally:
+        shutil.rmtree(_ex, ignore_errors=True)
 
     langs = sub_lang_lines()
     check("lang lines fit the box",
@@ -1965,13 +2525,13 @@ def selftest():
     try:
         hint(load_settings())
         hbody = cap4.getvalue()
-        r13 = act("13", d)
+        r13 = act("14", d)
         abody = cap4.getvalue()
     finally:
         sys.stdout = real_out
     check("hint points at item 9", "menu item: 9" in hbody, hbody)
-    check("act rejects 13 with new range",
-          "1-12" in abody and r13 is True, (abody, r13))
+    check("act rejects 14 with new range",
+          "1-13" in abody and r13 is True, (abody, r13))
 
     # "9" must reach multi_url: a mis-dispatch there would reset every default
     hit = []
@@ -2038,7 +2598,7 @@ def main(argv=None):
     if args.selftest:
         return selftest()
     if args.update:
-        return 0 if update_yt_dlp(s) else 1
+        return 0 if update_all(s) else 1
     if args.url and not args.menu:
         return do_download(s, args.url)
     return main_menu(s)
