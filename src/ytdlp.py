@@ -585,6 +585,20 @@ def ascii_safe(text):
     return s.encode("ascii", "replace").decode("ascii")
 
 
+def sub_fail_reason(err):
+    """Short reason for a failed subtitle pass, classified from yt-dlp's
+    last error line. None when nothing recognizable - the caller then shows
+    no second line."""
+    low = (err or "").lower()
+    if "429" in low or "too many requests" in low:
+        return "the subtitle api answered 429 too many requests"
+    if "timed out" in low or "timeout" in low:
+        return "the subtitle request timed out"
+    if "connection" in low or "network" in low or "unreachable" in low:
+        return "the network was unreachable"
+    return None
+
+
 def newest_since(folder, since, slack=2.0):
     """Newest file in folder with an mtime at or just after 'since'."""
     best = None
@@ -818,9 +832,11 @@ def do_download(s, url):
             st2.done("subtitles - %s" % (", ".join(ascii_safe(c2) for c2 in codes) if codes
                                          else "none available"))
         else:
-            short = err2[:37] + "..." if len(err2) > 40 else err2
-            st2.done("subtitles - not fetched (video kept)%s"
-                     % (": " + short if short else ""))
+            st2.done("subtitles - not fetched (video kept). "
+                     "unable to download subtitles")
+            reason = sub_fail_reason(err2)
+            if reason:
+                st2.done("subtitle error - %s" % reason)
     return 0
 
 
@@ -1275,6 +1291,12 @@ def selftest():
           and v4 == "xy", (v3, v4))
     check("history remembers submitted", v5 == "q", v5)
     check("history skips empty lines", v6 == "q", v6)
+
+    r429 = sub_fail_reason("ERROR: Unable to download video subtitles "
+                           "for 'en': HTTP Error 429: Too Many Requests")
+    check("sub reason 429", r429 == "the subtitle api answered 429 too many requests", r429)
+    check("sub reason unknown -> none", sub_fail_reason("SOMETHING ODD") is None,
+          sub_fail_reason("SOMETHING ODD"))
 
     s = load_settings()
     d = json.loads(json.dumps(DEFAULTS))
