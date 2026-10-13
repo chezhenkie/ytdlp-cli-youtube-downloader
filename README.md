@@ -51,7 +51,7 @@ A download runs below the input line with the menu always on screen, one line pe
 
 Notes
 -----
-yt-dlp.exe, ffmpeg.exe and ffprobe.exe ship in app-python/bin next to the launchers, so bin/ travels with the portable unit. The release zips are deleted, which retires the old first-run unpack path: on a machine without a usable binary in bin/, put yt-dlp on PATH or set yt_dlp_path in config/settings.json. app-python/ is the portable unit: run-ytdlp.bat resolves src/ytdlp.py through %~dp0 and the CLI resolves config/ and bin/ from its own __file__ (ROOT = app-python), so the folder works from any path on any drive.
+yt-dlp.exe, ffmpeg.exe and ffprobe.exe ship in app-python/bin next to the launchers, so bin/ travels with the portable unit. The release zips are deleted and the old first-run unpack path is removed: on a machine without a usable binary in bin/, put yt-dlp on PATH or set yt_dlp_path in config/settings.json. app-python/ is the portable unit: run-ytdlp.bat resolves src/ytdlp.py through %~dp0 and the CLI resolves config/ and bin/ from its own __file__ (ROOT = app-python), so the folder works from any path on any drive.
 
 Merge, mp3/m4a conversion, srt subtitle conversion and thumbnail/metadata embedding need ffmpeg; without it the CLI says so and falls back to a single best file, so downloads keep working. ffmpeg/ffprobe sit in bin/ next to yt-dlp.exe, PATH-independently; ffmpeg_path in settings points elsewhere if wanted. bin/ is untracked - ~480MB for the full builds here.
 

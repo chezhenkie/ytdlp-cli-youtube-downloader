@@ -1,29 +1,26 @@
 #!/usr/bin/env python3
 """Interactive CLI and quick launcher around yt-dlp.
 
-Menu mode:   python src/ytdlp.py
-Quick mode:  python src/ytdlp.py <url> [-a] [-f mp4] [-r 1080] [--subs]
-Checks:      python src/ytdlp.py --check | --selftest
+Menu mode:   python app-python/src/ytdlp.py
+Quick mode:  python app-python/src/ytdlp.py <url> [-a] [-f mp4] [-r 1080] [--subs]
+Checks:      python app-python/src/ytdlp.py --check | --selftest
 
-Stdlib only. Windows / Linux / macOS. Defaults persist in config/settings.json.
+Stdlib only. Windows / Linux / macOS. Defaults persist in app-python/config/settings.json.
 """
 import argparse
 import json
 import os
 import re
 import shutil
-import stat
 import subprocess
 import sys
 import threading
 import time
-import zipfile
 from pathlib import Path
 
 VERSION = "1.1"
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = ROOT / "config" / "settings.json"
-FILES_DIR = ROOT / "ytdlp-files"
 BIN_DIR = ROOT / "bin"
 WIDTH = 64
 
@@ -286,7 +283,6 @@ TEMPLATE_PRESETS = [
     "%(title)s %(timestamp>%Y-%m-%d %H-%M)s",
     "%(title)s %(id)s",
 ]
-PLATFORM_ZIP = {"windows": "yt-dlp-win64.zip", "linux": "yt-dlp_linux.zip"}
 PLATFORM_BIN = {"windows": "yt-dlp.exe", "linux": "yt-dlp", "macos": "yt-dlp"}
 
 
@@ -337,23 +333,6 @@ def resolve_outdir(s):
 
 # ---------------------------------------------------------------- binary lookup
 
-def extract_yt_dlp():
-    plat = platform_name()
-    zname = PLATFORM_ZIP.get(plat)
-    if zname:
-        zpath = FILES_DIR / zname
-        if zpath.exists():
-            print("first run: unpacking %s -> bin/" % zname)
-            BIN_DIR.mkdir(parents=True, exist_ok=True)
-            with zipfile.ZipFile(zpath) as zf:
-                zf.extractall(BIN_DIR)
-            if plat != "windows":
-                for p in BIN_DIR.rglob("*"):
-                    if p.is_file():
-                        p.chmod(p.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-            return BIN_DIR / PLATFORM_BIN.get(plat, "yt-dlp")
-    return None
-
 
 def find_yt_dlp(s):
     cands = []
@@ -366,9 +345,6 @@ def find_yt_dlp(s):
     for c in cands:
         if c and c.is_file():
             return c
-    got = extract_yt_dlp()
-    if got and got.is_file():
-        return got
     return None
 
 
@@ -382,9 +358,8 @@ def find_ffmpeg_dir(s):
     binname = "ffmpeg.exe" if os.name == "nt" else "ffmpeg"
     if (BIN_DIR / binname).is_file():
         return BIN_DIR
-    for c in (BIN_DIR / "ffmpeg", FILES_DIR / "ffmpeg"):
-        if c.is_dir():
-            return c
+    if (BIN_DIR / "ffmpeg").is_dir():
+        return BIN_DIR
     hit = shutil.which("ffmpeg")
     if hit:
         return Path(hit).parent
@@ -770,14 +745,9 @@ def do_download(s, url):
         return 2
     binary = find_yt_dlp(s)
     if binary is None:
-        plat = platform_name()
-        if plat == "macos":
-            print("%s yt-dlp not found - no macOS zip shipped; install"
-                  " (brew install yt-dlp) or set yt_dlp_path"
-                  % c(A_AMBER, "..."))
-        else:
-            print("%s yt-dlp not found - expected a release zip in"
-                  " ytdlp-files/ or yt-dlp on PATH" % c(A_AMBER, "..."))
+        print("%s yt-dlp not found - put it in bin/ or on PATH,"
+              " or set yt_dlp_path in config/settings.json"
+              % c(A_AMBER, "..."))
         return 2
 
     # sub-second preflight checks share one grouped stage line
@@ -1123,13 +1093,9 @@ def update_yt_dlp(s):
     found or failed its version check."""
     binary = find_yt_dlp(s)
     if binary is None:
-        plat = platform_name()
         print("yt-dlp binary not found.")
-        if plat == "macos":
-            print("no macOS zip shipped - install yt-dlp (brew install yt-dlp)"
-                  " or set yt_dlp_path in config/settings.json")
-        else:
-            print("expected a release zip in ytdlp-files/ or yt-dlp on PATH")
+        print("put yt-dlp in bin/ or on PATH, or set yt_dlp_path"
+              " in config/settings.json")
         return False
     old, rc = probe_version(binary)
     if rc != 0 or not old:
