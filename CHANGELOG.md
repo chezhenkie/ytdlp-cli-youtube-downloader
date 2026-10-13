@@ -3,6 +3,17 @@ changelog
 
 Newest first. Current level: v1.4.1.
 
+## v1.4.1
+
+- subtitle default: on with en (e0eb55c)
+The code default said subtitles false while the shipped settings.json said true, so menu 10 (reset defaults) answered the reset by turning subtitles off - a surprise nobody asked for. DEFAULTS now carries true with langs "en", so the code default and the shipped file agree, a fresh copy seeds subtitles on, and reset keeps them on. The selftest stayed green at 145 checks through the change.
+
+- changelog chapter for v1.3 restored, stale byte pin removed (e0eb55c)
+The "## v1.3" heading had been lost when the v1.4 chapter was written on top of it, leaving every v1.3 entry sitting inside the v1.4 region; the chapters are separate again and the current-level line reads v1.4.1. The comment at the CLI-update source block carried a pinned byte count (73630) that no longer matched the file it described (108022 measured on the same day); the comment now describes the one-GET design with no count in it.
+
+- design specsheet added as a repo document (963268b, 8065113)
+ytdlp-cli-specsheet.md documents the product end to end: header with status and owners, problem, goals and non-goals, 15 functional and 8 non-functional requirements, architecture, interfaces, user flows, the settings schema as a data table, a verification map from every requirement to its selftest checks, phases and gates, an open-questions register and a decision history. Built from code evidence with every number source-tagged, written and reviewed per the project's design-and-review manual, approved by the owner.
+
 ## v1.4
 
 - random download spinner, the stage line no longer leaves trails
