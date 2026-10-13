@@ -10,3 +10,4 @@ __pycache__/
 .vscode/
 scripts-tools/
 releases/
+agents.md
