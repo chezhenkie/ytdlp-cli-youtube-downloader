@@ -282,6 +282,13 @@ TEMPLATE_PRESETS = [
     "%(title)s %(timestamp>%Y-%m-%d %H-%M)s",
     "%(title)s %(id)s",
 ]
+# reference codes for the subtitles menu: europe first (baltics are
+# european), then the rest. two-letter codes only, the ones you type back
+# into the languages prompt.
+SUB_LANG_CODES = (
+    "en de fr es it pt nl sv da no fi is pl cs sk hu ro el bg hr sr sl "
+    "lv lt et ru zh ko ja id th vi"
+)
 PLATFORM_BIN = {"windows": "yt-dlp.exe", "linux": "yt-dlp", "macos": "yt-dlp"}
 
 
@@ -1032,6 +1039,25 @@ def short_path(p, maxv):
     return out[:maxv]
 
 
+def sub_lang_lines(width=WIDTH):
+    """The subtitle code reference for menu item 7: space separated codes,
+    filled to the box width with the remainder on the next line. Pure
+    function, so the selftest can pin the layout without a tty."""
+    lines = []
+    row = ""
+    for code in SUB_LANG_CODES.split():
+        if not row:
+            row = code
+        elif len(row) + 1 + len(code) + 2 <= width:
+            row += " " + code
+        else:
+            lines.append("  " + row)
+            row = code
+    if row:
+        lines.append("  " + row)
+    return lines
+
+
 def hint(s):
     """Amber instructions plus grey detail lines, above the input field."""
     div = "-" * (WIDTH + 2)
@@ -1325,7 +1351,9 @@ def act(choice, s):
     elif choice == "7":
         s["subtitles"] = ask_bool("subtitles", s.get("subtitles"))
         if s.get("subtitles"):
-            raw = read_esc("  languages (comma list, enter = keep): ")
+            for line in sub_lang_lines():
+                print(c(A_DARKGREY, line))
+            raw = read_esc("  enter languages separated by commas (enter = keep): ")
             if raw is None:
                 raise GoBack()
             raw = raw.strip()
@@ -1560,6 +1588,27 @@ def selftest():
     check("menu rows 10 and 11 shifted",
           rows[9][1] == "reset defaults"
           and rows[10][1] == "update yt-dlp cli", (rows[9], rows[10]))
+
+    langs = sub_lang_lines()
+    check("lang lines fit the box",
+          langs and all(len(l) <= WIDTH for l in langs), langs)
+    check("lang lines are indented and spaced",
+          all(l.startswith("  ") and "  " not in l.strip() and l == l.rstrip()
+              for l in langs), langs)
+    flat = [w for l in langs for w in l.split()]
+    check("lang line carries the groups",
+          "en" in flat and "lt" in flat and "et" in flat and "ru" in flat
+          and "zh" in flat and "vi" in flat, langs)
+    check("lang codes are two letters",
+          all(w.isalpha() and len(w) == 2 and w.islower() for w in flat), flat)
+    check("lang first line fills the box", len(langs[0]) == WIDTH,
+          len(langs[0]))
+    check("lang rest on one second line",
+          len(langs) == 2
+          and [w for l in langs for w in l.split()] == SUB_LANG_CODES.split(),
+          langs)
+    check("lang lines wrap narrow", all(len(l) <= 24 for l in sub_lang_lines(24)),
+          sub_lang_lines(24))
 
     check("batch row keeps url", batch_row(1, "https://x/y").endswith("https://x/y"),
           batch_row(1, "https://x/y"))
