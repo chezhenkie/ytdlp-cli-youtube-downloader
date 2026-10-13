@@ -5,8 +5,8 @@ Newest first. Current level: v1.2.
 
 ## v1.2
 
-- menu item 11: add multiple youtube urls, quit moves to 12 (aba619f)
-New menu entry. One url per line: paste, enter, paste the next; an empty line is the enter that ends the list and starts the downloads, escape returns to the menu at any point. The list redraws on every paste with the menu on top, so the input line never scrolls away. An entry with no http(s) link stays in the list as "error in url" and is skipped when the downloads run, so one bad paste never stops the others. Downloads run one at a time in paste order, no concurrency, and escape during a run stops that run and the rest of the batch. act() now returns whether the main menu must repaint, which lets the last run's result lines stay on screen after a batch. The menu rows moved into menu_items() so they can be asserted in the selftest. Selftest 51 to 64 checks.
+- add multiple youtube urls, menu item 9 (aba619f)
+New menu entry. One url per line: paste, enter, paste the next; an empty line is the enter that ends the list and starts the downloads, escape returns to the menu at any point. The list redraws on every paste with the menu on top, so the input line never scrolls away. An entry with no http(s) link stays in the list as "error in url" and is skipped when the downloads run, so one bad paste never stops the others. Downloads run one at a time in paste order, no concurrency, and escape during a run stops that run and the rest of the batch. act() now returns whether the main menu must repaint, which lets the last run's result lines stay on screen after a batch. The row sits directly after playlist on/off; reset defaults, update yt-dlp cli and quit moved down one each. The menu rows moved into menu_items() so they can be asserted in the selftest. Selftest 51 to 64 checks.
 
 - spinner-demo.py is standalone (829ceaa)
 The VT enable is inlined, so the demo imports nothing from the project and runs from any folder. It used to load ytdlp.py from its own directory, which broke when the file moved to scripts-tools/ (FileNotFoundError on the sibling path).

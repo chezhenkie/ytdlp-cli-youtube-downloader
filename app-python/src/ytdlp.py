@@ -969,7 +969,7 @@ def run_batch(s, entries, download=None):
 
 
 def multi_url(s):
-    """Menu item 11: collect urls one per line, then download them in order.
+    """Menu item 9: collect urls one per line, then download them in order.
 
     Paste a url, enter, paste the next; an empty line is the enter that
     confirms the end of the list and starts the downloads, escape returns to
@@ -1026,7 +1026,7 @@ def hint(s):
     l1 = "paste url, press enter and download will start."
     l2 = "enter number to change default settings"
     l3 = "change download location by choosing menu item: 5"
-    l3b = "download several urls at once by choosing menu item: 11"
+    l3b = "download several urls at once by choosing menu item: 9"
     l4 = "DL location: %s" % resolve_outdir(s)
     print(c(A_AMBER, l1))
     print(c(A_AMBER, l2))
@@ -1088,9 +1088,9 @@ def menu_items(s):
         (6, "filename template", s["filename_template"], True),
         (7, "subtitles", "%s (%s)" % (onoff(s.get("subtitles")), s["subtitle_langs"]), True),
         (8, "playlist on/off", pl, True),
-        (9, "reset defaults", "config/settings.json", True),
-        (10, "update yt-dlp cli", "", True),
-        (11, "add multiple youtube urls", "", True),
+        (9, "add multiple youtube urls", "", True),
+        (10, "reset defaults", "config/settings.json", True),
+        (11, "update yt-dlp cli", "", True),
         (12, "quit", "", False),
     ]
     return items
@@ -1157,7 +1157,7 @@ def main_menu(s):
             repaint = act(choice, s)
         except GoBack:
             repaint = True
-        # item 11 answers False when downloads ran: the screen then already
+        # item 9 answers False when downloads ran: the screen then already
         # holds the menu with the last result lines under it, and those stay
         # until the next url, menu pick or escape
         dirty = bool(repaint)
@@ -1266,7 +1266,7 @@ def update_yt_dlp(s):
 def act(choice, s):
     """One menu pick. Returns True when the main menu must repaint.
 
-    Only item 11 returns False, and only when downloads ran: the screen then
+    Only item 9 returns False, and only when downloads ran: the screen then
     already shows the menu with the last result lines underneath it."""
     if choice == "1":
         s["type"] = pick_list("change type: video / video no audio / audio only",
@@ -1333,14 +1333,14 @@ def act(choice, s):
                 except ValueError:
                     print("  not a number - kept %s" % s.get("playlist_max_items"))
     elif choice == "9":
+        return multi_url(s)
+    elif choice == "10":
         for k, v in DEFAULTS.items():
             s[k] = json.loads(json.dumps(v)) if isinstance(v, (dict, list)) else v
         print("  defaults restored")
-    elif choice == "10":
+    elif choice == "11":
         update_yt_dlp(s)
         read_esc("  press enter to go back: ")
-    elif choice == "11":
-        return multi_url(s)
     elif choice in ("12", "q", "quit", "exit"):
         save_settings(s)
         print("bye. defaults saved to %s" % CONFIG_PATH)
@@ -1540,11 +1540,14 @@ def selftest():
     rows = menu_items(load_settings())
     nums = [r[0] for r in rows]
     check("menu has 12 rows", len(rows) == 12 and nums == list(range(1, 13)), nums)
-    check("menu row 11 is multi url",
-          rows[10][1] == "add multiple youtube urls", rows[10])
+    check("menu row 9 is multi url",
+          rows[8][1] == "add multiple youtube urls", rows[8])
     check("menu row 12 is quit", rows[11][1] == "quit", rows[11])
-    check("menu row 11 has no value",
-          rows[10][2] == "" and rows[10][3] is True, rows[10])
+    check("menu row 9 has no value",
+          rows[8][2] == "" and rows[8][3] is True, rows[8])
+    check("menu rows 10 and 11 shifted",
+          rows[9][1] == "reset defaults"
+          and rows[10][1] == "update yt-dlp cli", (rows[9], rows[10]))
 
     check("batch row keeps url", batch_row(1, "https://x/y").endswith("https://x/y"),
           batch_row(1, "https://x/y"))
@@ -1598,9 +1601,24 @@ def selftest():
         abody = cap4.getvalue()
     finally:
         sys.stdout = real_out
-    check("hint points at item 11", "menu item: 11" in hbody, hbody)
+    check("hint points at item 9", "menu item: 9" in hbody, hbody)
     check("act rejects 13 with new range",
           "1-12" in abody and r13 is True, (abody, r13))
+
+    # "9" must reach multi_url: a mis-dispatch there would reset every default
+    hit = []
+
+    def fake_multi(s2):
+        hit.append("multi")
+        return False
+
+    real_multi = globals()["multi_url"]
+    globals()["multi_url"] = fake_multi
+    try:
+        rep9 = act("9", d)
+    finally:
+        globals()["multi_url"] = real_multi
+    check("act 9 is multi url", hit == ["multi"] and rep9 is False, (hit, rep9))
 
     print("-" * WIDTH)
     print("selftest: %d checks, %d failed" % (count[0], len(fails)))
