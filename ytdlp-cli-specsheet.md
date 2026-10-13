@@ -164,9 +164,8 @@ Define and Design closed with the repo's early commits (v1.0, v1.1 chapters) and
 
 | id | decision required | owner | needed | risk if left |
 |---|---|---|---|---|
-| OQ-3 | Subtitle-failure path freezes two lines because Stage.done runs twice (L1495-1499); judged intended per the v1.2 design "subtitle failure line split into two short lines" | chezhenkie | confirmation | none while open |
-| OQ-6 | settings_version is written but never read or branched (L319); either implement schema migration when needed or drop the key | chezhenkie | user call | harmless dead key |
-| OQ-9 | v1.4.1 bundles are rebuilt from the live tree; uploading to GitHub is the owner's action, never pushed from here | chezhenkie | build plus upload | stale artifacts if skipped |
+
+None open as of 2026-10-14. Closed items are recorded in the decision history.
 
 ## 14. Decision history
 
@@ -178,3 +177,6 @@ Define and Design closed with the repo's early commits (v1.0, v1.1 chapters) and
 - 2026-10-14: the "## v1.3" chapter heading is restored in CHANGELOG.md; the update-source comment loses its stale byte pin.
 - 2026-10-14: closed in one short check: permissive pure-Rust H.264 encoders exist (rusty_h264 and less-avc are pure Rust under permissive terms; the openh264 crate ships BSD-licensed openh264 source). Mux-versus-encode division unchanged.
 - 2026-10-14: version bumped to 1.4.1; four bundles rebuilt from the live tree with the v1.4 platform binaries; upload to the GitHub release is the owner's action.
+- 2026-10-14: OQ-3 closed: the two-line subtitle verdict (outcome line, then a reason line only when the cause is recognizable) is confirmed intended per the v1.2 design; no code change.
+- 2026-10-14: OQ-6 closed: settings_version stays as a schema marker with no reader; migration logic is deferred until a settings format change actually needs one.
+- 2026-10-14: OQ-9 closed by owner call: v1.4.1 is released - tag on the changelog commit, four assets published, sizes and digests recorded in README.md and releases/v1.4.1/RELEASE-NOTES.md; every bundle was extracted and run on its target platform before upload.
