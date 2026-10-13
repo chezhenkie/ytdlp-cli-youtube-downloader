@@ -5,7 +5,16 @@ Newest first. Current level: v1.2.
 
 ## v1.2
 
-- add multiple youtube urls, menu item 9 (aba619f)
+- settings.json stays LF and is only written when it changes (a50d0b5)
+Windows default text mode translated every save to CRLF while the tracked file is LF, so git reported the user's settings as modified after every run and no-op runs touched their file. save_settings now opens with newline LF and returns early when the bytes are unchanged. Fresh install subtitle language is en, not en,nl.
+
+- changelog formatting (1347104, 056077a)
+Rules reduced to separators between versions, ## on the version numbers, a plain dash on each entry.
+
+- version bump to v1.2 (2f036a8)
+VERSION in the menu header, the changelog chaptered by version, every cited hash re-verified against the live history.
+
+- add multiple youtube urls, menu item 9 (aba619f, f5c6b88)
 New menu entry. One url per line: paste, enter, paste the next; an empty line is the enter that ends the list and starts the downloads, escape returns to the menu at any point. The list redraws on every paste with the menu on top, so the input line never scrolls away. An entry with no http(s) link stays in the list as "error in url" and is skipped when the downloads run, so one bad paste never stops the others. Downloads run one at a time in paste order, no concurrency, and escape during a run stops that run and the rest of the batch. act() now returns whether the main menu must repaint, which lets the last run's result lines stay on screen after a batch. The row sits directly after playlist on/off; reset defaults, update yt-dlp cli and quit moved down one each. The menu rows moved into menu_items() so they can be asserted in the selftest. Selftest 51 to 64 checks.
 
 - spinner-demo.py is standalone (829ceaa)
@@ -83,6 +92,9 @@ A ctypes resize to 90x32 at menu start worked in a probe and did nothing in the 
 
 - selection color (3a06803)
 The submenu selection box is amber "[x]" when chosen, plain "[ ]" when not.
+
+- docs: changelog, readme and handoff refresh (12ae506)
+Docs pass in the menu rework era; the handoff store note came with it.
 
 - menu rework, nine commits (5f27ed6, 6034cc0, 67879ed, 66c4080, c58588e, f73d898, 06c76e2, 61850f9, a9c48bb)
 The single input line replaced the paste-url menu entry: a url starts the download, any other input is a menu number. The header became a centered amber title between light blue dotted lines, the frame plain dark grey. Items are light grey, values uncoloured, the hint block amber over grey detail lines with the blue divider below. Escape backs out of a submenu, and VT processing is enabled at menu start on windows consoles. Type became three-way (video / video no audio / audio only), the filename template gained four presets plus free text, and the output folder gained a native picker (SHBrowseForFolder, tkinter, zenity or kdialog) with a typed path as fallback.
