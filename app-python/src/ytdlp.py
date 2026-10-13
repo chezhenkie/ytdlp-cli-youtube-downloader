@@ -706,9 +706,12 @@ def flat_freeze(text, color):
 
 
 def dot_stage(text):
-    """The quiet amber dot stage for preflight, subtitle and ffmpeg waits."""
-    return Stage(text, flat_frames(DOTS, A_AMBER), FRAME_SECS,
-                 flat_freeze("...", A_AMBER))
+    """The quiet amber dot stage for preflight, subtitle and ffmpeg waits.
+
+    Cell colors are numeric palette indexes, 214 here - the ANSI strings
+    (A_AMBER and friends) feed the wrapper c(), not render_cells."""
+    return Stage(text, flat_frames(DOTS, 214), FRAME_SECS,
+                 flat_freeze("...", 214))
 
 
 # The eight waiting animations, ported from scripts-tools/spinner-demo.py.
@@ -2321,16 +2324,22 @@ def selftest():
     check("plain_cells strips padding",
           plain_cells(SPINNERS[0][3]) == "@", plain_cells(SPINNERS[0][3]))
     check("flat_frames cell layout",
-          flat_frames([".  "], A_AMBER)
-          == [[(".", A_AMBER), (" ", A_AMBER), (" ", A_AMBER)]],
-          flat_frames([".  "], A_AMBER))
+          flat_frames([".  "], 214)
+          == [[(".", 214), (" ", 214), (" ", 214)]],
+          flat_frames([".  "], 214))
     check("flat freeze stays plain",
-          plain_cells(flat_freeze("...", A_AMBER)) == "...",
-          flat_freeze("...", A_AMBER))
+          plain_cells(flat_freeze("...", 214)) == "...",
+          flat_freeze("...", 214))
     ds = dot_stage("probe stage")
     check("dot stage carries amber dots",
-          ds.frames == flat_frames(DOTS, A_AMBER) and ds.tick == FRAME_SECS,
+          ds.frames == flat_frames(DOTS, 214) and ds.tick == FRAME_SECS,
           ds.frames)
+    check("dot stage renders in color",
+          render_cells(ds.freeze) == "\033[38;5;214m...\033[0m",
+          render_cells(ds.freeze))
+    check("spinner freeze renders in color",
+          all(render_cells(f).endswith(A_RESET) for f in SPINNERS[0][1]),
+          render_cells(SPINNERS[0][1][0]))
 
     tmp["subtitles"] = False
     a = build_args(tmp, "https://x/y", None)
