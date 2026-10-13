@@ -5,7 +5,7 @@ Newest first. Current level: v1.3.
 
 ## v1.3
 
-- version bump to v1.3
+- version bump to v1.3 (ac4b13d)
 Feature complete and user tested: the subtitle language menu is rebuilt end to end and every submenu message now survives the repaint. VERSION reads 1.3 in the menu header, the changelog is chaptered from v1.3, and the repository is prepared for public release (MIT LICENSE, .gitattributes, README credits). Selftest 95 checks. Live defaults moved to 1080p.
 
 - subtitles submenu: every submenu message survives the repaint (0743cab)
@@ -14,7 +14,7 @@ The menu clears and re-renders the instant a submenu returns, so a line printed 
 - subtitles submenu: block under the input, typing on its own line (b7a4890)
 The ten grey code lines now sit under the input with the caret parked on a dedicated typing row, so the list is on screen while the value is being entered and nothing is printed below it. The first attempt at this moved the caret up but left it at column 0, so typing overwrote the label; giving the value its own line removes the column arithmetic entirely. On enter the typing row is rewritten as the amber verdict and the block is repainted under it. block_under_input() gates the layout on colour, a real console and enough room, because a block wider than the window would wrap and a taller one would scroll the typing row off the top, and counting rows back up would then land on the wrong line; without room the block falls back above the input where it is always correct. Verified cursor-up counts [11, 1, 11] for a 10-line block.
 
-- repo prepared for public release (0743cab, 5abe417, b7a4890)
+- repo prepared for public release (ac4b13d, 0743cab, 5abe417, b7a4890)
 MIT LICENSE added with the holder westercoder, and a .gitattributes forcing LF everywhere with binaries marked. The attributes matter: core.autocrlf rewrites tracked files to CRLF on checkout, which is the documented cause of the regex-anchor and trailing-space breakage in this codebase and of git reporting the whole tree as modified. README now credits and links yt-dlp (Unlicense) and states that the ffmpeg build in bin/ is 8.1.2 "full build" from gyan.dev, configured --enable-gpl --enable-version3 and therefore GPL-2.0-or-later, so a bundle containing it carries GPL redistribution obligations - the full-versus-essentials question parked for the release step now has a concrete answer. Audited and clean: one author (westercoder <westercoder@local>, non-routable, identifies nobody), no machine paths, no remote, seven tracked files, app-rust/ empty on disk.
 
 - subtitles submenu: the code block is the last thing on screen (5daf8e2)
