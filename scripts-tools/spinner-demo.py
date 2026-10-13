@@ -1,8 +1,11 @@
 """Terminal demo of five 4-char waiting animations for the download flow.
 
-Run in a real console:  python src/spinner-demo.py          (all five)
-One animation only:     python src/spinner-demo.py 3
-Piped (no tty):         prints the frames as text and exits.
+Standalone: stdlib only, no import from the project, runs from any folder.
+In a real console it needs no arguments, piped it prints the frames as text.
+
+Run in a real console:  python scripts-tools/spinner-demo.py     (all five)
+One animation only:    python scripts-tools/spinner-demo.py 3
+Piped (no tty):        prints the frames as text and exits.
 
 Each entry is (description, ansi 256-color, frames) and every frame is
 exactly four characters wide, matching the menu row budget of 66 chars.
@@ -10,7 +13,6 @@ exactly four characters wide, matching the menu row budget of 66 chars.
 import os
 import sys
 import time
-from pathlib import Path
 
 A_AMBER = "\033[38;5;214m"
 A_LBLUE = "\033[38;5;117m"
@@ -47,15 +49,17 @@ def play(frames, color, seconds=4.0):
 
 
 def _enable_vt():
-    """Same VT enable the CLI does at menu start (windows legacy consoles)."""
+    """Windows legacy consoles need ENABLE_VIRTUAL_TERMINAL_PROCESSING for
+    ANSI. Same guard the CLI uses, inlined so this demo is a standalone file:
+    it imports nothing from the project."""
     if os.name != "nt":
         return
-    import importlib.util
-    spec = importlib.util.spec_from_file_location(
-        "ytdlp", str(Path(__file__).resolve().parent / "ytdlp.py"))
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    mod.enable_vt_output()
+    import ctypes
+    k = ctypes.windll.kernel32
+    h = k.GetStdHandle(-11)
+    mode = ctypes.c_uint32()
+    if k.GetConsoleMode(h, ctypes.byref(mode)):
+        k.SetConsoleMode(h, mode.value | 0x0004)
 
 
 def main():
