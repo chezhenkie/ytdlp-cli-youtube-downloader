@@ -1,9 +1,9 @@
-# SPEC.md - yt-dlp cli (ytdlp-youtube-proj)
+# ytdlp-cli-specsheet.md - yt-dlp cli (ytdlp-youtube-proj)
 
 ## Header
 
 - Title: yt-dlp cli - text-menu download wrapper around yt-dlp.
-- Purpose: one source of truth for what the product is and does, written and reviewed per specsheet-design-and-review-manual.md (C:\Users\lap1user\ocdev\specsheet-design-and-review-manual.md). Reading this file and the code should require no other conversation.
+- Purpose: one source of truth for what the product is and does, written and reviewed per specsheet-design-and-review-manual.md (the design and review manual, held outside this repo). Reading this file and the code should require no other conversation.
 - Owner: chezhenkie (all components, interfaces and open questions).
 - Stakeholders: chezhenkie (user, engineer, tester, reviewer); consumers of the public repo and the release bundles; yt-dlp and ffmpeg upstreams as read-only dependencies.
 - Approvers: chezhenkie approves every gate.
@@ -113,7 +113,7 @@ Failure handling pattern: every detectable failure (missing binary, failed probe
 
 ## 7. Implementation
 
-Only what this spec defines is implemented; CODE fixes a spec gap (FR-14's "checksum before install" is documented both in RELEASE-NOTES.md and code comment L1312-1318). Named owner for everything: chezhenkie. Every component stays in its layer (section 4).
+Only what this spec defines is implemented; code comments carry the long-form rationale where a spec-sized claim cannot (FR-14's "checksum before install" order is documented in RELEASE-NOTES.md and the code comment L1312-1318). Named owner for everything: chezhenkie. Every component stays in its layer (section 4).
 
 Observability is the stage line system itself: one grouped preflight line, one live progress line, one frozen verdict per run - no external logging, no collected telemetry, no crash dumps. --check is the operator's window (FR-15). Selftest pins the observable surfaces called out in NFR-4.
 
@@ -158,13 +158,13 @@ Named in the header. Owner of all items: chezhenkie. Releases are the user's alo
 
 ## 12. Phases and gates
 
-Define and Design closed with the repo's early commits (v1.0, v1.1 chapters) and the manual adoption (this spec). Build closed increment per CHANGELOG chapter - each entry a working behavior or verified artifact, cited hashes - gate 2 equivalent per release. Release gate 3 passed with v1.3 and v1.4: four assets each verified by byte size at the destination and (v1.4) by extraction on the target os (CHANGELOG v1.4 linux-mode and permission entries; releases/ v1.4 listing 2026-10-13: windows lean 17651114, windows portable 56317844, linux lean 2969024, linux portable 70570264, plus RELEASE-NOTES.md 3468). Gate 4 (closure): this SPEC.md records spec-matches-production status at HEAD 7c03b63; differences found are kept as open questions rather than silently normative silence. Operate: monitoring is user-run (--check, auto-update), and retired behavior is listed in the changelog decisions.
+Define and Design closed with the repo's early commits (v1.0, v1.1 chapters) and the manual adoption (this spec). Build closed increment per CHANGELOG chapter - each entry a working behavior or verified artifact, cited hashes - gate 2 equivalent per release. Release gate 3 passed with v1.3 and v1.4: four assets each verified by byte size at the destination and (v1.4) by extraction on the target os (CHANGELOG v1.4 linux-mode and permission entries; releases/ v1.4 listing 2026-10-13: windows lean 17651114, windows portable 56317844, linux lean 2969024, linux portable 70570264, plus RELEASE-NOTES.md 3468). Gate 4 (closure): this specsheet records spec-matches-production status at HEAD 7c03b63; differences found are kept as open questions rather than silently normative silence. Operate: monitoring is user-run (--check, auto-update), and retired behavior is listed in the changelog decisions.
 
 ## 13. Open questions register
 
 | id | decision required | owner | needed | risk if left |
 |---|---|---|---|---|
-| OQ-1 | Review and sign off this SPEC.md (gate 1 equivalent) | chezhenkie | review | spec drift from live text |
+| OQ-1 | Review and sign off ytdlp-cli-specsheet.md (gate 1 equivalent) | chezhenkie | review | spec drift from live text |
 | OQ-2 | Reconcile shipped subtitles=true with DEFAULTS false; confirm intended reset-defaults behavior (menu 10 would turn subtitles off) | chezhenkie | user call | surprise at reset |
 | OQ-3 | Subtitle-failure path calls Stage.done twice (L1495 and L1499), producing two frozen lines from one stage; decide whether that is the intended two-line verdict or a bug | chezhenkie | code read | double-freeze edge case |
 | OQ-4 | Verify the Rust licensing premise before any rewrite plan: whether a permissively licensed H.264 encoder exists and the mux-versus-encode division holds (agreed, not yet verified) | chezhenkie | research | wasted plan work |
@@ -176,6 +176,6 @@ Define and Design closed with the repo's early commits (v1.0, v1.1 chapters) and
 
 ## 14. Decision history
 
-- 2026-10-13: adopted specsheet-design-and-review-manual.md as lead; this spec written from code evidence (two fact sheets, spec-scratch/, deleted after staging) and reconciled against README, CHANGELOG, THIRD-PARTY-NOTICES and release listings; base draft "temp spec base ytdlp.md" (9472 bytes, untracked) made obsolete and deletable now that SPEC.md exists.
+- 2026-10-13: adopted specsheet-design-and-review-manual.md as lead; this spec written from code evidence (two fact sheets, spec-scratch/, deleted after staging) and reconciled against README, CHANGELOG, THIRD-PARTY-NOTICES and release listings; base draft "temp spec base ytdlp.md" (9472 bytes, untracked) became obsolete when this specsheet existed and is now deleted.
 - 2026-10-13: v1.4 shipped (tag e3869b8): cli self-update, ffmpeg download offer with digest-first verification, auto-update toggle, menu 12 to 13 rows.
 - 2026-10-13: spinner/stage rework sessions (commits 27e0563, a35e1e7, 79b2bb9, 7541ab9, 7c03b63): eight random animations, erase-to-EOL rewrites, write lock, width-stable numbers, live stamp.
