@@ -10,7 +10,9 @@ Stdlib only. Windows / Linux / macOS. Defaults persist in app-python/config/sett
 import argparse
 import hashlib
 import json
+import math
 import os
+import random
 import re
 import shutil
 import subprocess
@@ -689,27 +691,231 @@ def build_sub_args(s, url, ffdir):
 
 # ---------------------------------------------------------------- download
 
-DOTS = [".  ", ".. ", "...", ".. ", ".  "]
-CHEVRONS = [">  ", ">> ", ">>>", ">> ", ">  "]
 FRAME_SECS = 0.1
+DOTS = [".  ", ".. ", "...", ".. ", ".  "]
+
+
+def flat_frames(frames, color):
+    """Flat frames ("...", ">>>") as cell frames, one cell per character."""
+    return [[(ch, color) for ch in f] for f in frames]
+
+
+def flat_freeze(text, color):
+    """A frozen flat marker as one wide cell, rendered exactly as before."""
+    return [(text, color)]
+
+
+def dot_stage(text):
+    """The quiet amber dot stage for preflight, subtitle and ffmpeg waits."""
+    return Stage(text, flat_frames(DOTS, A_AMBER), FRAME_SECS,
+                 flat_freeze("...", A_AMBER))
+
+
+# The eight waiting animations, ported from scripts-tools/spinner-demo.py.
+# Each frame is six (char, color) cells so one frame can mix colors, and
+# each animation carries its own tick and its own settled freeze frame.
+
+
+def _cells(mapping):
+    """Six-cell frame from {pos: (char, color)}; unset cells stay blank."""
+    frame = [(" ", 0)] * 6
+    for pos, cell in mapping.items():
+        frame[pos] = cell
+    return frame
+
+
+_FIRE = [231, 223, 216, 214, 208, 202, 196, 88]
+_GRAY = [255, 252, 249, 246, 243, 240, 236, 232]
+_CYAN = [123, 87, 81, 51, 45, 39, 31, 30]
+_MAGENTA = [213, 177, 141, 105, 99, 63, 62, 60]
+_SPECTRUM = [196, 214, 226, 46, 33, 129]
+_HEAT = [234, 238, 244, 250, 215, 208, 202, 196, 231]
+
+
+def _comet():
+    tail = ".", ":", "-", "=", "+", "*"
+    path = list(range(6)) + list(range(4, 0, -1))
+    frames = []
+    for i, p in enumerate(path):
+        step = 1 if i == 0 or p > path[i - 1] else -1
+        m = {p: ("@", 231)}
+        for k in range(1, 6):
+            q = p - k * step
+            if 0 <= q <= 5:
+                m[q] = (tail[k - 1], _GRAY[min(k, len(_GRAY) - 1)])
+        frames.append(_cells(m))
+    return frames
+
+
+def _pulse():
+    frames = []
+    for ring in ("*", "+", "."):
+        bloom = []
+        for t in range(3):
+            m = {}
+            for p in range(6):
+                d = abs(p - 2.5)
+                if d <= t + 0.5:
+                    idx = int((d - 0.5) * 2)
+                    if d > t:
+                        m[p] = (ring, _FIRE[idx])
+                    else:
+                        m[p] = ("o", _FIRE[min(idx + 2, len(_FIRE) - 1)])
+            bloom.append(_cells(m))
+        frames.extend(bloom + bloom[-2::-1])
+    return frames
+
+
+def _orbit():
+    frames = []
+    for (cl, cr), hl, hr in ((123, 213), "o", "O"), ((46, 226), "e", "0"):
+        for d in (1, 3, 5, 5, 3, 1):
+            m = {}
+            for p in range(6):
+                dd = int(round(abs(p - 2.5) * 2))
+                if dd < d:
+                    m[p] = (":", 238)
+                elif dd == d:
+                    m[p] = (hl, cl) if p < 3 else (hr, cr)
+            frames.append(_cells(m))
+    return frames
+
+
+def _scanner():
+    path = list(range(6)) + list(range(4, 0, -1))
+    frames = []
+    for i, p in enumerate(path):
+        m = {p: ("|", _SPECTRUM[i % 6])}
+        for k in (1, 2, 3):
+            for q in (p - k, p + k):
+                if 0 <= q <= 5:
+                    m[q] = (("." if k == 1 else ":" if k == 2 else "-"),
+                            _GRAY[k + 1])
+        frames.append(_cells(m))
+    return frames
+
+
+def _twinkle():
+    glyph = "*", "+", "."
+    frames = []
+    for t in range(8):
+        m = {}
+        for p in range(6):
+            seed = (p * 4 + t * 3) % 11
+            if seed < 3:
+                m[p] = (glyph[seed], _SPECTRUM[(p + t) % 6])
+        frames.append(_cells(m))
+    return frames
+
+
+def _eq():
+    ramp = " .:-=+*#@"
+    frames = []
+    for t in range(12):
+        m = {}
+        for p in range(6):
+            lvl = int(round(4 + 3.6 * math.sin(t * 0.8 + p * 1.25)))
+            lvl = max(0, min(len(ramp) - 1, lvl))
+            m[p] = (ramp[lvl], _HEAT[lvl])
+        frames.append(_cells(m))
+    return frames
+
+
+def _fill():
+    def edge(t):
+        m = {}
+        for p in range(t):
+            m[p] = ("=", _CYAN[t])
+            m[5 - p] = ("=", _MAGENTA[t])
+        return _cells(m)
+
+    frames = [edge(t) for t in (0, 1, 2)]
+    frames.append(_cells({p: ("=", _CYAN[3] if p < 3 else _MAGENTA[3])
+                          for p in range(6)}))
+    frames.append(_cells({p: ("#", 231) for p in range(6)}))
+    frames.append(_cells({p: ("#", 231) for p in range(6)}))
+    frames.extend(edge(t) for t in (2, 1, 0))
+    return frames
+
+
+def _bounce():
+    path = 0, 0, 1, 2, 3, 4, 5, 5, 4, 3, 2, 1
+    frames = []
+    for hue in (_SPECTRUM[0], _SPECTRUM[3]):
+        step = 1
+        for i, p in enumerate(path):
+            if i and p != path[i - 1]:
+                step = 1 if p > path[i - 1] else -1
+            head = "O" if i and p == path[i - 1] else "o"
+            m = {p: (head, hue)}
+            for k in range(1, 4):
+                q = p - k * step
+                if 0 <= q <= 5:
+                    m[q] = (".", _GRAY[k + 1])
+            frames.append(_cells(m))
+    return frames
+
+
+SPINNERS = [
+    ("comet", _comet(), 0.08, _cells({2: ("@", 231)})),
+    ("pulse", _pulse(), 0.08, _cells({2: ("o", _FIRE[2]), 3: ("o", _FIRE[2])})),
+    ("orbit", _orbit(), 0.08, _cells({2: ("o", _CYAN[0])})),
+    ("scanner", _scanner(), 0.08, _cells({2: ("|", _SPECTRUM[3])})),
+    ("twinkle", _twinkle(), 0.12, _cells({2: ("*", 226)})),
+    ("eq", _eq(), 0.09, _cells({p: ("=", _HEAT[5]) for p in range(6)})),
+    ("fill", _fill(), 0.08,
+     _cells({p: ("=", _CYAN[3] if p < 3 else _MAGENTA[3]) for p in range(6)})),
+    ("bounce", _bounce(), 0.08, _cells({2: ("o", _SPECTRUM[3])})),
+]
+
+
+def pick_spinner():
+    """A different waiting animation per download run, chosen at random."""
+    return random.choice(SPINNERS)
+
+
+def render_cells(frame):
+    """ANSI render of one cell frame: a color code only when the color
+    changes, reset at the end."""
+    parts = []
+    last = None
+    for ch, col in frame:
+        if col != last:
+            parts.append("\033[38;5;%dm" % col)
+            last = col
+        parts.append(ch)
+    parts.append(A_RESET)
+    return "".join(parts)
+
+
+def plain_cells(frame):
+    """The frame without color, trimmed to column 0, for a piped run's
+    frozen line."""
+    return "".join(ch for ch, _col in frame).strip()
 
 
 class Stage:
-    """One animated stage line: a 3-char prefix spins, then freezes.
+    """One animated stage line: cells spin, then the line freezes.
 
+    Every rewrite clears the line first (cursor to column zero, erase to
+    end of line), so a shorter progress value never leaves the tail of a
+    longer one behind and the final verdict never shares its line with the
+    last progress text. While live holds a progress text the spinner
+    stands still on its freeze frame and the text is shown instead.
     done() ends the line with a newline, so finished stages stay on screen
     under the input line until the next url, menu pick, or escape repaints
     the menu. Outside a tty the thread is skipped and only the final line
     prints."""
 
-    def __init__(self, text, frames, color, freeze):
+    def __init__(self, text, frames, tick, freeze):
         self.text = text
         self.frames = frames
-        self.color = color
+        self.tick = tick
         self.freeze = freeze
         self.live = None
         self._stop = False
         self._th = None
+        self._wlock = threading.Lock()
 
     def start(self):
         if not USE_COLOR:
@@ -720,26 +926,33 @@ class Stage:
     def _spin(self):
         i = 0
         while not self._stop:
-            if self.live:
-                frame, text = self.freeze, self.live
-            else:
-                frame, text = self.frames[i % len(self.frames)], self.text
-                i += 1
-            sys.stdout.write("\r%s%s%s %s" % (self.color, frame,
-                                              A_RESET, text))
-            sys.stdout.flush()
-            time.sleep(FRAME_SECS)
+            with self._wlock:
+                if self._stop:
+                    break
+                live = self.live
+                if live:
+                    frame, text = self.freeze, live
+                else:
+                    frame = self.frames[i % len(self.frames)]
+                    text = self.text
+                    i += 1
+                sys.stdout.write("\r\x1b[K%s %s"
+                                 % (render_cells(frame), text))
+                sys.stdout.flush()
+            time.sleep(self.tick)
 
     def done(self, text=None):
         self._stop = True
         if self._th is not None:
             self._th.join(timeout=1.0)
         final = text if text is not None else self.text
-        if USE_COLOR:
-            sys.stdout.write("\r%s%s%s %s\n" % (self.color, self.freeze,
-                                                A_RESET, final))
-        else:
-            print("%s %s" % (self.freeze, final))
+        with self._wlock:
+            if USE_COLOR:
+                sys.stdout.write("\r\x1b[K%s %s\n"
+                                 % (render_cells(self.freeze), final))
+            else:
+                sys.stdout.write("%s %s\n"
+                                 % (plain_cells(self.freeze), final))
         sys.stdout.flush()
 
 
@@ -1168,7 +1381,7 @@ def offer_ffmpeg(s, kind):
     if raw is None or raw.strip().lower() not in ("y", "yes"):
         print("  continuing without ffmpeg")
         return None
-    st = Stage("downloading ffmpeg", DOTS, A_AMBER, "...")
+    st = dot_stage("downloading ffmpeg")
     st.start()
     try:
         got = install_ffmpeg(st)
@@ -1196,7 +1409,7 @@ def do_download(s, url):
         return 2
 
     # sub-second preflight checks share one grouped stage line
-    st = Stage("checking yt-dlp and ffmpeg", DOTS, A_AMBER, "...")
+    st = dot_stage("checking yt-dlp and ffmpeg")
     st.start()
     ver, vrc = probe_version(binary)
     ffdir = find_ffmpeg_dir(s)
@@ -1217,7 +1430,8 @@ def do_download(s, url):
 
     opts = build_args(s, url, ffdir)
     started = time.time()
-    st = Stage("downloading (escape to stop)", CHEVRONS, A_LBLUE, ">>>")
+    _sp_name, sp_frames, sp_tick, sp_freeze = pick_spinner()
+    st = Stage("downloading (escape to stop)", sp_frames, sp_tick, sp_freeze)
     st.start()
     rc, stopped, err, _codes = run_download(binary, opts, st)
     if stopped:
@@ -1243,7 +1457,7 @@ def do_download(s, url):
                                          newest.stat().st_size / 1048576.0))
 
     if s.get("subtitles"):
-        st2 = Stage("subtitles (%s)" % s["subtitle_langs"], DOTS, A_AMBER, "...")
+        st2 = dot_stage("subtitles (%s)" % s["subtitle_langs"])
         st2.start()
         rc2, _stopped2, err2, codes = run_download(binary,
                                                     build_sub_args(s, url, ffdir),
@@ -2082,6 +2296,41 @@ def selftest():
     check("progress final line",
           A_AMBER + "100%" + A_RESET
           in color_progress("100% of 198.15MiB in 00:45"))
+
+    check("eight spinners", len(SPINNERS) == 8, [s[0] for s in SPINNERS])
+    check("spinner names unique", len(set(s[0] for s in SPINNERS)) == 8,
+          [s[0] for s in SPINNERS])
+    for sname, sframes, stick, sfreeze in SPINNERS:
+        ok = (len(sframes) > 0 and 0 < stick <= 0.2
+              and all(len(f) == 6 for f in sframes)
+              and all(isinstance(ch, str) and isinstance(col, int)
+                      and 0 <= col <= 255
+                      for f in sframes for ch, col in f)
+              and len(sfreeze) == 6)
+        check("spinner %s shape" % sname, ok, sname)
+    pick = pick_spinner()
+    check("spinner pick is one of them", pick in SPINNERS, pick[0])
+    check("render_cells one color run",
+          render_cells([("@", 231), (".", 231)])
+          == "\033[38;5;231m@.\033[0m",
+          render_cells([("@", 231), (".", 231)]))
+    check("render_cells color change",
+          render_cells([("@", 231), (".", 202)])
+          == "\033[38;5;231m@\033[38;5;202m.\033[0m",
+          render_cells([("@", 231), (".", 202)]))
+    check("plain_cells strips padding",
+          plain_cells(SPINNERS[0][3]) == "@", plain_cells(SPINNERS[0][3]))
+    check("flat_frames cell layout",
+          flat_frames([".  "], A_AMBER)
+          == [[(".", A_AMBER), (" ", A_AMBER), (" ", A_AMBER)]],
+          flat_frames([".  "], A_AMBER))
+    check("flat freeze stays plain",
+          plain_cells(flat_freeze("...", A_AMBER)) == "...",
+          flat_freeze("...", A_AMBER))
+    ds = dot_stage("probe stage")
+    check("dot stage carries amber dots",
+          ds.frames == flat_frames(DOTS, A_AMBER) and ds.tick == FRAME_SECS,
+          ds.frames)
 
     tmp["subtitles"] = False
     a = build_args(tmp, "https://x/y", None)
