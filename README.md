@@ -10,7 +10,7 @@ app-python/          the portable app - move it anywhere, all paths resolve insi
   run-ytdlp.bat      Windows launcher (menu or quick args)
   run-ytdlp.sh       Linux launcher
   config/settings.json saved defaults (committed)
-  bin/               yt-dlp.exe + ffmpeg.exe + ffprobe.exe (gitignored)
+  bin/               yt-dlp.exe + ffmpeg.exe (gitignored)
   downloads/         output (gitignored)
 resources/           wiki/readme references and the yt-dlp master zip
 scripts-tools/       spinner-demo.py, 7-Zip installer
@@ -51,9 +51,9 @@ A download runs below the input line with the menu always on screen, one line pe
 
 Notes
 -----
-yt-dlp.exe, ffmpeg.exe and ffprobe.exe ship in app-python/bin next to the launchers, so bin/ travels with the portable unit. The release zips are deleted and the old first-run unpack path is removed: on a machine without a usable binary in bin/, put yt-dlp on PATH or set yt_dlp_path in config/settings.json. app-python/ is the portable unit: run-ytdlp.bat resolves src/ytdlp.py through %~dp0 and the CLI resolves config/ and bin/ from its own __file__ (ROOT = app-python), so the folder works from any path on any drive.
+yt-dlp.exe and ffmpeg.exe ship in app-python/bin next to the launchers, so bin/ travels with the portable unit. The release zips are deleted and the old first-run unpack path is removed: on a machine without a usable binary in bin/, put yt-dlp on PATH or set yt_dlp_path in config/settings.json. app-python/ is the portable unit: run-ytdlp.bat resolves src/ytdlp.py through %~dp0 and the CLI resolves config/ and bin/ from its own __file__ (ROOT = app-python), so the folder works from any path on any drive.
 
-Merge, mp3/m4a conversion, srt subtitle conversion and thumbnail/metadata embedding need ffmpeg; without it the CLI says so and falls back to a single best file, so downloads keep working. ffmpeg/ffprobe sit in bin/ next to yt-dlp.exe, PATH-independently; ffmpeg_path in settings points elsewhere if wanted. bin/ is untracked - ~480MB for the full builds here.
+Merge, mp3/m4a conversion, srt subtitle conversion and thumbnail/metadata embedding need ffmpeg; without it the CLI says so and falls back to a single best file, so downloads keep working. ffmpeg sits in bin/ next to yt-dlp.exe, PATH-independently; ffmpeg_path in settings points elsewhere if wanted. bin/ is untracked - ~248MB (yt-dlp.exe 17.01MB + ffmpeg.exe 231.26MB, sizes from Get-ChildItem). ffprobe.exe (231.07MB) lives in scripts-tools/ for dev work, not in the product: the CLI never invokes it (zero references in src/ytdlp.py), and the pinned yt-dlp source (resources/yt-dlp-master.zip, 1128 py files scanned, 15 ffprobe mentions) only reaches it through fallback paths - get_audio_codec parses `ffmpeg -i` stderr when no probe is available (postprocessor/ffmpeg.py:240-243), check_version hard-fails only on missing ffmpeg (ffmpeg.py:223-225), so merge, audio extraction and srt conversion never need it. Only menu items 8 (thumbnail) and 9 (metadata) can fall back to ffmpeg+ffprobe paths (embedthumbnail.py:176-195 method 3, get_metadata_object), after mutagen and AtomicParsley both fail, and then want ffprobe from PATH.
 
 Quick-arg overrides are one-shot, they do not change saved defaults.
 
