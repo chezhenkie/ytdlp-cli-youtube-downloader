@@ -5,6 +5,9 @@ Newest first. Current level: v1.2.
 
 ## v1.2
 
+- subtitles menu: the whole language list, 191 codes in ten lines (5abe417)
+Item 7 printed a handpicked 32 codes and validated against 74 base codes scraped from the pinned yt-dlp source, so ordinary languages like af, ta, sw or zu still drew the "not in the youtube list" note for no reason. Both come from one set now: the 190 two-letter primary subtags of the IANA BCP 47 language subtag registry (fetched 2026-10-13), which is ISO 639-1 plus the grandfathered aliases youtube still serves (in, iw, ji, mo, sh), plus fil, which has no two-letter form and came from the pinned yt-dlp _SUPPORTED_LANG_CODES. The submenu prints the whole set alphabetically, filled to the 64 char box in ten grey lines. It is still a reference and not a gate: subtitle codes arrive from captionTracks[].languageCode per video and youtube publishes no full list, so a well formed code outside the set (yue, nan, cmn) is kept with a note, and that note now says "not in the language list" because that is what the set is. Selftest 85 checks.
+
 - submenu messages hold the screen instead of vanishing into the repaint (f62a5cb)
 The main loop clears the screen and re-renders the menu the moment a submenu returns, so anything printed after that submenu's last read was wiped in the same instant. Caught live: typing yue saved correctly but its "not in the youtube list" notice flashed and disappeared before it could be read. New notice() prints amber lines and then waits for enter, the hold item 11 was already doing, and it fires only when there is something to say so a clean entry still costs no keystroke. Two probes disagreed on this and the probe was wrong: driving act() in isolation never reaches the repaint that eats the output, which is why the message looked present in a test and absent on screen. Same latent bug remains on item 8 ("not a number - kept") and item 10 ("defaults restored").
 
