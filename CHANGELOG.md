@@ -14,6 +14,9 @@ The "## v1.3" heading had been lost when the v1.4 chapter was written on top of 
 - design specsheet added as a repo document (963268b, 8065113)
 ytdlp-cli-specsheet.md documents the product end to end: header with status and owners, problem, goals and non-goals, 15 functional and 8 non-functional requirements, architecture, interfaces, user flows, the settings schema as a data table, a verification map from every requirement to its selftest checks, phases and gates, an open-questions register and a decision history. Built from code evidence with every number source-tagged, written and reviewed per the project's design-and-review manual, approved by the owner.
 
+- v1.4.1 published (e0eb55c, 90eed17)
+Tag on the changelog tip with four assets rebuilt from the live tree and verified at the destination before upload: all four bundles were extracted on their target platforms first - selftest 145 checks 0 failed from the extracted trees on windows and linux, executable modes at 0755, the yt-dlp zipapp and ffmpeg probed by version, launcher smoke rerun. Sizes at destination: windows lean 17665290, windows portable 57581242, linux lean 2971881, linux portable 72824533; the README asset table and checksum block switched to v1.4.1 and v1.4 stays published below it. The bundles carry the same platform binaries as v1.4, hash-verified inside the build, plus the rebuilt source file.
+
 ## v1.4
 
 - random download spinner, the stage line no longer leaves trails
