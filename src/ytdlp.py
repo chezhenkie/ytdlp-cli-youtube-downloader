@@ -31,6 +31,8 @@ A_AMBER = "\033[38;5;214m"
 A_LBLUE = "\033[38;5;117m"
 A_GREY = "\033[38;5;250m"
 A_DARKGREY = "\033[38;5;244m"
+A_MINT = "\033[38;5;121m"
+A_PURPLE = "\033[38;5;176m"
 A_RESET = "\033[0m"
 CLEAR = "\033[2J\033[H"
 USE_COLOR = sys.stdout.isatty()
@@ -55,21 +57,30 @@ def c(code, text):
     return code + text + A_RESET if USE_COLOR else text
 
 
-SIZE_RE = re.compile(r"^\d+(\.\d+)?[KMGT]?i?B(/s)?$")
+SIZE_RE = re.compile(r"^\d+(\.\d+)?[KMGT]?i?B$")
+SPEED_RE = re.compile(r"^\d+(\.\d+)?[KMGT]?i?B/s$")
 TIME_RE = re.compile(r"^\d{1,2}:\d{2}(:\d{2})?$")
+PLAIN_WORDS = ("of", "at", "in", "ETA")
 
 
 def color_progress(body):
-    """Color one [download] body: amber percent, grey size/speed/ETA.
+    """Color one [download] body: four numbers, four colors.
 
-    Uses the on-screen scheme (amber dots and done marker, grey labels);
-    connectors like "of", "at" and "ETA" stay plain. Pure function, testable
-    without a tty."""
+    Percent amber 214, file size mint green 121, speed light blue 117, ETA
+    desaturated purple 176; the plain words ("of", "at", "in", "ETA") are
+    grey 250. Pure function, testable without a tty; off a tty the caller
+    skips it entirely."""
     out = []
     for word in body.split(" "):
         if "%" in word:
             out.append(A_AMBER + word + A_RESET)
-        elif SIZE_RE.match(word) or TIME_RE.match(word):
+        elif SIZE_RE.match(word):
+            out.append(A_MINT + word + A_RESET)
+        elif SPEED_RE.match(word):
+            out.append(A_LBLUE + word + A_RESET)
+        elif TIME_RE.match(word):
+            out.append(A_PURPLE + word + A_RESET)
+        elif word in PLAIN_WORDS:
             out.append(A_GREY + word + A_RESET)
         else:
             out.append(word)
@@ -78,6 +89,94 @@ def color_progress(body):
 
 class GoBack(Exception):
     """Escape pressed inside a submenu: return to the main menu."""
+
+
+HISTORY = []
+HISTORY_MAX = 100
+
+
+class LineEdit:
+    """Line buffer with echo and history recall for read_esc.
+
+    Up/down walk the session history of submitted entries (urls and menu
+    numbers alike); the half-typed line is kept as the draft and comes back
+    when walking down past the newest entry. Left/right arrows are consumed
+    without effect - the reader does no cursor-position editing."""
+
+    def __init__(self, prompt):
+        self.prompt = prompt
+        self.buf = []
+        self.idx = len(HISTORY)
+        self.draft = ""
+
+    def text(self):
+        return "".join(self.buf)
+
+    def add(self, ch):
+        self.buf.append(ch)
+        sys.stdout.write(ch)
+        sys.stdout.flush()
+
+    def back(self):
+        if self.buf:
+            self.buf.pop()
+            sys.stdout.write("\b \b")
+            sys.stdout.flush()
+
+    def _show(self, text):
+        self.buf = list(text)
+        sys.stdout.write("\r\033[K%s%s" % (self.prompt, text))
+        sys.stdout.flush()
+
+    def remember(self):
+        """Record a submitted line (non-empty) for later recall."""
+        line = self.text()
+        if line.strip():
+            HISTORY.append(line)
+            del HISTORY[:-HISTORY_MAX]
+
+    def recall(self, older):
+        """older True steps to a previous entry, False to a newer one."""
+        if not HISTORY:
+            return
+        if older:
+            if self.idx == len(HISTORY):
+                self.draft = self.text()
+            if self.idx > 0:
+                self.idx -= 1
+                self._show(HISTORY[self.idx])
+        elif self.idx < len(HISTORY) - 1:
+            self.idx += 1
+            self._show(HISTORY[self.idx])
+        elif self.idx == len(HISTORY) - 1:
+            self.idx = len(HISTORY)
+            self._show(self.draft)
+
+
+def _esc_more(fd, timeout=0.05):
+    """Next byte of an in-flight ESC sequence, or None if nothing follows.
+
+    Distinguishes a lone escape (abort) from arrow keys, which arrive on
+    posix terminals as ESC [ A / ESC [ B."""
+    import select
+    try:
+        ready, _, _ = select.select([fd], [], [], timeout)
+    except (OSError, ValueError):
+        return None
+    if not ready:
+        return None
+    try:
+        return os.read(fd, 1).decode("utf-8", "replace")
+    except OSError:
+        return None
+
+
+def _csi_final(fd):
+    """Final letter of a CSI key sequence; parameter bytes are swallowed."""
+    while True:
+        ch = _esc_more(fd)
+        if ch is None or ord(ch) >= 0x40:
+            return ch
 
 
 def read_esc(prompt=""):
@@ -92,60 +191,66 @@ def read_esc(prompt=""):
         sys.stdout.flush()
     if os.name == "nt":
         import msvcrt
-        buf = []
+        ed = LineEdit(prompt)
         while True:
             ch = msvcrt.getwch()
             if ch == "\r" or ch == "\n":
                 sys.stdout.write("\n")
                 sys.stdout.flush()
-                return "".join(buf)
+                ed.remember()
+                return ed.text()
             if ch == "\x1b":
                 sys.stdout.write("\r\033[K")
                 sys.stdout.flush()
                 return None
             if ch in ("\x08", "\x7f"):
-                if buf:
-                    buf.pop()
-                    sys.stdout.write("\b \b")
-                    sys.stdout.flush()
+                ed.back()
                 continue
-            if ch == "\x00":
-                msvcrt.getwch()
+            if ch in ("\x00", "\xe0"):
+                # extended key: swallow the scan code, arrows edit history
+                code = msvcrt.getwch()
+                if code == "H":
+                    ed.recall(True)
+                elif code == "P":
+                    ed.recall(False)
                 continue
             if ch == "\x03":
                 raise KeyboardInterrupt
-            buf.append(ch)
-            sys.stdout.write(ch)
-            sys.stdout.flush()
+            ed.add(ch)
     import termios
     import tty
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
+    ed = LineEdit(prompt)
     try:
         tty.setraw(fd)
-        buf = []
         while True:
             ch = sys.stdin.read(1)
             if ch in ("\r", "\n"):
                 sys.stdout.write("\n")
                 sys.stdout.flush()
-                return "".join(buf)
+                ed.remember()
+                return ed.text()
             if ch == "\x1b":
-                sys.stdout.write("\r\033[K")
-                sys.stdout.flush()
-                return None
-            if ch in ("\x7f", "\x08"):
-                if buf:
-                    buf.pop()
-                    sys.stdout.write("\b \b")
+                nxt = _esc_more(fd)
+                if nxt is None:
+                    sys.stdout.write("\r\033[K")
                     sys.stdout.flush()
+                    return None
+                if nxt == "[":
+                    final = _csi_final(fd)
+                    if final == "A":
+                        ed.recall(True)
+                    elif final == "B":
+                        ed.recall(False)
+                continue
+            if ch in ("\x7f", "\x08"):
+                ed.back()
                 continue
             if ch == "\x03":
                 raise KeyboardInterrupt
             if ch >= " ":
-                buf.append(ch)
-                sys.stdout.write(ch)
-                sys.stdout.flush()
+                ed.add(ch)
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
 
@@ -1137,6 +1242,40 @@ def selftest():
     def a_index(argv, flag):
         return argv[argv.index(flag) + 1] if flag in argv else None
 
+    import io
+    cap = io.StringIO()
+    real_out = sys.stdout
+    sys.stdout = cap
+    try:
+        HISTORY.clear()
+        HISTORY.extend(["https://a.example", "https://b.example"])
+        ed = LineEdit("> ")
+        for ch in "xy":
+            ed.add(ch)
+        ed.recall(True)
+        v1 = ed.text()
+        ed.recall(True)
+        v2 = ed.text()
+        ed.recall(False)
+        v3 = ed.text()
+        ed.recall(False)
+        v4 = ed.text()
+        ed2 = LineEdit("> ")
+        ed2.add("q")
+        ed2.remember()
+        v5 = HISTORY[-1]
+        ed3 = LineEdit("> ")
+        ed3.remember()
+        v6 = HISTORY[-1]
+    finally:
+        sys.stdout = real_out
+    check("history newest first", v1 == "https://b.example"
+          and v2 == "https://a.example", (v1, v2))
+    check("history returns to draft", v3 == "https://b.example"
+          and v4 == "xy", (v3, v4))
+    check("history remembers submitted", v5 == "q", v5)
+    check("history skips empty lines", v6 == "q", v6)
+
     s = load_settings()
     d = json.loads(json.dumps(DEFAULTS))
     check("load_settings fills missing keys", all(k in s for k in d))
@@ -1206,12 +1345,12 @@ def selftest():
 
     cp = color_progress("15.2% of 198.15MiB at 2.32MiB/s ETA 01:12")
     check("progress percent amber", A_AMBER + "15.2%" + A_RESET in cp, cp)
-    check("progress numbers grey",
-          A_GREY + "198.15MiB" + A_RESET in cp
-          and A_GREY + "2.32MiB/s" + A_RESET in cp
-          and A_GREY + "01:12" + A_RESET in cp, cp)
-    check("progress connectors plain", cp.count(A_RESET) == 4
-          and " of " + A_GREY in cp, cp)
+    check("progress size mint", A_MINT + "198.15MiB" + A_RESET in cp, cp)
+    check("progress speed lblue", A_LBLUE + "2.32MiB/s" + A_RESET in cp, cp)
+    check("progress eta purple", A_PURPLE + "01:12" + A_RESET in cp, cp)
+    check("progress words grey", A_GREY + "of" + A_RESET in cp
+          and A_GREY + "at" + A_RESET in cp
+          and A_GREY + "ETA" + A_RESET in cp, cp)
     check("progress final line",
           A_AMBER + "100%" + A_RESET
           in color_progress("100% of 198.15MiB in 00:45"))
