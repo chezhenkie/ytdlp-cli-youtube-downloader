@@ -588,6 +588,30 @@ def resolve_outdir(s):
     return p if p.is_absolute() else (ROOT / p)
 
 
+TEMP_DIR_NAME = ".ytdlp-tmp"
+
+
+def temp_dir(s):
+    """Work folder for yt-dlp intermediates, inside the output folder.
+
+    yt-dlp writes one fragment file per chunk plus .part files, .ytdl resume
+    markers and pre-merge files while a download runs (pinned source:
+    yt_dlp/downloader/fragment.py _download_fragment/_append_fragment). -P
+    temp: keeps all of that here, so the user's folder shows final files
+    only, and the move at the end is a same-volume rename (owner decision
+    2026-10-14, verified: 396 chunk events left the watched folder)."""
+    return resolve_outdir(s) / TEMP_DIR_NAME
+
+
+def drop_temp_dir(s):
+    """Remove the work folder when it ends empty. A failed run keeps its
+    partials there for resume; leftovers are never deleted silently."""
+    try:
+        temp_dir(s).rmdir()
+    except OSError:
+        pass
+
+
 # ---------------------------------------------------------------- binary lookup
 
 
@@ -721,12 +745,17 @@ def parse_lang_input(raw):
 
 
 def output_args(s):
-    """Shared -o/-P pair so the video run and the subtitle run agree on
-    filenames."""
+    """Shared -o/-P set so the video run and the subtitle run agree on
+    filenames, and yt-dlp writes every intermediate (parts, per-chunk
+    fragment files, resume markers, pre-merge files) into the work folder
+    under the output folder instead of flickering files next to the
+    results. Both -P entries are skipped when the template is absolute
+    (yt-dlp ignores --paths for absolute templates anyway)."""
     template = s["filename_template"] or DEFAULTS["filename_template"]
     opts = ["-o", template]
     if not ABS_RE.match(template):
         opts += ["-P", "home:" + str(resolve_outdir(s))]
+        opts += ["-P", "temp:" + str(temp_dir(s))]
     return opts
 
 
@@ -1568,7 +1597,8 @@ def do_download(s, url):
     st.start()
     rc, stopped, err, _codes = run_download(binary, opts, st)
     if stopped:
-        removed = clean_partials(resolve_outdir(s), started)
+        removed = clean_partials(temp_dir(s), started)
+        drop_temp_dir(s)
         tail = ""
         if removed:
             tail = ", cleaned %d partial file%s" % (len(removed),
@@ -1578,6 +1608,7 @@ def do_download(s, url):
         return 130
     if rc != 0:
         st.done(fail_sentence(rc, err))
+        drop_temp_dir(s)
         return rc
 
     st.done("downloading - finished")
@@ -1604,6 +1635,7 @@ def do_download(s, url):
             lines = sub_fail_lines(err2)
             st2.done(lines[0])
             st2.done(lines[1])
+    drop_temp_dir(s)
     return 0
 
 
@@ -2544,10 +2576,16 @@ def selftest():
     tmp["filename_template"] = "C:/out/%(title)s.%(ext)s"
     a = build_args(tmp, "https://x/y", fd)
     check("absolute template -> no -P", "-P" not in a, a)
+    check("absolute template -> no temp work folder",
+          "temp:" not in " ".join(a), a)
 
     tmp["filename_template"] = "play/%(title)s.%(ext)s"
     a = build_args(tmp, "https://x/y", fd)
     check("relative template keeps -P", a[a.index("-P") + 1].startswith("home:"), a)
+    check("relative template carries the temp work folder",
+          a.count("-P") == 2
+          and a[a.index("-P", a.index("-P") + 1) + 1]
+          == "temp:" + str(temp_dir(tmp)), a)
 
     cwd = str(Path.cwd())
     fixed = json.loads(json.dumps(d))
@@ -2562,6 +2600,42 @@ def selftest():
     a = build_args(empty, "https://x/y", fd)
     check("empty output_dir still passes -P home",
           a[a.index("-P") + 1].startswith("home:"), a)
+
+    check("temp_dir sits inside the output folder",
+          temp_dir(fixed) == resolve_outdir(fixed) / TEMP_DIR_NAME
+          and TEMP_DIR_NAME == ".ytdlp-tmp", temp_dir(fixed))
+
+    _wt = Path(tempfile.mkdtemp(prefix="ytdlp-wf-"))
+    try:
+        _now = time.time()
+        _fresh = [_wt / n for n in ("v.mp4.part", "v.mp4.part-Frag7.part",
+                                    "v.mp4.ytdl", "s.en.vtt.part")]
+        _old = _wt / "stale.mp4.part"
+        for _p in _fresh + [_old]:
+            _p.write_bytes(b"x")
+        os.utime(_old, (_now - 3600, _now - 3600))
+        _rm = clean_partials(_wt, _now)
+        check("clean_partials removes fresh part, frag and ytdl files",
+              sorted(_rm) == sorted(p.name for p in _fresh), _rm)
+        check("clean_partials keeps a stale leftover", _old.exists(), _rm)
+        _ws = {"output_dir": str(_wt)}
+        (_wt / TEMP_DIR_NAME).mkdir()
+        drop_temp_dir(_ws)
+        check("drop_temp_dir removes an empty work folder",
+              not (_wt / TEMP_DIR_NAME).exists())
+        (_wt / TEMP_DIR_NAME).mkdir()
+        (_wt / TEMP_DIR_NAME / "v.mp4.part").write_bytes(b"x")
+        drop_temp_dir(_ws)
+        check("drop_temp_dir keeps a work folder with resume state",
+              (_wt / TEMP_DIR_NAME).is_dir())
+        try:
+            drop_temp_dir({"output_dir": str(_wt / "missing")})
+            _ok = True
+        except OSError:
+            _ok = False
+        check("drop_temp_dir tolerates a missing folder", _ok)
+    finally:
+        shutil.rmtree(_wt, ignore_errors=True)
 
     check("clean_url basic", clean_url("watch https://youtu.be/abc-123_x now") == "https://youtu.be/abc-123_x", clean_url("watch https://youtu.be/abc-123_x now"))
     check("clean_url trims punctuation", clean_url("https://youtu.be/z9?si=1, ok") == "https://youtu.be/z9?si=1", clean_url("https://youtu.be/z9?si=1, ok"))
