@@ -1,0 +1,15 @@
+# Static-link the MSVC CRT into the Windows binary.
+#
+# Without this, x86_64-pc-windows-msvc links vcruntime140.dll dynamically and the
+# released exe requires the Visual C++ redistributable on the user's machine.
+# That contradicts this product's premise: the bundle must run with nothing
+# installed. Verified: `rustc --print cfg --target x86_64-pc-windows-msvc` reports
+# no crt-static by default; adding -C target-feature=+crt-static reports
+# target_feature="crt-static".
+#
+# Losing this flag fails silently - the build succeeds and CI stays green, and
+# the breakage appears only on hosts without the redistributable. Gate G1 asserts
+# the PE import table of the built exe contains no vcruntime*.dll and no
+# msvcp*.dll; gate G10 repeats it against the extracted bundle.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
