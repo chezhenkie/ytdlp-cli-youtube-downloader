@@ -1,0 +1,5 @@
+# One pinned toolchain for local builds and CI (RUST-PORT-PLAN.md 2.2).
+# Local WSL and local rustup resolve this channel; CI installs it too.
+[toolchain]
+channel = "1.98.0"
+components = ["rustfmt", "clippy"]

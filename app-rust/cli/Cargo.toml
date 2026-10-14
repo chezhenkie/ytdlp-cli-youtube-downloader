@@ -1,0 +1,15 @@
+[package]
+name = "ytdlp-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "yt-dlp cli - text-menu download wrapper around yt-dlp (native port)."
+
+[lib]
+name = "ytdlp_cli"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ytdlp"
+path = "src/main.rs"

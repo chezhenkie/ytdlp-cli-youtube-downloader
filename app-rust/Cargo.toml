@@ -1,0 +1,19 @@
+# Native port workspace (RUST-PORT-PLAN.md). Two members: the product
+# binary (cli/) and the differential harness dispatcher (harness/), a
+# development tool that is never shipped in a bundle.
+
+[workspace]
+resolver = "3"
+members = ["cli", "harness"]
+
+[workspace.package]
+version = "2.0.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/chezhenkie/ytdlp-cli-youtube-downloader"
+
+# Python ints are arbitrary precision, Rust ints are not; a ported line
+# that relied on that silently wraps in release builds unless overflow
+# checks stay on (python-to-rust-refactor-pitfalls.md item 4).
+[profile.release]
+overflow-checks = true

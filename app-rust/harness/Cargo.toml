@@ -1,0 +1,15 @@
+[package]
+name = "ytdlp-harness"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Differential harness dispatcher for the ytdlp native port (development tool, never shipped)."
+publish = false
+
+[[bin]]
+name = "ytdlp-harness"
+path = "src/main.rs"
+
+[dependencies]
+ytdlp-cli = { path = "../cli" }

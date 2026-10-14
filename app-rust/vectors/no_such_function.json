@@ -1,0 +1,6 @@
+{
+  "fn": "no_such_function",
+  "cases": [
+    {"args": [], "note": "error-path fixture: the dispatcher must refuse unknown names (exit 2, 'unknown function' on stderr). Never a real function."}
+  ]
+}

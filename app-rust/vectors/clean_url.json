@@ -1,0 +1,24 @@
+{
+  "fn": "clean_url",
+  "cases": [
+    {"args": ["watch https://youtu.be/abc-123_x now"], "note": "url mid-text; selftest parity case"},
+    {"args": ["https://youtu.be/z9?si=1, ok"], "note": "trailing comma trimmed; selftest parity case"},
+    {"args": ["no link here"], "note": "no http(s) substring -> null; selftest parity case"},
+    {"args": [""], "note": "empty text -> null"},
+    {"args": [null], "note": "null argument -> null result"},
+    {"args": ["<https://example.com/a>"], "note": "leading < untouched; trailing > survives the rstrip set"},
+    {"args": ["(https://example.com)"], "note": "trailing ) trimmed"},
+    {"args": ["https://example.com/x."], "note": "trailing dot trimmed"},
+    {"args": ["see https://a.example/x and https://b.example/y"], "note": "first url only"},
+    {"args": ["http://plain.example"], "note": "http scheme matches too"},
+    {"args": ["trailing:https://example.com/p?q=1&r=2#frag; done"], "note": "semicolon trimmed; query and fragment kept"},
+    {"args": ["\u94fe\u63a5 https://example.com/z \u3002"], "note": "CJK around the url; the space-separated ideographic full stop is not part of the match"},
+    {"args": ["https://example.com/z\u3002"], "note": "CJK full stop directly after the url is non-whitespace, so it survives rstrip"},
+    {"args": ["..."], "note": "no scheme -> null"},
+    {"args": ["https://"], "note": "scheme needs at least one non-space char after // -> no match"},
+    {"args": ["HTTPS://EXAMPLE.COM"], "note": "the regex is lowercase-only; uppercase scheme does not match"},
+    {"args": ["xhttps://example.com"], "note": "match starts at https:// even mid-word"},
+    {"args": ["ftp://no.scheme.example"], "note": "only http and https schemes match"},
+    {"args": ["https://example.com/a.,;:!?)]\"'"], "note": "every char of the rstrip set trimmed"}
+  ]
+}
