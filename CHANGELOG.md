@@ -1,9 +1,9 @@
 changelog
 =========
 
-Newest first. Current level: v1.4.1 (fixes below are post-release dev-tree changes, unreleased).
+Newest first. Current level: v1.4.2.
 
-## unreleased
+## v1.4.2
 
 - audit F11 softened into detection: parse misses speak (b98f581)
 F11 said our stdout scraping of yt-dlp degrades silently when upstream rewords its human-readable output; the owner declined the json-contract rewrite and instead wants misses surfaced on screen. The two verifiable scrape sites now report: a subtitle pass exiting 0 with no codes read prints "subtitles - none available" plus an amber note ("yt-dlp reported success but no subtitle files were read - wording may have changed, please report"), and a failed subtitle pass whose error line matches no known pattern always prints its second line ("yt-dlp wording not recognized - please report") instead of showing nothing. Progress coloring stays silent (cosmetic, nothing verifiable); the full uncut error line on failed downloads is unchanged. Verdict text moved into sub_success_lines(codes) and sub_fail_lines(err) so selftest pins them offline: 162 -> 169 checks, 0 failed (live run 2026-10-14). Specsheet IF-4 gained the parse-miss policy, FR-9 the helper names, architecture figures re-verified at this commit. No download behavior changed - verdicts and notes only.
