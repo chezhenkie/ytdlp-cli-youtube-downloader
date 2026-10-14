@@ -1,0 +1,99 @@
+name: rust
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: test ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    defaults:
+      run:
+        working-directory: app-rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+          components: rustfmt, clippy
+      - name: fmt
+        run: cargo fmt --all --check
+      - name: clippy, warnings denied
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: unit tests
+        run: cargo test --workspace
+      - name: cross-check windows-msvc and linux-musl (ubuntu only)
+        if: runner.os == 'Linux'
+        run: |
+          rustup target add --toolchain 1.98.0 x86_64-pc-windows-msvc x86_64-unknown-linux-musl
+          cargo check --workspace --target x86_64-pc-windows-msvc
+          cargo check --workspace --target x86_64-unknown-linux-musl
+
+  differential:
+    name: differential ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: instrument self-test, python oracle only (NFR-4)
+        run: python app-rust/tools/harness.py selftest
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+      - name: build the dispatcher
+        working-directory: app-rust
+        run: cargo build --release -p ytdlp-harness
+      - name: dispatcher error-path probe
+        run: python app-rust/tools/harness.py probe-rust --rust-bin app-rust/target/release/ytdlp-harness
+
+  windows-build:
+    name: windows release and PE import assertions
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: app-rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: release build, crt-static from repo .cargo/config.toml
+        run: cargo build --release --workspace
+      - name: sizes
+        shell: pwsh
+        run: |
+          Get-Item target/release/ytdlp.exe, target/release/ytdlp-harness.exe |
+            ForEach-Object { "size: $($_.Name) $($_.Length)" }
+      - name: PE import table must be free of vcruntime/msvcp (green assertion)
+        run: python tools/pe_imports.py target/release/ytdlp.exe --forbid "vcruntime*.dll" --forbid "msvcp*.dll" --require "kernel32.dll"
+      - name: deliberately dynamic CRT must show vcruntime (red self-test proves the checker sees it)
+        shell: pwsh
+        run: |
+          $env:RUSTFLAGS = "-C target-feature=-crt-static"
+          cargo build --release -p ytdlp-cli --target-dir target/nocrt
+          $dump = python tools/pe_imports.py target/nocrt/release/ytdlp.exe
+          $dump
+          if (-not ($dump -match "vcruntime")) { throw "red self-test failed: no vcruntime import in the dynamic-CRT build" }
