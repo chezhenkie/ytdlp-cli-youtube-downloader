@@ -91,7 +91,7 @@ Rust has none of this for your own types with the default system allocator: the 
 
 - Never judge a Rust port from a `cargo run` without `--release`. The dev profile defaults to `opt-level = 0`, `debug-assertions = true`, `overflow-checks = true`; the release profile defaults to `opt-level = 3`, `debug-assertions = false`, `overflow-checks = false` (https://doc.rust-lang.org/cargo/reference/profiles.html). Debug builds can therefore be slower than Python - "Debug builds in Rust include bounds checking, overflow checking, and no optimization: they can be slower than Python" (https://rustify.rs/articles/i-rewrote-my-python-script-in-rust-2026, a vendor blog). Careful with that quote's wording: bounds checks exist in all profiles, only the optimizer removes provable ones ("By default, accesses to container types such as slices and vectors involve bounds checks in Rust", https://nnethercote.github.io/perf-book/bounds-checks.html); what really differs by profile is optimization level, debug assertions, and overflow checks. The cited rewrite measured its ~47x speedup against a release build (same vendor article).
 - Set `overflow-checks = true` in the release profile for correctness-sensitive numeric code so ported Python assumptions surface as panics instead of silent wraps (https://doc.rust-lang.org/cargo/reference/profiles.html#overflow-checks; see item 4). This does not restore arbitrary precision - use a bignum crate when you truly need it.
-- Per the project speedtest methodology file, run timing comparisons natively, not from mounted paths, when measuring locally.
+- Run timing comparisons from a native filesystem, not a mounted network or 9p path.
 
 ## 8. Porting ritual checklist
 
