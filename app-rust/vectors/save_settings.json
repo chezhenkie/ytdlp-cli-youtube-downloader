@@ -1,0 +1,17 @@
+{
+  "fn": "save_settings",
+  "cases": [
+    {"args": [{"path": "settings.json", "settings": {"zz": 1, "aa": "x"}}], "note": "small object: sorted keys, indent 2, LF tail"},
+    {"args": [{"path": "settings.json", "settings": {}}], "note": "empty object writes {} plus LF"},
+    {"args": [{"path": "sub/settings.json", "parents": false, "settings": {"aa": 1}}], "note": "missing parent is created"},
+    {"args": [{"path": "settings.json", "seed_text": "{\n  \"aa\": \"x\",\n  \"zz\": 1\n}\n", "sentinel": true, "settings": {"zz": 1, "aa": "x"}}], "note": "equal existing file: skip, tmp sentinel intact"},
+    {"args": [{"path": "settings.json", "seed_text": "{\r\n  \"aa\": \"x\",\r\n  \"zz\": 1\r\n}\r\n", "sentinel": true, "settings": {"zz": 1, "aa": "x"}}], "note": "CRLF file equal after translation: skip, bytes stay CRLF"},
+    {"args": [{"path": "settings.json", "seed_text": "{\n  \"aa\": \"old\"\n}\n", "settings": {"aa": "new"}}], "note": "differing content is overwritten"},
+    {"args": [{"path": "settings.json", "seed_hex": "bd", "sentinel": true, "settings": {"aa": 1}}], "note": "invalid UTF-8 existing file: not_utf8, untouched"},
+    {"args": [{"path": "sub/settings.json", "parents": false, "block_parent": true, "settings": {"aa": 1}}], "note": "parent path is a file: io_error"},
+    {"args": [{"path": "settings.json", "sentinel": true, "settings": {"fl_nan": NaN, "fl_inf": Infinity, "fl_ninf": -Infinity, "fl_small": 0.0001, "fl_big": 1e16, "fl_neg0": -0.0, "u": "caf\u00e9\u4e2d\ud83c\udf89", "ctrl": "a\tb\n\"q\\", "del": "\u007f", "arr": [1, [], {}, 2.5], "obj": {"k": [], "j": {}}}}], "note": "writer pin: float spellings, unicode escapes, controls, nesting"},
+    {"args": [{"path": "settings.json", "settings": {"aa": 1, "aa": 2}}], "note": "duplicate keys collapse last-wins in the render"},
+    {"args": [{"path": "settings.json", "settings": {"playlist_max_items": 9223372036854775807, "settings_version": -9223372036854775808}}], "note": "i64 bounds render as full digits"},
+    {"args": [{"path": "settings.json", "seed_text": "{\n  \"audio_format\": \"mp3\",\n  \"audio_quality\": \"0\",\n  \"auto_update\": true,\n  \"auto_update_last_check\": 1791925032,\n  \"ffmpeg_path\": \"\",\n  \"filename_template\": \"%(title)s\",\n  \"output_dir\": \"\",\n  \"playlist\": false,\n  \"playlist_max_items\": 0,\n  \"settings_version\": 1,\n  \"subtitle_langs\": \"en\",\n  \"subtitles\": true,\n  \"type\": \"video\",\n  \"video_container\": \"mp4\",\n  \"video_resolution\": \"1080\",\n  \"yt_dlp_path\": \"\"\n}\n", "sentinel": true, "settings": {"audio_format": "mp3", "audio_quality": "0", "auto_update": true, "auto_update_last_check": 1791925032, "ffmpeg_path": "", "filename_template": "%(title)s", "output_dir": "", "playlist": false, "playlist_max_items": 0, "settings_version": 1, "subtitle_langs": "en", "subtitles": true, "type": "video", "video_container": "mp4", "video_resolution": "1080", "yt_dlp_path": ""}}], "note": "the tracked settings.json content is a byte no-op save (git diff stays empty)"}
+  ]
+}

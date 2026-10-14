@@ -25,7 +25,11 @@ state:
                            short_path take the display state (node on
                            PATH, USE_COLOR, os.name) as a trailing
                            parameter in the rust twin; the hook binds
-                           that state on the python side
+                           that state on the python side. load_settings /
+                           save_settings (phase 3) carry their fixture in
+                           the case; each side materializes it in its own
+                           scratch dir and the record carries port-domain
+                           shape tokens (payloads stay shape-gated)
 
 Interchange format: one line per case carrying exactly the bytes of
 
@@ -34,7 +38,9 @@ Interchange format: one line per case carrying exactly the bytes of
 which the rust dispatcher reproduces byte for byte
 (app-rust/harness/src/json.rs). Every record is newline-terminated; an
 empty case list means zero bytes. All display output here is forced
-ASCII so any console codepage can print it.
+ASCII so any console codepage can print it. Case args may carry JSON
+floats and the NaN/Infinity constants (phase 3 settings cases), matching
+`json.loads`; generated records stay i64-only.
 
 Oracle: CPython 3.14.x is the pinned oracle interpreter (plan G2); the
 python capture refuses every other minor version.
@@ -58,8 +64,10 @@ import importlib.util
 import io
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import types
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -187,14 +195,161 @@ def _hook_short_path(module, args):
     return _with_global(module, "os", fake_os, lambda: module.short_path(*call_args))
 
 
+# ----------------------------------------------------- phase 3 state layer
+#
+# The settings cases carry their fixture in the vector itself. Each side
+# materializes it in its own private scratch dir (never a shared path),
+# binds CONFIG_PATH and USE_COLOR for the call, and reports a record with
+# port-domain shape tokens: python's exception payloads stay shape-gated
+# (RUST-PORT-PLAN.md port rules), so the record carries only the token.
+
+# must match dispatch.rs SENTINEL
+SENTINEL_BYTES = b"ytdlp-sentinel"
+
+
+class _bound_settings_globals:
+    """CONFIG_PATH and USE_COLOR bound for one hook call; USE_COLOR is
+    forced off so note text is plain (colors are phase-6 presentation)."""
+
+    def __init__(self, module, target):
+        self.module = module
+        self.target = target
+
+    def __enter__(self):
+        self.saved_path = self.module.CONFIG_PATH
+        self.saved_color = self.module.USE_COLOR
+        self.module.CONFIG_PATH = self.target
+        self.module.USE_COLOR = False
+
+    def __exit__(self, *exc):
+        self.module.CONFIG_PATH = self.saved_path
+        self.module.USE_COLOR = self.saved_color
+        return False
+
+
+def _seed_fixture(target, case):
+    if "seed_text" in case:
+        target.write_bytes(case["seed_text"].encode("utf-8"))
+    elif "seed_hex" in case:
+        target.write_bytes(bytes.fromhex(case["seed_hex"]))
+
+
+def _hook_load_settings(module, args):
+    case = args[0]
+    work = Path(tempfile.mkdtemp(prefix="ytdlp-harness-load-"))
+    try:
+        target = work / case["path"]
+        target.parent.mkdir(parents=True, exist_ok=True)
+        _seed_fixture(target, case)
+        with _bound_settings_globals(module, target):
+            side = io.StringIO()
+            try:
+                with redirect_stdout(side):
+                    settings = module.load_settings()
+                outcome = "ok"
+            except TypeError:
+                settings, outcome = None, "type_error"
+            except AttributeError:
+                settings, outcome = None, "attribute_error"
+            except Exception as e:
+                raise InstrumentError(
+                    "load_settings raised %s: %s" % (type(e).__name__, e)
+                )
+        notes = []
+        unreadable = False
+        for line in side.getvalue().splitlines():
+            if line.startswith("  note: "):
+                notes.append(line[len("  note: "):])
+            elif line.startswith("settings unreadable (") and line.endswith(
+                "), using defaults"
+            ):
+                unreadable = True
+            else:
+                raise InstrumentError(
+                    "load_settings printed an unrecognized line: %r" % line
+                )
+        if unreadable:
+            outcome = "unreadable"
+        settings_file = None
+        if settings is not None:
+            # the exact call save_settings makes for the file content
+            settings_file = json.dumps(settings, indent=2, sort_keys=True) + "\n"
+        return {
+            "load": outcome,
+            "settings_file": settings_file,
+            "notes": notes,
+            "file_after_hex": target.read_bytes().hex() if target.is_file() else None,
+        }
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _hook_save_settings(module, args):
+    case = args[0]
+    work = Path(tempfile.mkdtemp(prefix="ytdlp-harness-save-"))
+    try:
+        target = work / case["path"]
+        if case.get("parents", True):
+            target.parent.mkdir(parents=True, exist_ok=True)
+        if case.get("block_parent"):
+            target.parent.write_bytes(b"blocked")
+        _seed_fixture(target, case)
+        sentinel = bool(case.get("sentinel"))
+        if sentinel:
+            target.with_suffix(".tmp").write_bytes(SENTINEL_BYTES)
+        with _bound_settings_globals(module, target):
+            side = io.StringIO()
+            try:
+                with redirect_stdout(side):
+                    module.save_settings(case["settings"])
+                outcome = "ok"
+            except UnicodeDecodeError:
+                outcome = "not_utf8"
+            except OSError:
+                outcome = "io_error"
+            except Exception as e:
+                raise InstrumentError(
+                    "save_settings raised %s: %s" % (type(e).__name__, e)
+                )
+        if side.getvalue():
+            raise InstrumentError(
+                "save_settings printed %d chars" % len(side.getvalue())
+            )
+        skipped = None
+        if sentinel:
+            tmp = target.with_suffix(".tmp")
+            skipped = tmp.is_file() and tmp.read_bytes() == SENTINEL_BYTES
+        file_text = None
+        file_hex = None
+        if target.is_file():
+            raw = target.read_bytes()
+            file_hex = raw.hex()
+            try:
+                file_text = raw.decode("utf-8")
+            except UnicodeDecodeError:
+                file_text = None
+        return {
+            "save": outcome,
+            "file": file_text,
+            "file_after_hex": file_hex,
+            "skipped": skipped,
+        }
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
 # Ports of the terminal/display state the python originals read from the
 # module or the environment; the rust twins take it as a parameter, so
 # the hook binds it on the python side from the vector's trailing args.
+# load_settings / save_settings take the case object and bind CONFIG_PATH
+# themselves (each side gets its own scratch dir).
 PY_CALL_HOOKS = {
     "js_runtime_args": _hook_js_runtime_args,
     "menu_line": _hook_menu_line,
     "batch_row": _hook_batch_row,
     "short_path": _hook_short_path,
+    "load_settings": _hook_load_settings,
+    "save_settings": _hook_save_settings,
 }
 
 

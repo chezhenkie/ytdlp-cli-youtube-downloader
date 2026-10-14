@@ -136,9 +136,126 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                 ("result".to_string(), str_arr(notes)),
             ]))
         }
+        // Phase 3, state layer: the case carries the fixture, the arm
+        // materializes it in a private scratch dir and drives the state
+        // functions over it. Outcome tokens are port-domain shapes
+        // (payloads stay shape-gated, RUST-PORT-PLAN.md port rules).
+        "load_settings" => {
+            let case = arg(args, 0, "settings case")?;
+            let dir = TempCaseDir::new("load")?;
+            let rel = field_str(case, "path")?;
+            let target = dir.path.join(&rel);
+            if let Some(parent) = target.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| format!("scratch setup: {e}"))?;
+            }
+            if let Some(text) = field_opt_str(case, "seed_text")? {
+                std::fs::write(&target, text.as_bytes())
+                    .map_err(|e| format!("scratch seed: {e}"))?;
+            } else if let Some(hex) = field_opt_str(case, "seed_hex")? {
+                std::fs::write(&target, hex_decode(hex)?)
+                    .map_err(|e| format!("scratch seed: {e}"))?;
+            }
+            let (load, settings, notes) = match config::load_settings(&target) {
+                Ok(config::LoadOutcome::Loaded { settings, notes }) => {
+                    ("ok", Some(settings), notes)
+                }
+                Ok(config::LoadOutcome::Unreadable { settings, .. }) => {
+                    ("unreadable", Some(settings), Vec::new())
+                }
+                Err(e) => (
+                    match e.class_name {
+                        "TypeError" => "type_error",
+                        "AttributeError" => "attribute_error",
+                        other => return Err(format!("unexpected shape class {other}")),
+                    },
+                    None,
+                    Vec::new(),
+                ),
+            };
+            let settings_file = match &settings {
+                Some(s) => Json::Str(config::render_settings_file(s)),
+                None => Json::Null,
+            };
+            let file_after = match std::fs::read(&target) {
+                Ok(bytes) => Json::Str(hex_encode(&bytes)),
+                Err(_) => Json::Null,
+            };
+            Ok(Json::Obj(vec![
+                ("load".to_string(), Json::Str(load.to_string())),
+                ("settings_file".to_string(), settings_file),
+                ("notes".to_string(), str_arr(notes)),
+                ("file_after_hex".to_string(), file_after),
+            ]))
+        }
+        "save_settings" => {
+            let case = arg(args, 0, "settings case")?;
+            let dir = TempCaseDir::new("save")?;
+            let rel = field_str(case, "path")?;
+            let target = dir.path.join(&rel);
+            if field_opt_bool(case, "parents")?.unwrap_or(true)
+                && let Some(parent) = target.parent()
+            {
+                std::fs::create_dir_all(parent).map_err(|e| format!("scratch setup: {e}"))?;
+            }
+            if field_opt_bool(case, "block_parent")?.unwrap_or(false)
+                && let Some(parent) = target.parent()
+            {
+                std::fs::write(parent, b"blocked").map_err(|e| format!("scratch setup: {e}"))?;
+            }
+            if let Some(text) = field_opt_str(case, "seed_text")? {
+                std::fs::write(&target, text.as_bytes())
+                    .map_err(|e| format!("scratch seed: {e}"))?;
+            } else if let Some(hex) = field_opt_str(case, "seed_hex")? {
+                std::fs::write(&target, hex_decode(hex)?)
+                    .map_err(|e| format!("scratch seed: {e}"))?;
+            }
+            let sentinel = field_opt_bool(case, "sentinel")?.unwrap_or(false);
+            if sentinel {
+                std::fs::write(target.with_extension("tmp"), SENTINEL)
+                    .map_err(|e| format!("scratch sentinel: {e}"))?;
+            }
+            let settings_json =
+                obj_field(case, "settings").ok_or("case needs a settings object")?;
+            let Value::Obj(settings) = json_to_value(settings_json)? else {
+                return Err("the settings field must be an object".to_string());
+            };
+            let save = match config::save_settings(&target, &settings) {
+                Ok(()) => "ok",
+                Err(config::SaveError::NotUtf8) => "not_utf8",
+                Err(config::SaveError::Io(_)) => "io_error",
+            };
+            let skipped = if sentinel {
+                let tmp = target.with_extension("tmp");
+                match std::fs::read(&tmp) {
+                    Ok(bytes) => Json::Bool(bytes == SENTINEL),
+                    Err(_) => Json::Bool(false),
+                }
+            } else {
+                Json::Null
+            };
+            let (file, file_hex) = match std::fs::read(&target) {
+                Ok(bytes) => (
+                    String::from_utf8(bytes.clone())
+                        .map(Json::Str)
+                        .unwrap_or(Json::Null),
+                    Json::Str(hex_encode(&bytes)),
+                ),
+                Err(_) => (Json::Null, Json::Null),
+            };
+            Ok(Json::Obj(vec![
+                ("save".to_string(), Json::Str(save.to_string())),
+                ("file".to_string(), file),
+                ("file_after_hex".to_string(), file_hex),
+                ("skipped".to_string(), skipped),
+            ]))
+        }
         _ => Err(format!("unknown function: {name}")),
     }
 }
+
+/// The sentinel bytes the save cases plant at the tmp path; python plants
+/// the same literal (tools/harness.py).
+const SENTINEL: &[u8] = b"ytdlp-sentinel";
 
 fn arg<'a>(args: &'a [Json], i: usize, what: &str) -> Result<&'a Json, String> {
     args.get(i)
@@ -248,13 +365,13 @@ fn frames_to_json(frames: &[Vec<(String, u8)>]) -> Json {
     )
 }
 
-/// JSON -> settings value. Floats cannot appear (the harness protocol and
-/// its parser carry integers only).
+/// JSON -> settings value.
 fn json_to_value(j: &Json) -> Result<Value, String> {
     Ok(match j {
         Json::Null => Value::Null,
         Json::Bool(b) => Value::Bool(*b),
         Json::Int(n) => Value::Int(*n),
+        Json::Float(x) => Value::Float(*x),
         Json::Str(s) => Value::Str(s.clone()),
         Json::Arr(items) => Value::Arr(
             items
@@ -295,4 +412,93 @@ fn value_to_json(v: &Value) -> Result<Json, String> {
                 .collect::<Result<Vec<(String, Json)>, String>>()?,
         ),
     })
+}
+
+fn obj_field<'a>(j: &'a Json, key: &str) -> Option<&'a Json> {
+    match j {
+        Json::Obj(fields) => fields.iter().find(|(k, _)| k == key).map(|(_, v)| v),
+        _ => None,
+    }
+}
+
+fn field_str(case: &Json, key: &str) -> Result<String, String> {
+    match obj_field(case, key) {
+        Some(Json::Str(s)) => Ok(s.clone()),
+        Some(other) => Err(format!("field {key:?} must be a string, got {other:?}")),
+        None => Err(format!("case needs a string field {key:?}")),
+    }
+}
+
+fn field_opt_str<'a>(case: &'a Json, key: &str) -> Result<Option<&'a str>, String> {
+    match obj_field(case, key) {
+        None | Some(Json::Null) => Ok(None),
+        Some(Json::Str(s)) => Ok(Some(s.as_str())),
+        Some(other) => Err(format!(
+            "field {key:?} must be a string or null, got {other:?}"
+        )),
+    }
+}
+
+fn field_opt_bool(case: &Json, key: &str) -> Result<Option<bool>, String> {
+    match obj_field(case, key) {
+        None | Some(Json::Null) => Ok(None),
+        Some(Json::Bool(b)) => Ok(Some(*b)),
+        Some(other) => Err(format!("field {key:?} must be a bool, got {other:?}")),
+    }
+}
+
+fn hex_decode(text: &str) -> Result<Vec<u8>, String> {
+    if !text.len().is_multiple_of(2) {
+        return Err("hex payload must have an even length".to_string());
+    }
+    let mut out = Vec::with_capacity(text.len() / 2);
+    for pair in text.as_bytes().chunks(2) {
+        let hi = hex_val(pair[0])?;
+        let lo = hex_val(pair[1])?;
+        out.push((hi << 4) | lo);
+    }
+    Ok(out)
+}
+
+fn hex_val(c: u8) -> Result<u8, String> {
+    match c {
+        b'0'..=b'9' => Ok(c - b'0'),
+        b'a'..=b'f' => Ok(c - b'a' + 10),
+        b'A'..=b'F' => Ok(c - b'A' + 10),
+        _ => Err(format!("bad hex digit {c:?}")),
+    }
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        out.push(HEX[(b >> 4) as usize] as char);
+        out.push(HEX[(b & 0xF) as usize] as char);
+    }
+    out
+}
+
+/// Per-case scratch directory, removed on drop, so a failed case (even a
+/// panic) cannot leave fixture files behind.
+struct TempCaseDir {
+    path: std::path::PathBuf,
+}
+
+impl TempCaseDir {
+    fn new(kind: &str) -> Result<Self, String> {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static N: AtomicUsize = AtomicUsize::new(0);
+        let n = N.fetch_add(1, Ordering::SeqCst);
+        let path =
+            std::env::temp_dir().join(format!("ytdlp-harness-{kind}-{}-{n}", std::process::id()));
+        std::fs::create_dir_all(&path).map_err(|e| format!("scratch dir: {e}"))?;
+        Ok(TempCaseDir { path })
+    }
+}
+
+impl Drop for TempCaseDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.path);
+    }
 }

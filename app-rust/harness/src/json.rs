@@ -2,18 +2,21 @@
 //!
 //! The writer is byte-for-byte identical to CPython 3.14
 //! `json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)`,
-//! which is the interchange format `tools/harness.py` produces; the parser
-//! is strict JSON with integers only (the harness protocol carries no
-//! floats). Traps and rules: python-to-rust-refactor-pitfalls.md items 4
-//! and 5.
+//! which is the interchange format `tools/harness.py` produces, and the
+//! parser mirrors `json.loads`, so phase-3 vector inputs may carry floats
+//! and the `NaN`/`Infinity`/`-Infinity` constants. Generated records stay
+//! i64-only, enforced on both sides. Traps and rules:
+//! python-to-rust-refactor-pitfalls.md items 4 and 5.
 
 use std::fmt;
+use ytdlp_cli::config::py_float_repr;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Json {
     Null,
     Bool(bool),
     Int(i64),
+    Float(f64),
     Str(String),
     Arr(Vec<Json>),
     Obj(Vec<(String, Json)>),
@@ -93,6 +96,14 @@ impl Parser<'_> {
                 self.literal("false")?;
                 Ok(Json::Bool(false))
             }
+            Some(b'N') => {
+                self.literal("NaN")?;
+                Ok(Json::Float(f64::NAN))
+            }
+            Some(b'I') => {
+                self.literal("Infinity")?;
+                Ok(Json::Float(f64::INFINITY))
+            }
             Some(b'"') => Ok(Json::Str(self.string()?)),
             Some(b'[') => {
                 self.i += 1;
@@ -149,7 +160,15 @@ impl Parser<'_> {
                     }
                 }
             }
-            Some(b'-' | b'0'..=b'9') => self.number(),
+            Some(b'-') => {
+                if self.b[self.i..].starts_with(b"-Infinity") {
+                    self.i += 9;
+                    Ok(Json::Float(f64::NEG_INFINITY))
+                } else {
+                    self.number()
+                }
+            }
+            Some(b'0'..=b'9') => self.number(),
             _ => Err(self.err("unexpected token")),
         }
     }
@@ -169,11 +188,40 @@ impl Parser<'_> {
         if self.i - digits > 1 && self.b[digits] == b'0' {
             return Err(self.err("leading zero"));
         }
-        if matches!(self.peek(), Some(b'.' | b'e' | b'E')) {
-            return Err(self.err("floats are not part of the harness protocol"));
+        let mut is_float = false;
+        if self.peek() == Some(b'.') {
+            self.i += 1;
+            let frac = self.i;
+            while matches!(self.peek(), Some(b'0'..=b'9')) {
+                self.i += 1;
+            }
+            if self.i == frac {
+                return Err(self.err("expected fraction digits"));
+            }
+            is_float = true;
+        }
+        if matches!(self.peek(), Some(b'e' | b'E')) {
+            self.i += 1;
+            if matches!(self.peek(), Some(b'+' | b'-')) {
+                self.i += 1;
+            }
+            let exp = self.i;
+            while matches!(self.peek(), Some(b'0'..=b'9')) {
+                self.i += 1;
+            }
+            if self.i == exp {
+                return Err(self.err("expected exponent digits"));
+            }
+            is_float = true;
         }
         let text =
             std::str::from_utf8(&self.b[start..self.i]).map_err(|_| self.err("invalid utf-8"))?;
+        if is_float {
+            return match text.parse::<f64>() {
+                Ok(x) => Ok(Json::Float(x)),
+                Err(_) => Err(self.err("bad float")),
+            };
+        }
         match text.parse::<i64>() {
             Ok(n) => Ok(Json::Int(n)),
             Err(_) => Err(self.err("integer out of i64 range")),
@@ -300,6 +348,7 @@ pub fn write_canonical(v: &Json, out: &mut Vec<u8>) {
         Json::Bool(true) => out.extend_from_slice(b"true"),
         Json::Bool(false) => out.extend_from_slice(b"false"),
         Json::Int(n) => out.extend_from_slice(n.to_string().as_bytes()),
+        Json::Float(x) => out.extend_from_slice(float_spelling(*x).as_bytes()),
         Json::Str(s) => write_string(s, out),
         Json::Arr(items) => {
             out.push(b'[');
@@ -326,6 +375,22 @@ pub fn write_canonical(v: &Json, out: &mut Vec<u8>) {
             out.push(b'}');
         }
     }
+}
+
+/// `json.dumps` float spelling under ensure_ascii=False: the constants for
+/// non-finite values, `repr` semantics (through `py_float_repr`) for finite
+/// ones. Record outputs never carry floats; this serves vector round-trips.
+fn float_spelling(x: f64) -> String {
+    if x.is_nan() {
+        return "NaN".to_string();
+    }
+    if x == f64::INFINITY {
+        return "Infinity".to_string();
+    }
+    if x == f64::NEG_INFINITY {
+        return "-Infinity".to_string();
+    }
+    py_float_repr(x)
 }
 
 fn write_string(s: &str, out: &mut Vec<u8>) {
@@ -368,9 +433,11 @@ mod tests {
         Json::Str(text.to_string())
     }
 
-    // Expected strings recorded 2026-10-14 from CPython 3.14.6:
+    // Expected strings recorded 2026-10-14 from CPython 3.14.6 (probe
+    // output, .scratch-rust-p1-01/pins.txt, deleted after use); the float
+    // spellings also recorded from the 3.14.4 oracle
+    // (.scratch-rust-p3-01/pins.txt, deleted after use):
     //   json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
-    // (probe output, .scratch-rust-p1-01/pins.txt, deleted after use).
     #[allow(clippy::type_complexity)]
     fn writer_pins() -> Vec<(Json, &'static str)> {
         vec![
@@ -385,6 +452,13 @@ mod tests {
             (Json::Int(0), "0"),
             (Json::Int(i64::MAX), "9223372036854775807"),
             (Json::Int(i64::MIN), "-9223372036854775808"),
+            (Json::Float(1.5), "1.5"),
+            (Json::Float(1e16), "1e+16"),
+            (Json::Float(-0.0), "-0.0"),
+            (Json::Float(0.0001), "0.0001"),
+            (Json::Float(f64::NAN), "NaN"),
+            (Json::Float(f64::INFINITY), "Infinity"),
+            (Json::Float(f64::NEG_INFINITY), "-Infinity"),
             (Json::Bool(true), "true"),
             (Json::Bool(false), "false"),
             (Json::Null, "null"),
@@ -451,8 +525,12 @@ mod tests {
     fn parser_rejects_bad_input() {
         let bad = [
             "",
-            "1.5",
             "01",
+            "01.5",
+            "1.",
+            "1e",
+            ".5",
+            "+1",
             "1 2",
             "\"\u{1}\"",
             "\"\\ud800\"",

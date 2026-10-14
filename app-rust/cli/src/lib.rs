@@ -10,6 +10,7 @@ pub mod args;
 pub mod config;
 pub mod exec;
 pub mod rng;
+pub mod settings_json;
 pub mod sha256;
 pub mod term;
 pub mod ui;
