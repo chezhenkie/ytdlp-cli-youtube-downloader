@@ -1087,6 +1087,33 @@ def sub_fail_reason(err):
     return None
 
 
+def sub_success_lines(codes):
+    """Verdict lines for a subtitle pass that exited 0. Returns (verdict,
+    miss_note); miss_note is empty when codes were read, else the audit F11
+    parse-miss line - yt-dlp succeeded but our stdout scrape read nothing,
+    which points at reworded upstream output rather than missing subs."""
+    if codes:
+        return ("subtitles - %s" % ", ".join(ascii_safe(x) for x in codes), "")
+    return ("subtitles - none available",
+            "note: yt-dlp reported success but no subtitle files were read "
+            "- wording may have changed, please report")
+
+
+def sub_fail_lines(err):
+    """Verdict lines for a failed subtitle pass: the not-fetched verdict
+    plus the classified reason, or the audit F11 note when the error line
+    matched no known wording."""
+    lines = ["subtitles - not fetched (video kept). "
+             "unable to download subtitles"]
+    reason = sub_fail_reason(err)
+    if reason:
+        lines.append("subtitle error - %s" % reason)
+    else:
+        lines.append("subtitle error - yt-dlp wording not recognized "
+                     "- please report")
+    return lines
+
+
 def newest_since(folder, since, slack=2.0):
     """Newest file in folder with an mtime at or just after 'since'."""
     best = None
@@ -1569,14 +1596,14 @@ def do_download(s, url):
                                                     build_sub_args(s, url, ffdir),
                                                     st2)
         if rc2 == 0:
-            st2.done("subtitles - %s" % (", ".join(ascii_safe(c2) for c2 in codes) if codes
-                                         else "none available"))
+            verdict, miss = sub_success_lines(codes)
+            st2.done(verdict)
+            if miss:
+                st2.done(miss)
         else:
-            st2.done("subtitles - not fetched (video kept). "
-                     "unable to download subtitles")
-            reason = sub_fail_reason(err2)
-            if reason:
-                st2.done("subtitle error - %s" % reason)
+            lines = sub_fail_lines(err2)
+            st2.done(lines[0])
+            st2.done(lines[1])
     return 0
 
 
@@ -2355,11 +2382,30 @@ def selftest():
     check("history remembers submitted", v5 == "q", v5)
     check("history skips empty lines", v6 == "q", v6)
 
-    r429 = sub_fail_reason("ERROR: Unable to download video subtitles "
-                           "for 'en': HTTP Error 429: Too Many Requests")
+    r429_src = ("ERROR: Unable to download video subtitles "
+                "for 'en': HTTP Error 429: Too Many Requests")
+    r429 = sub_fail_reason(r429_src)
     check("sub reason 429", r429 == "the subtitle api answered 429 too many requests", r429)
     check("sub reason unknown -> none", sub_fail_reason("SOMETHING ODD") is None,
           sub_fail_reason("SOMETHING ODD"))
+
+    sv, sm = sub_success_lines(["en", "en-GB"])
+    check("sub success verdict joins codes",
+          sv == "subtitles - en, en-GB", sv)
+    check("sub success with codes has no miss note", sm == "", sm)
+    sv2, sm2 = sub_success_lines([])
+    check("sub success no codes verdict", sv2 == "subtitles - none available", sv2)
+    check("sub success no codes miss note",
+          sm2 == "note: yt-dlp reported success but no subtitle files were read "
+                 "- wording may have changed, please report", sm2)
+    fl = sub_fail_lines(r429_src)
+    check("sub fail lines verdict", fl[0] == "subtitles - not fetched (video kept). "
+          "unable to download subtitles", fl[0])
+    check("sub fail lines classified reason",
+          fl[1] == "subtitle error - the subtitle api answered 429 too many requests", fl[1])
+    fl2 = sub_fail_lines("SOMETHING ODD")
+    check("sub fail lines parse-miss note",
+          fl2[1] == "subtitle error - yt-dlp wording not recognized - please report", fl2[1])
 
     s = load_settings()
     d = json.loads(json.dumps(DEFAULTS))
