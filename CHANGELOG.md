@@ -5,6 +5,9 @@ Newest first. Current level: v1.4.2.
 
 ## v1.4.2
 
+- v1.4.2 published (0b6b1f3)
+Version bumped, four bundles built on the v1.4.1 platform binaries and verified by extraction and selftest on their target platforms (windows extracted trees, linux via WSL, 169 checks 0 failed both): windows lean 17668963, windows portable 57580557, linux lean 2975671, linux portable 70576586 ; digests in README.md and releases/v1.4.2/RELEASE-NOTES.md. The chapter above carries the changes: settings boundary validation, 6 s daily-check timeout, memoized preflight/outdir lookups, single ffmpeg lookup and save point, column-width menu truncation, parse-miss subtitle notes, and the trigger rule (daily update check runs only at an interactive menu start; quick mode, scripts and CI never check) pinned in README and FR-13.
+
 - audit F11 softened into detection: parse misses speak (b98f581)
 F11 said our stdout scraping of yt-dlp degrades silently when upstream rewords its human-readable output; the owner declined the json-contract rewrite and instead wants misses surfaced on screen. The two verifiable scrape sites now report: a subtitle pass exiting 0 with no codes read prints "subtitles - none available" plus an amber note ("yt-dlp reported success but no subtitle files were read - wording may have changed, please report"), and a failed subtitle pass whose error line matches no known pattern always prints its second line ("yt-dlp wording not recognized - please report") instead of showing nothing. Progress coloring stays silent (cosmetic, nothing verifiable); the full uncut error line on failed downloads is unchanged. Verdict text moved into sub_success_lines(codes) and sub_fail_lines(err) so selftest pins them offline: 162 -> 169 checks, 0 failed (live run 2026-10-14). Specsheet IF-4 gained the parse-miss policy, FR-9 the helper names, architecture figures re-verified at this commit. No download behavior changed - verdicts and notes only.
 
