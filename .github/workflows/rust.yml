@@ -3,6 +3,7 @@ name: rust
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -101,3 +102,45 @@ jobs:
           $dump = python tools/pe_imports.py target/nocrt/release/ytdlp.exe
           $dump
           if (-not ($dump -match "vcruntime")) { throw "red self-test failed: no vcruntime import in the dynamic-CRT build" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ytdlp-windows-x86_64-msvc
+          path: app-rust/target/release/ytdlp.exe
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ytdlp-harness-windows-x86_64-msvc
+          path: app-rust/target/release/ytdlp-harness.exe
+          if-no-files-found: error
+
+  linux-build:
+    name: linux release builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: app-rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+          targets: x86_64-unknown-linux-musl
+      - name: release build, gnu
+        run: cargo build --release -p ytdlp-cli
+      - name: release build, musl
+        run: cargo build --release -p ytdlp-cli --target x86_64-unknown-linux-musl
+      - name: sizes and formats
+        run: |
+          ls -l target/release/ytdlp target/x86_64-unknown-linux-musl/release/ytdlp
+          file target/release/ytdlp target/x86_64-unknown-linux-musl/release/ytdlp
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ytdlp-linux-x86_64-gnu
+          path: app-rust/target/release/ytdlp
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ytdlp-linux-x86_64-musl
+          path: app-rust/target/x86_64-unknown-linux-musl/release/ytdlp
+          if-no-files-found: error
