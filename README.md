@@ -5,10 +5,10 @@ For lean download only: on an OS with no ffmpeg installed the CLI offers to fetc
 
 | file | size | contains |
 |---|---|---|
-| `ytdlp-cli-v1.4.2-windows-lean.zip` | 17.7 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
-| `ytdlp-cli-v1.4.2-windows-portable.zip` | 57.6 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
-| `ytdlp-cli-v1.4.2-linux-lean.tar.gz` | 2.98 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
-| `ytdlp-cli-v1.4.2-linux-portable.tar.gz` | 70.6 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
+| `ytdlp-cli-v1.5.0-windows-lean.zip` | 17.7 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
+| `ytdlp-cli-v1.5.0-windows-portable.zip` | 57.6 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
+| `ytdlp-cli-v1.5.0-linux-lean.tar.gz` | 2.98 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
+| `ytdlp-cli-v1.5.0-linux-portable.tar.gz` | 70.6 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
 The two portable bundles are the larger downloads and the ones most people want. The lean bundles skip ffmpeg, and the CLI says so and falls back to a single best file rather than failing. On a machine with no ffmpeg at all it also offers to fetch the published build, with the checksum checked before it is installed.
 
 ## Requirements
@@ -37,10 +37,10 @@ Output goes to your desktop by default, falling back to your downloads folder. C
 ## Checksums
 
 ```
-28a128565aac104aa44c22aef1f503eddf962626f00f4a1aa03fee2a262bd2ae  ytdlp-cli-v1.4.2-windows-lean.zip
-d0adac8c5a47c54e3ccb807537c915c9360f5fb66153a05472f281ce8bcb8793  ytdlp-cli-v1.4.2-windows-portable.zip
-20ec5afc7d25b88baa60b27a593228a2de9295ce4c4c8e79b6798cd5f935724e  ytdlp-cli-v1.4.2-linux-lean.tar.gz
-66d4407597f84625e6106af73f83f8959a0ad3782a7e5bcdda1ee6b489b4a4fb  ytdlp-cli-v1.4.2-linux-portable.tar.gz
+394befb839f119e49ffb4ef061ba552432089552ea3e17644a662b561ff604ee  ytdlp-cli-v1.5.0-windows-lean.zip
+9a723498c30fc8557793a41a9325d790394dd2893342b5d49e8e8e835ebb018e  ytdlp-cli-v1.5.0-windows-portable.zip
+7f30c4de199ad07dbf839427f40e6b7e21ebb508386da93dc0f0c5a17889be2c  ytdlp-cli-v1.5.0-linux-lean.tar.gz
+f38babd4aac0be4f699e513e6c576b58244ebe9a94b767ea6bf10c13452d9302  ytdlp-cli-v1.5.0-linux-portable.tar.gz
 ```
 
 The bundled yt-dlp is the official 2026.08.19 release and matches the SHA-256 sums published with it. The Windows ffmpeg is the gyan.dev 9.0.2 essentials build and the Linux one is the BtbN n9.0.2 build; both matched their providers' published checksums, and `THIRD-PARTY-NOTICES.md` in each bundle names the exact archive and its digest.

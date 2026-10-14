@@ -5,6 +5,9 @@ Newest first. Current level: v1.4.2.
 
 ## v1.5.0
 
+- v1.5.0 published (d96aec4)
+Four bundles rebuilt on the v1.4.2 platform binaries, verified by extraction and selftest on target platforms (177 checks 0 failed): windows lean 17669989, windows portable 57581583, linux lean 2976745, linux portable 70577598. Digests in README.md and releases/v1.5.0/RELEASE-NOTES.md. The definitive python line before the native port; native first release renumbered v2.0.0 by owner call. Carries the change below.
+
 - work folder keeps download churn out of the output folder (e51713b)
 yt-dlp writes one file per HLS/DASH fragment, appends it to the .part file and deletes it (pinned source fragment.py _download_fragment/_append_fragment), so the output folder flickered with hundreds of files per download. The run now carries -P temp:<outdir>/.ytdlp-tmp: every intermediate (fragment files, parts, resume markers, pre-merge files) lives in that work folder and the final move is a same-volume rename. Measured for one 10-minute HLS download: 396 fragment create/delete events in the watched folder before, 1 final-file event after. The work folder is removed whenever it ends empty - on escape (after fresh partials are cleaned), on failure and after the subtitle pass; partials with resume value are kept. Selftest 169 -> 177 checks, 0 failed. Specsheet FR-7/FR-8/FR-11/NFR-3 amended first (44ce465).
 
