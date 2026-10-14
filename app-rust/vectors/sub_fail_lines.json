@@ -1,0 +1,10 @@
+{
+  "fn": "sub_fail_lines",
+  "cases": [
+    {"args": ["ERROR: Unable to download video subtitles for 'en': HTTP Error 429: Too Many Requests"], "note": "selftest: classified"},
+    {"args": ["SOMETHING ODD"], "note": "selftest: parse-miss note"},
+    {"args": [null], "note": "null error -> parse-miss note"},
+    {"args": ["timed out"], "note": "timeout class"},
+    {"args": ["network down"], "note": "network class"}
+  ]
+}

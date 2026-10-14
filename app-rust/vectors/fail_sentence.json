@@ -1,0 +1,12 @@
+{
+  "fn": "fail_sentence",
+  "cases": [
+    {"args": [7, ""], "note": "selftest: rc without error"},
+    {"args": [1, "ERROR: unable to rename file: [WinError 32] The process cannot access the file because it is being used by another process"], "note": "selftest: full error line kept"},
+    {"args": [0, "x"], "note": "rc zero with error text"},
+    {"args": [130, "escape"], "note": "escape rc"},
+    {"args": [1, ""], "note": "no error"},
+    {"args": [-1, "signal"], "note": "negative rc"},
+    {"args": [1, "ERROR: \u2018quoted\u2019 title \u2026"], "note": "punctuation is passed through untouched"}
+  ]
+}

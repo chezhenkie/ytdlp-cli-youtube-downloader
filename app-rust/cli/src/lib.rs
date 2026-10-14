@@ -1,10 +1,20 @@
 //! ytdlp cli - native implementation of the ytdlp-cli specification.
 //!
-//! Phase 1 skeleton: the workspace, the differential harness and CI are
-//! proven before behaviour is ported. Layers and functions land per
-//! RUST-PORT-PLAN.md phases 2 onwards; the layer boundaries and the
-//! behaviour they must reproduce are pinned in ytdlp-cli-specsheet.md
-//! sections 4 and 6.
+//! Ported layer by layer from `app-python/src/ytdlp.py`, which stays the
+//! behavioural oracle: every ported function is byte-compared through
+//! `app-rust/tools/harness.py` before it counts (RUST-PORT-PLAN.md,
+//! specsheet NFR-4). Layer names follow specsheet section 4: term,
+//! config, resolve, args, exec, update, ui.
+
+pub mod args;
+pub mod config;
+pub mod exec;
+pub mod rng;
+pub mod sha256;
+pub mod term;
+pub mod ui;
+pub mod update;
+pub mod width_table;
 
 /// Product version, single-sourced from this package's Cargo.toml.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

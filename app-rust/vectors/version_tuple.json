@@ -1,0 +1,26 @@
+{
+  "fn": "version_tuple",
+  "cases": [
+    {"args": ["1.10.0"], "note": "selftest: numeric compare"},
+    {"args": ["1.9.0"], "note": "selftest: numeric compare"},
+    {"args": ["1.3"], "note": "selftest: two parts"},
+    {"args": [""], "note": "selftest: empty -> (0,)"},
+    {"args": [null], "note": "null -> (0,)"},
+    {"args": ["dev"], "note": "selftest: junk piece counts 0"},
+    {"args": ["1.3-beta"], "note": "selftest: dash splits"},
+    {"args": ["1.2.0"], "note": "plain"},
+    {"args": ["1..2"], "note": "empty piece dropped"},
+    {"args": ["v1.2+3"], "note": "plus splits; letter piece is 0"},
+    {"args": ["1_2"], "note": "underscore is not a separator"},
+    {"args": ["+1.2+3"], "note": "leading plus"},
+    {"args": ["1.2.3.4"], "note": "four parts"},
+    {"args": ["01.02"], "note": "leading zeros parse"},
+    {"args": ["1-2+3"], "note": "both separators"},
+    {"args": ["."], "note": "only separators -> (0,)"},
+    {"args": ["..."], "note": "only dots -> (0,)"},
+    {"args": ["a.b.c"], "note": "all junk pieces"},
+    {"args": ["1."], "note": "trailing dot"},
+    {"args": [".1"], "note": "leading dot"},
+    {"args": ["1.2.3-beta.4+build.5"], "note": "full tag shape"}
+  ]
+}

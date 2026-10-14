@@ -64,6 +64,10 @@ jobs:
         run: cargo build --release -p ytdlp-harness
       - name: dispatcher error-path probe
         run: python app-rust/tools/harness.py probe-rust --rust-bin app-rust/target/release/ytdlp-harness
+      - name: differential over every vector (gate 2)
+        run: python app-rust/tools/harness.py run-all --rust-bin app-rust/target/release/ytdlp-harness
+      - name: east-asian width table matches the pinned oracle
+        run: python app-rust/tools/gen_width_table.py --check
 
   windows-build:
     name: windows release and PE import assertions

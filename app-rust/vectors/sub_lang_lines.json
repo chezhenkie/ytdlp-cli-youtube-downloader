@@ -1,0 +1,13 @@
+{
+  "fn": "sub_lang_lines",
+  "cases": [
+    {"args": [], "note": "default width 64, the whole reference"},
+    {"args": [24], "note": "selftest narrow case"},
+    {"args": [30], "note": "medium width"},
+    {"args": [10], "note": "one code per line"},
+    {"args": [1], "note": "below any code, one per line"},
+    {"args": [0], "note": "zero width"},
+    {"args": [200], "note": "oversized width packs every code"},
+    {"args": [64], "note": "explicit box width"}
+  ]
+}

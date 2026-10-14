@@ -1,0 +1,25 @@
+{
+  "fn": "pad_speed",
+  "cases": [
+    {"args": ["2.32MiB/s"], "note": "truncate then pad"},
+    {"args": ["9.94MiB/s"], "note": "the 9 to 10 crossing pin"},
+    {"args": ["99.99MiB/s"], "note": "selftest parity case"},
+    {"args": ["999.9MiB/s"], "note": "selftest parity case"},
+    {"args": ["1000.0MiB/s"], "note": "four integer digits stay"},
+    {"args": ["0.5MiB/s"], "note": "zero integer part pads to 000"},
+    {"args": ["5B/s"], "note": "no decimal, no prefix"},
+    {"args": ["12KiB/s"], "note": "no decimal with prefix"},
+    {"args": ["1.5MB/s"], "note": "mega, no i"},
+    {"args": ["1.23GB/s"], "note": "truncation and padding together"},
+    {"args": ["99999.9MiB/s"], "note": "five integer digits"},
+    {"args": ["3.5TiB/s"], "note": "tera"},
+    {"args": ["10KiB/s"], "note": "two integer digits"},
+    {"args": ["1.0B/s"], "note": "byte per second"},
+    {"args": ["abc"], "note": "not a speed"},
+    {"args": ["1.5MB"], "note": "no per-second suffix"},
+    {"args": ["1.5 MiB/s"], "note": "space inside: no match"},
+    {"args": ["1,5MiB/s"], "note": "comma decimal: no match"},
+    {"args": ["MiB/s"], "note": "no digits: no match"},
+    {"args": [""], "note": "empty input"}
+  ]
+}

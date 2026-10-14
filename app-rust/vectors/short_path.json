@@ -1,0 +1,19 @@
+{
+  "fn": "short_path",
+  "cases": [
+    {"args": ["C:\\Users\\x\\Videos", 40, true], "note": "windows path"},
+    {"args": ["/home/u/Videos", 40, false], "note": "posix path"},
+    {"args": ["C:/mixed\\path/Videos", 40, true], "note": "mixed separators normalize"},
+    {"args": ["", 40, true], "note": "empty path keeps the fallback name"},
+    {"args": ["", 40, false], "note": "empty path, posix"},
+    {"args": ["C:\\Users\\x\\Videos", 8, true], "note": "cut to width"},
+    {"args": ["C:\\Users\\x\\\u4e2d\u6587", 40, true], "note": "cjk folder name"},
+    {"args": ["C:\\Users\\x\\\u4e2d\u6587", 6, true], "note": "cut lands inside the wide name"},
+    {"args": ["Videos", 40, false], "note": "bare name"},
+    {"args": ["X:/", 40, true], "note": "drive root"},
+    {"args": ["//server/share", 40, false], "note": "unc-like posix path"},
+    {"args": ["/", 40, false], "note": "root only"},
+    {"args": ["\\", 40, true], "note": "backslash only"},
+    {"args": ["/home/u/Videos", 0, false], "note": "zero width cuts everything"}
+  ]
+}

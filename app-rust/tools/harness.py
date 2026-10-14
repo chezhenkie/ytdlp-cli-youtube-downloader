@@ -13,6 +13,20 @@ Vector format (app-rust/vectors/<fn>.json):
     {"fn": "clean_url",
      "cases": [{"args": [...], "note": "optional"}]}
 
+A case calls the python function and the rust twin with the same vector
+args. Where the port is deliberately explicit about state the python
+original reads implicitly, the case trains the two sides onto the same
+state:
+
+    "capture_args": true   the record gains an "args_after" field, so a
+                           function that mutates its argument is
+                           compared on the mutated state as well
+    PY_CALL_HOOKS          js_runtime_args / menu_line / batch_row /
+                           short_path take the display state (node on
+                           PATH, USE_COLOR, os.name) as a trailing
+                           parameter in the rust twin; the hook binds
+                           that state on the python side
+
 Interchange format: one line per case carrying exactly the bytes of
 
     json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
@@ -28,10 +42,14 @@ python capture refuses every other minor version.
 Usage:
     python harness.py selftest [--fn F] [--vectors F.json]
     python harness.py run --fn F [--vectors F.json] [--rust-bin B]
+    python harness.py run-all [--vectors-dir D] [--rust-bin B]
     python harness.py capture --impl python|rust --fn F --out FILE
         [--vectors F.json] [--rust-bin B]
     python harness.py diff --a FILE --b FILE
     python harness.py probe-rust [--vectors F.json] [--rust-bin B]
+
+`run-all` is the gate-2 differential: every vector file except the
+error-path fixture is captured on both sides and byte-compared.
 
 Exit codes: 0 pass, 1 check failed, 2 instrument error.
 """
@@ -42,6 +60,7 @@ import json
 import os
 import subprocess
 import sys
+import types
 from contextlib import redirect_stdout
 from pathlib import Path
 
@@ -51,6 +70,9 @@ REPO_ROOT = APP_RUST.parent
 PY_IMPL = REPO_ROOT / "app-python" / "src" / "ytdlp.py"
 VECTORS_DIR = APP_RUST / "vectors"
 ORACLE = (3, 14)
+# the dispatcher error-path fixture; it exists to prove the rust side
+# refuses unknown names and is never part of the differential.
+ERROR_PATH_FIXTURE = "no_such_function.json"
 
 
 class InstrumentError(Exception):
@@ -130,6 +152,52 @@ def encode_records(records):
     return ("\n".join(records) + "\n").encode("utf-8")
 
 
+def _with_global(module, name, value, fn):
+    saved = getattr(module, name)
+    setattr(module, name, value)
+    try:
+        return fn()
+    finally:
+        setattr(module, name, saved)
+
+
+def _hook_js_runtime_args(module, args):
+    flag = bool(args[0])
+    fake = (lambda name: "/fake/node") if flag else (lambda name: None)
+    return _with_global(module.shutil, "which", fake, module.js_runtime_args)
+
+
+def _hook_menu_line(module, args):
+    call_args, use_color = args[:-1], bool(args[-1])
+    return _with_global(
+        module, "USE_COLOR", use_color, lambda: module.menu_line(*call_args)
+    )
+
+
+def _hook_batch_row(module, args):
+    call_args, use_color = args[:-1], bool(args[-1])
+    return _with_global(
+        module, "USE_COLOR", use_color, lambda: module.batch_row(*call_args)
+    )
+
+
+def _hook_short_path(module, args):
+    call_args, is_windows = args[:-1], bool(args[-1])
+    fake_os = types.SimpleNamespace(name="nt" if is_windows else "posix")
+    return _with_global(module, "os", fake_os, lambda: module.short_path(*call_args))
+
+
+# Ports of the terminal/display state the python originals read from the
+# module or the environment; the rust twins take it as a parameter, so
+# the hook binds it on the python side from the vector's trailing args.
+PY_CALL_HOOKS = {
+    "js_runtime_args": _hook_js_runtime_args,
+    "menu_line": _hook_menu_line,
+    "batch_row": _hook_batch_row,
+    "short_path": _hook_short_path,
+}
+
+
 def capture_python(fn, vectors_path):
     require_oracle()
     doc = load_vectors(vectors_path)
@@ -146,11 +214,17 @@ def capture_python(fn, vectors_path):
     if func is None or not callable(func):
         raise InstrumentError("python implementation has no callable %r" % fn)
     records = []
+    hook = PY_CALL_HOOKS.get(fn)
     for i, case in enumerate(doc["cases"]):
         side = io.StringIO()
         try:
             with redirect_stdout(side):
-                value = func(*case["args"])
+                if hook is not None:
+                    value = hook(module, case["args"])
+                else:
+                    value = func(*case["args"])
+                if case.get("capture_args"):
+                    value = {"args_after": case["args"], "result": value}
         except InstrumentError:
             raise
         except Exception as e:
@@ -271,6 +345,38 @@ def cmd_run(args):
     return 1
 
 
+def cmd_run_all(args):
+    vectors_dir = Path(args.vectors_dir) if args.vectors_dir else VECTORS_DIR
+    files = sorted(p for p in vectors_dir.glob("*.json") if p.name != ERROR_PATH_FIXTURE)
+    if not files:
+        raise InstrumentError("no vector files in %s" % vectors_dir)
+    rust_bin = Path(args.rust_bin) if args.rust_bin else default_rust_bin()
+    passed = 0
+    failed = 0
+    total_records = 0
+    for path in files:
+        doc = load_vectors(path)
+        fn = doc["fn"]
+        if path.stem != fn:
+            raise InstrumentError(
+                "vector %s declares fn %r; file name and fn must agree" % (path, fn)
+            )
+        expected = capture_python(fn, path)
+        actual = capture_rust(fn, path, rust_bin)
+        equal, report = diff_bytes(expected, actual)
+        total_records += count_records(expected)
+        print("%s %s: %s" % ("PASS" if equal else "FAIL", fn, report))
+        if equal:
+            passed += 1
+        else:
+            failed += 1
+    print(
+        "RUN-ALL %s (%d functions, %d passed, %d failed, %d records)"
+        % ("FAIL" if failed else "PASS", len(files), passed, failed, total_records)
+    )
+    return 1 if failed else 0
+
+
 def cmd_capture(args):
     vectors = Path(args.vectors) if args.vectors else default_vectors(args.fn)
     if args.impl == "python":
@@ -326,6 +432,11 @@ def main(argv=None):
     p.add_argument("--vectors")
     p.add_argument("--rust-bin")
     p.set_defaults(func=cmd_run)
+
+    p = sub.add_parser("run-all", help="differential over every vector file (gate 2)")
+    p.add_argument("--vectors-dir")
+    p.add_argument("--rust-bin")
+    p.set_defaults(func=cmd_run_all)
 
     p = sub.add_parser("capture", help="write one implementation's output bytes")
     p.add_argument("--impl", choices=["python", "rust"], required=True)

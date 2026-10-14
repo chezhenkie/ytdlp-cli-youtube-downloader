@@ -6,9 +6,11 @@
 //!
 //! Reads a vector file `{"fn": "...", "cases": [{"args": [...]}]}` and
 //! prints one canonical JSON line per case (CPython json.dumps format,
-//! see json.rs). Instrument errors exit 2 with one stderr line. The
-//! python side and the differ live in tools/harness.py.
+//! see json.rs). The arms live in dispatch.rs; instrument errors exit 2
+//! with one stderr line. The python side and the differ live in
+//! tools/harness.py.
 
+mod dispatch;
 mod json;
 
 use json::Json;
@@ -80,7 +82,7 @@ fn run() -> Result<(), String> {
                 ));
             }
         };
-        let value = dispatch(&fn_name, args).map_err(|e| format!("case {i}: {e}"))?;
+        let value = dispatch::dispatch(&fn_name, args).map_err(|e| format!("case {i}: {e}"))?;
         buf.clear();
         json::write_canonical(&value, &mut buf);
         buf.push(b'\n');
@@ -92,11 +94,4 @@ fn run() -> Result<(), String> {
 
 fn get<'a>(fields: &'a [(String, Json)], key: &str) -> Option<&'a Json> {
     fields.iter().find(|(k, _)| k == key).map(|(_, v)| v)
-}
-
-/// Product function dispatch. Arms are added by RUST-PORT-PLAN.md phase 2
-/// and later; phase 1 wires none, so every name is refused and the
-/// error-path fixture (vectors/no_such_function.json) stays red forever.
-fn dispatch(name: &str, _args: &[Json]) -> Result<Json, String> {
-    Err(format!("unknown function: {name}"))
 }

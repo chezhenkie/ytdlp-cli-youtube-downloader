@@ -1,0 +1,14 @@
+{
+  "fn": "tail_to_width",
+  "cases": [
+    {"args": ["ab\u4e00\u4e00\u4e00", 6], "note": "selftest parity case"},
+    {"args": ["ab", 1], "note": "last column only"},
+    {"args": ["ab", 0], "note": "zero width"},
+    {"args": ["\u4e00", 1], "note": "wide char does not fit"},
+    {"args": ["a\ud83d\ude00b", 3], "note": "emoji plus ascii tail"},
+    {"args": ["ab\u0301cd", 3], "note": "combining mark counts one"},
+    {"args": ["", 5], "note": "empty text"},
+    {"args": ["abc", 100], "note": "width beyond the text"},
+    {"args": ["\u4e00\u4e01\u4e02", 5], "note": "odd width cannot split a wide char"}
+  ]
+}

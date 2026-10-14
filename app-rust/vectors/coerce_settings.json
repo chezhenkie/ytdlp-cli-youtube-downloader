@@ -1,0 +1,485 @@
+{
+  "fn": "coerce_settings",
+  "cases": [
+    {
+      "args": [
+        {
+          "settings_version": 1,
+          "yt_dlp_path": "",
+          "ffmpeg_path": "",
+          "auto_update": true,
+          "auto_update_last_check": 0,
+          "type": "video",
+          "video_container": "mp4",
+          "video_resolution": "1080",
+          "audio_format": "mp3",
+          "audio_quality": "0",
+          "output_dir": "",
+          "filename_template": "%(title)s",
+          "subtitles": true,
+          "subtitle_langs": "en",
+          "playlist": false,
+          "playlist_max_items": 0
+        }
+      ],
+      "note": "all defaults: no notes, nothing changes",
+      "capture_args": true
+    },
+    {
+      "args": [
+        {
+          "settings_version": 1,
+          "yt_dlp_path": "",
+          "ffmpeg_path": "",
+          "auto_update": true,
+          "auto_update_last_check": 0,
+          "type": "tunnel",
+          "video_container": "avi",
+          "video_resolution": "not-a-number",
+          "audio_format": "mp3",
+          "audio_quality": "banana",
+          "output_dir": "",
+          "filename_template": "%(title)s",
+          "subtitles": true,
+          "subtitle_langs": "en",
+          "playlist": true,
+          "playlist_max_items": "abc"
+        }
+      ],
+      "note": "F1/F2 junk set from the selftest",
+      "capture_args": true
+    },
+    {
+      "args": [
+        {
+          "settings_version": 1,
+          "yt_dlp_path": "",
+          "ffmpeg_path": "",
+          "auto_update": true,
+          "auto_update_last_check": 0,
+          "type": "video",
+          "video_container": "mp4",
+          "video_resolution": "1080",
+          "audio_format": "mp3",
+          "audio_quality": "9",
+          "output_dir": "",
+          "filename_template": "%(title)s",
+          "subtitles": true,
+          "subtitle_langs": "en",
+          "playlist": false,
+          "playlist_max_items": 0
+        }
+      ],
+      "note": "boundary keep: number",
+      "capture_args": true
+    },
+    {
+      "args": [
+        {
+          "settings_version": 1,
+          "yt_dlp_path": "",
+          "ffmpeg_path": "",
+          "auto_update": true,
+          "auto_update_last_check": 0,
+          "type": "video",
+          "video_container": "mp4",
+          "video_resolution": "1080",
+          "audio_format": "mp3",
+          "audio_quality": "320K",
+          "output_dir": "",
+          "filename_template": "%(title)s",
+          "subtitles": true,
+          "subtitle_langs": "en",
+          "playlist": false,
+          "playlist_max_items": 0
+        }
+      ],
+      "note": "boundary keep: bitrate",
+      "capture_args": true
+    },
+    {
+      "args": [
+        {
+          "settings_version": 1,
+          "yt_dlp_path": "",
+          "ffmpeg_path": "",
+          "auto_update": true,
+          "auto_update_last_check": 0,
+          "type": "video",
+          "video_container": "mp4",
+          "video_resolution": "1080",
+          "audio_format": "mp3",
+          "audio_quality": "320k",
+          "output_dir": "",
+          "filename_template": "%(title)s",
+          "subtitles": true,
+          "subtitle_langs": "en",
+          "playlist": false,
+          "playlist_max_items": 0
+        }
+      ],
+      "note": "lowercase k accepted",
+      "capture_args": true
+    },
+    {
+      "args": [
+        {
+          "settings_version": 1,
+          "yt_dlp_path": "",
+          "ffmpeg_path": "",
+          "auto_update": true,
+          "auto_update_last_check": 0,
+          "type": "video",
+          "video_container": "mp4",
+          "video_resolution": "1080",
+          "audio_format": "mp3",
+          "audio_quality": " 320K ",
+          "output_dir": "",
+          "filename_template": "%(title)s",
+          "subtitles": true,
+          "subtitle_langs": "en",
+          "playlist": false,
+          "playlist_max_items": 0
+        }
+      ],
+      "note": "surrounding space stripped",
+      "capture_args": true
+    },
+    {
+      "args": [
+        {
+          "settings_version": 1,
+          "yt_dlp_path": "",
+          "ffmpeg_path": "",
+          "auto_update": true,
+          "auto_update_last_check": 0,
+          "type": "video",
+          "video_container": "mp4",
+          "video_resolution": "1080",
+          "audio_format": "mp3",
+          "audio_quality": 0,
+          "output_dir": "",
+          "filename_template": "%(title)s",
+          "subtitles": true,
+          "subtitle_langs": "en",
+          "playlist": false,
+          "playlist_max_items": 0
+        }
+      ],
+      "note": "int zero prints as 0 and is kept as a string",
+      "capture_args": true
+    },
+    {
+      "args": [
+        {
+          "settings_version": 1,
+          "yt_dlp_path": "",
+          "ffmpeg_path": "",
+          "auto_update": true,
+          "auto_update_last_check": 0,
+          "type": "video",
+          "video_container": "mp4",
+          "video_resolution": "1080",
+          "audio_format": "mp3",
+          "audio_quality": true,
+          "output_dir": "",
+          "filename_template": "%(title)s",
+          "subtitles": true,
+          "subtitle_langs": "en",
+          "playlist": false,
+          "playlist_max_items": 0
+        }
+      ],
+      "note": "bool prints True: rejected",
+      "capture_args": true
+    },
+    {
+      "args": [
+        {
+          "settings_version": 1,
+          "yt_dlp_path": "",
+          "ffmpeg_path": "",
+          "auto_update": true,
+          "auto_update_last_check": 0,
+          "type": "video",
+          "video_container": "mp4",
+          "video_resolution": "1080",
+          "audio_format": "mp3",
+          "audio_quality": null,
+          "output_dir": "",
+          "filename_template": "%(title)s",
+          "subtitles": true,
+          "subtitle_langs": "en",
+          "playlist": false,
+          "playlist_max_items": 0
+        }
+      ],
+      "note": "null prints None: rejected",
+      "capture_args": true
+    },
+    {
+      "args": [
+        {
+          "settings_version": 1,
+          "yt_dlp_path": "",
+          "ffmpeg_path": "",
+          "auto_update": true,
+          "auto_update_last_check": 0,
+          "type": "video",
+          "video_container": "mp4",
+          "video_resolution": "1080",
+          "audio_format": "mp3",
+          "audio_quality": "",
+          "output_dir": "",
+          "filename_template": "%(title)s",
+          "subtitles": true,
+          "subtitle_langs": "en",
+          "playlist": false,
+          "playlist_max_items": 0
+        }
+      ],
+      "note": "empty string rejected",
+      "capture_args": true
+    },
+    {
+      "args": [
+        {
+          "settings_version": 1,
+          "yt_dlp_path": "",
+          "ffmpeg_path": "",
+          "auto_update": true,
+          "auto_update_last_check": 0,
+          "type": "video",
+          "video_container": "mp4",
+          "video_resolution": "1080",
+          "audio_format": "mp3",
+          "audio_quality": "0",
+          "output_dir": "",
+          "filename_template": "%(title)s",
+          "subtitles": true,
+          "subtitle_langs": "en",
+          "playlist": false,
+          "playlist_max_items": "5"
+        }
+      ],
+      "note": "numeric string parses",
+      "capture_args": true
+    },
+    {
+      "args": [
+        {
+          "settings_version": 1,
+          "yt_dlp_path": "",
+          "ffmpeg_path": "",
+          "auto_update": true,
+          "auto_update_last_check": 0,
+          "type": "video",
+          "video_container": "mp4",
+          "video_resolution": "1080",
+          "audio_format": "mp3",
+          "audio_quality": "0",
+          "output_dir": "",
+          "filename_template": "%(title)s",
+          "subtitles": true,
+          "subtitle_langs": "en",
+          "playlist": false,
+          "playlist_max_items": "1_000"
+        }
+      ],
+      "note": "python int() underscore form",
+      "capture_args": true
+    },
+    {
+      "args": [
+        {
+          "settings_version": 1,
+          "yt_dlp_path": "",
+          "ffmpeg_path": "",
+          "auto_update": true,
+          "auto_update_last_check": 0,
+          "type": "video",
+          "video_container": "mp4",
+          "video_resolution": "1080",
+          "audio_format": "mp3",
+          "audio_quality": "0",
+          "output_dir": "",
+          "filename_template": "%(title)s",
+          "subtitles": true,
+          "subtitle_langs": "en",
+          "playlist": false,
+          "playlist_max_items": "-3"
+        }
+      ],
+      "note": "negative keeps as-is",
+      "capture_args": true
+    },
+    {
+      "args": [
+        {
+          "settings_version": 1,
+          "yt_dlp_path": "",
+          "ffmpeg_path": "",
+          "auto_update": true,
+          "auto_update_last_check": 0,
+          "type": "video",
+          "video_container": "mp4",
+          "video_resolution": "1080",
+          "audio_format": "mp3",
+          "audio_quality": "0",
+          "output_dir": "",
+          "filename_template": "%(title)s",
+          "subtitles": true,
+          "subtitle_langs": "en",
+          "playlist": false,
+          "playlist_max_items": true
+        }
+      ],
+      "note": "bool is excluded before int()",
+      "capture_args": true
+    },
+    {
+      "args": [
+        {
+          "settings_version": 1,
+          "yt_dlp_path": "",
+          "ffmpeg_path": "",
+          "auto_update": true,
+          "auto_update_last_check": 0,
+          "type": "video",
+          "video_container": "mp4",
+          "video_resolution": "1080",
+          "audio_format": "mp3",
+          "audio_quality": "0",
+          "output_dir": "",
+          "filename_template": "%(title)s",
+          "subtitles": true,
+          "subtitle_langs": "en",
+          "playlist": false,
+          "playlist_max_items": null
+        }
+      ],
+      "note": "null is not a number",
+      "capture_args": true
+    },
+    {
+      "args": [
+        {
+          "settings_version": 1,
+          "yt_dlp_path": "",
+          "ffmpeg_path": "",
+          "auto_update": true,
+          "auto_update_last_check": 0,
+          "type": "video",
+          "video_container": "mp4",
+          "video_resolution": "1080",
+          "audio_format": "mp3",
+          "audio_quality": "0",
+          "output_dir": "",
+          "filename_template": "%(title)s",
+          "subtitles": true,
+          "subtitle_langs": "en",
+          "playlist": false,
+          "playlist_max_items": "0x10"
+        }
+      ],
+      "note": "hex is not a number",
+      "capture_args": true
+    },
+    {
+      "args": [
+        {
+          "settings_version": 1,
+          "yt_dlp_path": "",
+          "ffmpeg_path": "",
+          "auto_update": true,
+          "auto_update_last_check": 0,
+          "type": "audio",
+          "video_container": "avi",
+          "video_resolution": "9999",
+          "audio_format": "ogg",
+          "audio_quality": "0",
+          "output_dir": "",
+          "filename_template": "%(title)s",
+          "subtitles": true,
+          "subtitle_langs": "en",
+          "playlist": false,
+          "playlist_max_items": 0
+        }
+      ],
+      "note": "each vocabulary repairs with its own note",
+      "capture_args": true
+    },
+    {
+      "args": [
+        {
+          "settings_version": 1,
+          "yt_dlp_path": "",
+          "ffmpeg_path": "",
+          "auto_update": true,
+          "auto_update_last_check": 0,
+          "type": "video no audio",
+          "video_container": "mp4",
+          "video_resolution": "1080",
+          "audio_format": "mp3",
+          "audio_quality": "0",
+          "output_dir": "",
+          "filename_template": "%(title)s",
+          "subtitles": true,
+          "subtitle_langs": "en",
+          "playlist": false,
+          "playlist_max_items": 0
+        }
+      ],
+      "note": "valid vocabulary untouched",
+      "capture_args": true
+    },
+    {
+      "args": [
+        {
+          "settings_version": 1,
+          "yt_dlp_path": "",
+          "ffmpeg_path": "",
+          "auto_update": true,
+          "auto_update_last_check": 0,
+          "type": "video",
+          "video_container": "mp4",
+          "video_resolution": "1080",
+          "audio_format": "mp3",
+          "audio_quality": "0",
+          "output_dir": "/x/y",
+          "filename_template": "%(title)s",
+          "subtitles": true,
+          "subtitle_langs": "nl,en",
+          "playlist": false,
+          "playlist_max_items": 0
+        }
+      ],
+      "note": "keys outside the coercion surface pass through",
+      "capture_args": true
+    },
+    {
+      "args": [
+        {
+          "settings_version": 1,
+          "yt_dlp_path": "",
+          "ffmpeg_path": "",
+          "auto_update": true,
+          "auto_update_last_check": 0,
+          "type": "video",
+          "video_container": "mp4",
+          "video_resolution": "1080",
+          "audio_format": "mp3",
+          "audio_quality": "0",
+          "output_dir": "",
+          "filename_template": "%(title)s",
+          "subtitles": true,
+          "subtitle_langs": "en",
+          "playlist": false,
+          "surprise": 1
+        }
+      ],
+      "note": "missing key is appended with the default; unknown key survives",
+      "capture_args": true
+    }
+  ]
+}

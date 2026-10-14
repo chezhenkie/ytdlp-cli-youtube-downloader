@@ -1,0 +1,19 @@
+{
+  "fn": "parse_sha256",
+  "cases": [
+    {"args": ["60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba"], "note": "selftest: bare digest"},
+    {"args": ["60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba  ffmpeg-9.0.2.zip"], "note": "selftest: digest then filename"},
+    {"args": ["60F467265B1E312373DBCD92200C2618A74850F98D3D078E94296BB3FA2047BA"], "note": "uppercase digest lowercased"},
+    {"args": ["60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba  *ffmpeg.zip"], "note": "star prefix on the filename"},
+    {"args": ["*60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba"], "note": "star on the digest"},
+    {"args": ["no digest here"], "note": "selftest: refuses"},
+    {"args": [""], "note": "selftest: empty"},
+    {"args": ["tooshort"], "note": "selftest: short field"},
+    {"args": ["gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg"], "note": "selftest: 64 non-hex"},
+    {"args": ["60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba\n"], "note": "trailing newline"},
+    {"args": ["60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047b  a"], "note": "digest one char short: no field is 64"},
+    {"args": ["text 60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba more"], "note": "digest mid-text"},
+    {"args": ["60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba\tffmpeg.zip"], "note": "tab separator"},
+    {"args": ["afa2b69c9965919e0b519a633520321f838d74690f8fb28c76393c54a9448d60  ffmpeg-n9.0-latest-linux64-gpl-9.0.tar.xz"], "note": "real github checksum shape"}
+  ]
+}

@@ -19,6 +19,17 @@
     {"args": ["HTTPS://EXAMPLE.COM"], "note": "the regex is lowercase-only; uppercase scheme does not match"},
     {"args": ["xhttps://example.com"], "note": "match starts at https:// even mid-word"},
     {"args": ["ftp://no.scheme.example"], "note": "only http and https schemes match"},
-    {"args": ["https://example.com/a.,;:!?)]\"'"], "note": "every char of the rstrip set trimmed"}
+    {"args": ["https://example.com/a.,;:!?)]\"'"], "note": "every char of the rstrip set trimmed"},
+    {"args": ["\u94fe\u63a5 https://example.com/z \u4e2d\u6587"], "note": "CJK after the space is outside the match"},
+    {"args": ["https://example.com/z\u4e2d\u6587"], "note": "CJK glued to the url is inside the match"},
+    {"args": ["https://example.com/z\ud83d\ude00 end"], "note": "emoji is non-space, part of the match"},
+    {"args": ["https://a\u00a0b"], "note": "NBSP is whitespace to the python regex; the match stops before it"},
+    {"args": ["https://a\u001cb"], "note": "\\x1c is whitespace to the python regex (py_space control set)"},
+    {"args": ["https://,,,"], "note": "rstrips to https:// - the scheme slash stops the trim"},
+    {"args": [" https://x/y "], "note": "surrounding spaces stay outside the match"},
+    {"args": ["https://x\ty"], "note": "tab terminates the match"},
+    {"args": ["see:ftp://x and http://ok"], "note": "ftp ignored; first http(s) match wins"},
+    {"args": ["a https://x,https://y"], "note": "inner comma kept; only trailing punctuation is trimmed"},
+    {"args": ["http://a"], "note": "shortest http match"}
   ]
 }

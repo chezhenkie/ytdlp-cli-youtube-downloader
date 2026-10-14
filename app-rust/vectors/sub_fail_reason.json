@@ -1,0 +1,19 @@
+{
+  "fn": "sub_fail_reason",
+  "cases": [
+    {"args": ["ERROR: Unable to download video subtitles for 'en': HTTP Error 429: Too Many Requests"], "note": "selftest parity case"},
+    {"args": ["429"], "note": "bare code"},
+    {"args": ["Too Many Requests"], "note": "phrase without the code"},
+    {"args": ["TOO MANY REQUESTS"], "note": "case-insensitive"},
+    {"args": ["The request timed out"], "note": "timeout phrase"},
+    {"args": ["TIMEOUT"], "note": "timeout word"},
+    {"args": ["connection reset by peer"], "note": "connection"},
+    {"args": ["network error"], "note": "network"},
+    {"args": ["host unreachable"], "note": "unreachable"},
+    {"args": ["Connection timed out"], "note": "timeout wins over connection"},
+    {"args": ["429 and timeout together"], "note": "429 wins over timeout"},
+    {"args": ["SOMETHING ODD"], "note": "selftest: unrecognized -> null"},
+    {"args": [""], "note": "empty -> null"},
+    {"args": [null], "note": "null -> null"}
+  ]
+}

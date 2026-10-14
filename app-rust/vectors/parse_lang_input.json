@@ -1,0 +1,32 @@
+{
+  "fn": "parse_lang_input",
+  "cases": [
+    {"args": ["en,8"], "note": "selftest: digit dropped, en kept"},
+    {"args": ["yue,nl-BE"], "note": "selftest: unknown kept, variant kept, lowercased"},
+    {"args": ["en-GB, sr-Latn, zh-Hans, es-419"], "note": "selftest: variants all kept"},
+    {"args": ["  EN , , de  "], "note": "selftest: blanks skipped, input lowercased"},
+    {"args": ["en.*,nl,xx!!"], "note": "selftest: wildcard kept, junk dropped"},
+    {"args": ["fil,yue"], "note": "selftest: fil known, yue unknown"},
+    {"args": ["8"], "note": "selftest: bare digit is bad"},
+    {"args": [""], "note": "empty input"},
+    {"args": [null], "note": "null input"},
+    {"args": ["a,ab,abc,abcd"], "note": "length boundaries: 1 bad, 2 known, 3 unknown, 4 bad"},
+    {"args": ["zh-Hant-CN"], "note": "two subtags"},
+    {"args": ["en-"], "note": "trailing dash: empty subtag is bad"},
+    {"args": ["-en"], "note": "leading dash: empty primary is bad"},
+    {"args": ["en--gb"], "note": "double dash: empty subtag is bad"},
+    {"args": ["e,n,eng"], "note": "one-letter primaries are bad"},
+    {"args": ["en-12345678"], "note": "subtag at the 8 char limit"},
+    {"args": ["en-123456789"], "note": "subtag over the 8 char limit is bad"},
+    {"args": ["en-1"], "note": "subtag under the 2 char limit is bad"},
+    {"args": ["en.US"], "note": "dot is not a subtag separator here"},
+    {"args": ["EN!"], "note": "junk after lowercasing"},
+    {"args": ["\u0130d"], "note": "turkish dotted I lowercases to i + combining dot, so bad"},
+    {"args": ["aa,zz,fil"], "note": "aa and fil known; zz well formed but unknown"},
+    {"args": ["iw,ji,in,mo,sh"], "note": "grandfathered aliases are in the reference"},
+    {"args": ["*"], "note": "bare wildcard is kept and not checked"},
+    {"args": ["(en)"], "note": "parenthesised pattern"},
+    {"args": [" x "], "note": "single letter after strip is bad"},
+    {"args": ["\u4e2d\u6587"], "note": "non-ascii letters are not a language code"}
+  ]
+}

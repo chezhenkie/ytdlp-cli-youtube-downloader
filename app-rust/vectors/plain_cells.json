@@ -1,0 +1,10 @@
+{
+  "fn": "plain_cells",
+  "cases": [
+    {"args": [[["@", 231]]], "note": "freeze frame single cell"},
+    {"args": [[[" ", 0], [".", 0], [" ", 0]]], "note": "padding is trimmed"},
+    {"args": [[[" ", 0], [" ", 0]]], "note": "all blank trims to empty"},
+    {"args": [[["\u4e2d", 1]]], "note": "non space characters survive"},
+    {"args": [[["  x  ", 4]]], "note": "inner spaces of a cell survive"}
+  ]
+}
