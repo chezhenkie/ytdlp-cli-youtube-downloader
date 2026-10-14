@@ -7,7 +7,7 @@ Companion to `ytdlp-cli-specsheet.md`, which remains the source of truth for pro
 | fact | value |
 |---|---|
 | `app-python/src/ytdlp.py` | 119994 bytes, 3200 lines (newline count), 100 top-level defs |
-| `selftest()` | L2337-3147, 811 lines, 169 checks |
+| `selftest()` | L2369-3240, 872 lines, 177 checks |
 | non-test code | 2389 lines |
 | runtime deps, end user | Python 3, plus ffmpeg in portable bundles only |
 | windows lean | already self-contained: `yt-dlp.exe` 17840399 bytes |
@@ -18,7 +18,7 @@ Decisions taken for this port:
 |---|---|
 | crate policy | minimal vetted set; hand-roll sha256, JSON, RNG, east-asian width |
 | linux lean payload | `yt-dlp_linux` (self-contained), not the zipapp |
-| python code during port | retained as behavioural oracle; all 169 checks get Rust twins |
+| python code during port | retained as behavioural oracle; all 177 checks get Rust twins |
 | release | `app-rust/`, v1.5.0, parallel product dir |
 | CLI self-update | release asset + digest check + `<new> --selftest` probe, then rename-to-`.old` and place, behind the existing y/n prompt |
 
@@ -187,9 +187,9 @@ No I/O, no terminal: `one_dec_num`, `pad_speed`, `color_progress`, `dwidth`, `cu
 
 ### Phase 9 - Parity
 
-All 169 checks as Rust tests, harness across the full fixture set, FR-by-FR read against the implementation.
+All 177 checks as Rust tests, harness across the full fixture set, FR-by-FR read against the implementation.
 
-**G9:** 169/169 rust, 169/169 python, zero harness diffs, conformance table written into the specsheet verification map.
+**G9:** 177/177 rust, 177/177 python, zero harness diffs, conformance table written into the specsheet verification map.
 
 ### Phase 10 - Bundles and v1.5.0
 
