@@ -1,7 +1,12 @@
 changelog
 =========
 
-Newest first. Current level: v1.4.2.
+Newest first. Current level: v1.5.0.
+
+## v2.0.0 native port (unreleased)
+
+- phase 1: differential harness, workspace skeleton, rust CI, gate 1 (3b3e4f4, b572605)
+G0 approved by the owner; phase 1 of RUST-PORT-PLAN.md landed. app-rust/ is a cargo workspace: the cli bin (phase 1 skeleton) plus a harness dispatcher crate that is never shipped. tools/harness.py calls a named function in the python or the rust implementation and byte-compares the outputs in the CPython interchange format (json.dumps ensure_ascii=False, separators=(",", ":"), sort_keys=True) reproduced in harness/src/json.rs against recorded CPython 3.14.6 fixtures; per NFR-4 the instrument is proven on known answers before it judges any rust: selftest green (python vs python, 19 clean_url records, 0 mismatches) and red (one flipped byte detected at record 10). The oracle interpreter is pinned to CPython 3.14.x and enforced by the tool. G1 evidence: 4 rust codec tests green; linux-gnu release 450856 bytes (harness 484176), linux-musl 551672/588680, static-pie without musl-gcc; msvc cross-check compiles with -C target-feature=+crt-static reaching rustc from the repo-root config; CI run 38566072196 green on windows, ubuntu and macos including the PE assertions - the crt-static exe imports KERNEL32, ntdll and api-ms-win-core-synch-l1-2-0 only (3 imports, no vcruntime/msvcp), while a deliberately dynamic-CRT build shows VCRUNTIME140.dll plus five api-ms-win-crt-* entries (9 imports), proving the checker sees what it claims. Windows release sizes: ytdlp.exe 221184, ytdlp-harness.exe 260608. Python selftest workflow stayed green (run 38566072223). tools/pe_imports.py was validated locally against a real msvc-built PE and its red paths.
 
 ## v1.5.0
 
