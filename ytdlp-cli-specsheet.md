@@ -7,8 +7,8 @@
 - Owner: chezhenkie (all components, interfaces and open questions).
 - Stakeholders: chezhenkie (user, engineer, tester, reviewer); consumers of the public repo and the release bundles; yt-dlp and ffmpeg upstreams as read-only dependencies.
 - Approvers: chezhenkie approves every gate.
-- Status: implemented. This spec documents the shipped v1.4 line (2026-10-13, remote https://github.com/chezhenkie/ytdlp-cli-youtube-downloader) plus the v1.4.1 rebuild cut on 2026-10-14. Approved by the owner on 2026-10-14.
-- Related documents: README.md (published usage), CHANGELOG.md (history with hashes), THIRD-PARTY-NOTICES.md (bundle licensing), LICENSE (MIT), .github/workflows/selftest.yml (CI).
+- Status: implemented. This spec documents the shipped v1.4 line (2026-10-13, remote https://github.com/chezhenkie/ytdlp-cli-youtube-downloader), the v1.4.1 rebuild cut and the v1.4.2 release (2026-10-14). Approved by the owner on 2026-10-14. Amended 2026-10-14 for the planned port to a native binary (`app-rust/`): sections 3 NFR-1, 4, 5 IF-1/IF-7/IF-8, 2 FR-13, 10 and 13 now describe both implementations. The Python implementation remains shipped, supported and authoritative until cutover; every amendment is additive and changes no requirement of the v1.4.2 product.
+- Related documents: README.md (published usage), CHANGELOG.md (history with hashes), THIRD-PARTY-NOTICES.md (bundle licensing), LICENSE (MIT), .github/workflows/selftest.yml (CI), RUST-PORT-PLAN.md (phases and gates for the native port).
 
 ## 1. Problem, goals, non-goals
 
@@ -44,7 +44,14 @@ FR-11 Escape interruption. Escape during a run kills the whole process tree (tas
 
 FR-12 Batch downloads. Menu item 9 collects urls one per line with the menu repainting above the input; entries with no http link stay in the list marked "error in url" and are skipped at run time; downloads run strictly sequential in paste order; escape inside any run stops that run and the rest of the batch (multi_url L1717-L1740, run_batch L1686-L1714).
 
-FR-13 Updaters. Menu item 11 runs update_all: yt-dlp updates itself via "<binary> -U" with a pre and post probe_version (update_yt_dlp L2047-L2071), then the CLI self-updates from the raw main-branch source file, fetched in one GET so version and bytes cannot disagree (fetch_cli L2088-L2096, comment L398-L399), gated by compile() and installed via ".new" file plus os.replace, refusing zipapp or frozen installs (install_cli L2099-L2123). Menu item 12 toggles the daily auto-update check, which runs at menu start, stamps settings auto_update_last_check, throttles to one check per 86400 s, only prints what is newer, and asks y/n (enter = no) before touching anything (auto_update_check L2126-L2172, L1939). TRIGGER RULE (owner-pinned 2026-10-14, doc only - no behavior change): the check lives at exactly one call site, the top of main_menu, and runs only there and only when stdin is a real console (tty). Quick mode (a url passed as argument), --check, --selftest, CI, and every piped or detached run skip it entirely: no network contact, no settings stamp. There is no resident program and no timer during a session - the check is one-shot at menu open, throttled by the stamp. Consequence for the user: auto-update can only ever be offered while you sit at a console menu you started yourself; if updates seem to not happen, the answer is that no interactive menu was opened - run the program and the check runs with it.
+FR-13 Updaters. Menu item 11 runs update_all: yt-dlp updates itself via "<binary> -U" with a pre and post probe_version (update_yt_dlp L2047-L2071), then the CLI self-updates from the raw main-branch source file, fetched in one GET so version and bytes cannot disagree (fetch_cli L2088-L2096, comment L398-L399), gated by compile() and installed via ".new" file plus os.replace, refusing zipapp or frozen installs (install_cli L2099-L2123). Menu item 12 toggles the daily auto-update check, which runs at menu start, stamps settings auto_update_last_check, throttles to one check per 86400 s, only prints what is newer, and asks y/n (enter = no) before touching anything (auto_update_check L2126-L2172, L1939).
+
+SELF-UPDATE, NATIVE IMPLEMENTATION (owner-decided 2026-10-14; the one place where "same as python" is deliberately not literal). A running executable cannot be overwritten on either platform, and `compile()` has no native analogue, so the native install replaces the file and the validity gate is replaced with a stronger one:
+  - Resolve the newest release tag, download that tag's asset for the running platform, and verify it against the digest published with it. Version and bytes come from one response, preserving the single-request property of the Python design.
+  - Run `<new> --selftest` once before anything is touched. A binary that cannot pass its own checks is never installed.
+  - Install by renaming the running binary to `.old` and placing the new one at its path. This is required because a running Windows exe cannot be overwritten and a running ELF yields ETXTBSY on rename; rename-then-place is legal on both and leaves the running process on its own inode. The `.old` file is removed on the next successful start.
+  - All of it stays behind the existing y/n prompt, and no existing file is touched until the prompt is answered yes.
+  Rationale: the digest-plus-selftest gate is strictly stronger than parse-the-source, and it is the only formulation that works on a compiled artifact. TRIGGER RULE (owner-pinned 2026-10-14, doc only - no behavior change): the check lives at exactly one call site, the top of main_menu, and runs only there and only when stdin is a real console (tty). Quick mode (a url passed as argument), --check, --selftest, CI, and every piped or detached run skip it entirely: no network contact, no settings stamp. There is no resident program and no timer during a session - the check is one-shot at menu open, throttled by the stamp. Consequence for the user: auto-update can only ever be offered while you sit at a console menu you started yourself; if updates seem to not happen, the answer is that no interactive menu was opened - run the program and the check runs with it.
 
 FR-14 ffmpeg fetch offer. On an os with no ffmpeg and a human on the line (stdin tty), the CLI offers the published build - gyan.dev essentials zip on windows, BtbN/FFmpeg-Builds on linux - and installs only after reading the provider's published digest, downloading to a temp path, verifying sha256, lifting the binary from the archive, and probed -version success (retried 3 times), then os.replace into bin/ with chmod 0o755 on posix; checksum mismatch or unrunnable binary changes nothing (install_ffmpeg L1417-L1483, offer_ffmpeg L1486-L1530; order rationale L1418-L1424).
 
@@ -52,10 +59,16 @@ FR-15 Diagnostics. --check prints platform, project root, resolved yt-dlp binary
 
 ## 3. Non-functional requirements
 
-NFR-1 Stdlib only, Python 3, no pip installs (docstring L8; launchers name python/python3 from PATH; CI pins 3.12, workflow L21-L23).
+NFR-1 No system runtime. The published artifact must run on a machine with nothing installed beyond its own bundle: no interpreter, no package manager, no redistributable, no toolchain. Two implementations satisfy this differently.
+  - Python (shipped through v1.4.2): stdlib only, Python 3, no pip installs (docstring L8); launchers name python/python3 from PATH; CI pins 3.12, workflow L21-L23. Python 3 on PATH is a stated prerequisite of the bundle, documented in README "Requirements".
+  - Native (`app-rust/`, planned): one statically self-contained binary per platform. No dependency is acceptable at the user's end, including the Microsoft Visual C++ runtime. `x86_64-pc-windows-msvc` links that runtime dynamically by default and would require vcruntime140.dll on the host, so `.cargo/config.toml` sets `-C target-feature=+crt-static` for that target. Verified: `rustc --print cfg --target x86_64-pc-windows-msvc` reports no crt-static by default and reports `target_feature="crt-static"` with the flag. Omitting it builds cleanly and fails only at the user's machine, so gate G1 asserts the built exe's PE import table contains no vcruntime*.dll and no msvcp*.dll, and gate G10 repeats the assertion against the extracted bundle.
+  Build-time dependencies are a separate concern from end-user dependencies and are recorded in section 4; crates are build-time only and ship no runtime requirement.
 NFR-2 Machine-agnostic: no hardcoded paths anywhere; bin discovery is settings override, then bin/, then PATH; output resolves per os (FR-6, FR-7). Windows, linux and macOS run in CI (workflow L12-L18); the linux launcher must survive sh/dash via $0, not ${BASH_SOURCE[0]} (CHANGELOG v1.3 "first public release").
 NFR-3 Process hygiene: run_download's threads are daemonized, escape kills the tree and cleans partials, the ffmpeg installer removes its temp dir on every path (L1482-L1483), and repeated runs leave no leaked processes, stale files or lingering threads (L1151-L1206).
-NFR-4 Testability: --selftest runs 169 offline checks covering argv building, format branches, playlist/sub guards, color and width rules, spinner shapes, render helpers, outdir resolution, fail_sentence, menu rows, batch order and escape stop, language parsing and layout, hold call sites, checksum parsers, install_cli refusals, extract_member fixtures, the ffmpeg-9 probe shim, the audit regressions (settings boundary coercion, the 6 s auto-check timeout, probe and outdir memos, the single save point, column-width menu truncation), and the parse-miss verdict helpers (selftest; live run 2026-10-14: "169 checks, 0 failed"). CI runs selftest then --check on all three os (workflow L25-L28).
+NFR-4 Testability: every requirement has at least one executable check in every implementation that ships it, and all checks are offline. The Python suite is `--selftest`, 169 checks covering argv building, format branches, playlist/sub guards, color and width rules, spinner shapes, render helpers, outdir resolution, fail_sentence, menu rows, batch order and escape stop, language parsing and layout, hold call sites, checksum parsers, install_cli refusals, extract_member fixtures, the ffmpeg-9 probe shim, the audit regressions (settings boundary coercion, the 6 s auto-check timeout, probe and outdir memos, the single save point, column-width menu truncation), and the parse-miss verdict helpers (live run 2026-10-14: "169 checks, 0 failed"). The native suite carries a Rust twin for each of those 169 checks with the same expected output, plus the NFR-1 import-table assertions. Two acceptance rules apply to the port:
+  - Differential, not reimplemented. The native suite must assert the same expected values as the Python suite for the same inputs. A check that merely re-expresses the implementation's own output proves nothing and is not accepted as a twin.
+  - The instrument is proven before it judges. The differential harness must pass against a known answer produced by the Python implementation before it is used to evaluate any native code.
+  The count 169 describes the Python suite and is not a target for the native suite; the native suite's own count is whatever its 169 twins plus the import-table assertions come to, and is recorded when it exists rather than predicted here. CI runs selftest then --check on all three os (workflow L25-L28).
 NFR-5 Privileged controls. Authentication and authorization do not apply (single-user local tool). Enforced locally: input validation at url scheme gate L1534-L1536 and argparse choices L3171-L3173; secrets: settings.json ships no machine paths, repo carries no binaries (bin/ and releases/ gitignored, .gitignore); integrity: every downloaded binary is digest-verified before installation (FR-13, FR-14); logging: stage lines are the whole observable log and stdout/stderr tails keep the last 6 error lines (L1243-L1248); retention: only user-chosen paths in the user's own settings.
 NFR-6 ASCII-only source and console safety: ascii_safe maps unicode punctuation and encodes the rest with replace so windows cp1252 cannot crash output (ascii_safe L1064-L1073).
 NFR-7 Outside a tty the CLI renders plain: no colors, stages skip the spinner thread and only the final line prints (c() L62-L70, USE_COLOR L44, Stage.start L1029-L1032).
@@ -63,7 +76,33 @@ NFR-8 Licensing compliance as a design property: MIT CLI (LICENSE), Unlicense yt
 
 ## 4. Architecture
 
-Single module src/ytdlp.py (119994 bytes, 3201 lines, sha256 508D0CA793C6A90C4BC73590AA25780DDA8B633D47D634B6D2A468A6CAC9ED02 at the v1.4.2 release commit). Layers by responsibility: terminal plumbing (colors, c(), read_esc/LineEdit, Stage, KeyWatch), configuration (DEFAULTS, load/save), resolution (find_yt_dlp, find_ffmpeg_dir, auto_outdir), argument construction (build_args, build_sub_args, output_args), process execution (run_download, probe_version, kill/clean), update machinery (update_yt_dlp, fetch_cli, install_cli, install_ffmpeg, offer_ffmpeg), and UI (menu_items, render, act, submenus, selftest). It imports stdlib only, including math and random (L27-L29).
+Two implementations share one behaviour specification. Both are held to the functional requirements above without exception; the port changes the implementation, not the product.
+
+PYTHON (shipped, authoritative through cutover). Single module src/ytdlp.py (119994 bytes, 3201 lines, sha256 508D0CA793C6A90C4BC73590AA25780DDA8B633D47D634B6D2A468A6CAC9ED02 at the v1.4.2 release commit). Layers by responsibility: terminal plumbing (colors, c(), read_esc/LineEdit, Stage, KeyWatch), configuration (DEFAULTS, load/save), resolution (find_yt_dlp, find_ffmpeg_dir, auto_outdir), argument construction (build_args, build_sub_args, output_args), process execution (run_download, probe_version, kill/clean), update machinery (update_yt_dlp, fetch_cli, install_cli, install_ffmpeg, offer_ffmpeg), and UI (menu_items, render, act, submenus, selftest). It imports stdlib only, including math and random (L27-L29).
+
+NATIVE (`app-rust/`, planned). One binary per platform, split into modules along the same seven layers. Single-module is not carried over: the module count is an implementation detail of the port, and the layer boundaries are the constraint that matters (owner decision, F9 stays closed for Python only). Capability-by-capability, because Python's stdlib supplies things Rust's does not:
+
+| capability | Python source | Rust std | native choice |
+|---|---|---|---|
+| raw keys, echo, kbhit | msvcrt / termios | none | FFI: windows-sys, libc |
+| VT enable | ctypes kernel32 | none | FFI: windows-sys |
+| shell folders | winreg | none | FFI: windows-sys |
+| folder dialog | SHBrowseForFolderW via ctypes | none | FFI: windows-sys; posix shell-out unchanged |
+| process tree kill | taskkill /F /T | spawn | unchanged |
+| sha256 | hashlib | none | hand-rolled, streaming, NIST vectors pinned |
+| json | json | none | hand-rolled for the 16-field schema |
+| rng | random | none | hand-rolled PCG32 |
+| east-asian width | unicodedata | none | hand-rolled pinned table |
+| http + tls | urllib.request | none | ureq + rustls + webpki-roots |
+| zip | zipfile | none | zip |
+| tar.xz | tarfile | none | xz2 + tar |
+| charset safety | codecs with replace | strict UTF-8 | encoding_rs or a hand-rolled cp1252 map |
+
+Crate policy (owner decision): minimal vetted set. A crate is permitted only where std genuinely lacks the capability and hand-rolling would be a security liability - TLS and HTTP being the clear case. sha256, JSON, the RNG and the east-asian width table are hand-rolled because they are small, auditable and testable offline. No TUI crate and no terminal framework: the menu stays a hand-rolled ANSI box over the existing reader, per the owner's no-special-frontend rule.
+
+Language-specific rules that are gates rather than style, recorded so they are auditable: writers are wrapped in a BufWriter once outside every loop with an explicit flush before drop and write_all, because Rust File is unbuffered where Python's was not; hot loops allocate no format! / clone / to_string per iteration and reserve known sizes; the release profile sets overflow-checks = true so a ported arbitrary-precision assumption panics instead of silently wrapping; decoding is explicit at every byte boundary and no byte-offset slicing assumes ASCII; no bare unwrap, every former exception path is a tested Result branch. Rationale and sources: python-to-rust-refactor-pitfalls.md.
+
+Build matrix. One target per published platform, no fallback target: a broken build fails CI rather than producing a different binary. Linux builds in WSL on this machine; Windows builds in GitHub Actions because the Windows SDK import libraries are absent locally and `lld-link` cannot substitute for them - the compiler is not the missing piece, the SDK is; macOS is CI-only with no published bundle. The Windows build uses host target x86_64-pc-windows-msvc with the NFR-1 crt-static flag.
 
 Data ownership: settings.json is the single source of truth for user defaults; the product owns it exclusively. Known language codes are a pinned source reference, not a setting (L349-L371). All 16 schema fields, types, defaults, validation and code sites are listed in the Data section.
 
@@ -73,9 +112,11 @@ Alternatives and decisions (record): console background control was tried and re
 
 ## 5. Interfaces
 
-IF-1 Launcher contracts. run-ytdlp.bat resolves %~dp0src\ytdlp.py, forwards %*, pauses on nonzero exit (L1-L5). run-ytdlp.sh resolves its own dir via cd+pwd on $0, prefers python3 then python, forwards "$@" (L1-L5), posix-safe under sh via no bashisms in the arguments it builds.
+IF-1 Launcher contracts. Two sets, one per implementation; both forward arguments unchanged and neither adds or drops one.
+  - Python: run-ytdlp.bat resolves %~dp0src\ytdlp.py, forwards %*, pauses on nonzero exit (L1-L5). run-ytdlp.sh resolves its own dir via cd+pwd on $0, prefers python3 then python, forwards "$@" (L1-L5), posix-safe under sh via no bashisms in the arguments it builds.
+  - Native: the launcher becomes thin and the contract moves to the executable itself. run-ytdlp.sh resolves its own directory the same $0 way and execs the binary beside it, keeping the dash-safe property; run-ytdlp.bat execs the exe beside it and keeps the nonzero-exit pause. The "pause on nonzero exit" behaviour is preserved because a double-click has no console to show an error in. The project-root resolution that Python gets from `Path(__file__).resolve().parent.parent` is reproduced natively from the executable's own path, so bin/, config/ and downloads/ keep the same meaning and the product stays machine-agnostic (NFR-2).
 
-IF-2 CLI argv. Positional url plus one-shot overrides: -a/--audio, -f/--format (mp4 mkv webm best), -r/--resolution (2160..360 best), --af (mp3 m4a opus wav best), -o/--outdir, --template, --subs, --playlist, and mode flags --menu, --check, --update, --selftest (argparse L3168-L3181). Overrides mutate the in-memory settings only (apply_overrides L3148-L3164).
+IF-2 CLI argv. Positional url plus one-shot overrides: -a/--audio, -f/--format (mp4 mkv webm best), -r/--resolution (2160..360 best), --af (mp3 m4a opus wav best), -o/--outdir, --template, --subs, --playlist, and mode flags --menu, --check, --update, --selftest (argparse L3168-L3181). Overrides mutate the in-memory settings only (apply_overrides L3148-L3164). The flag set, the accepted values, the help text and the rejection behaviour are part of the product contract and are identical in both implementations; only the parser is native in the port, and the accepted-value lists stay the single source of truth for both (FR-8).
 
 IF-3 settings.json schema. Serialized defaults, written by the product only (FR-3). Fields in the Data section.
 
@@ -87,7 +128,9 @@ IF-6 Os folder providers. Windows registry Shell Folders (HKCU, expandvars) L506
 
 IF-7 Network endpoints. CLI self-update fetches the raw main-branch ytdlp.py (one GET, CLI_UPDATE_URL L400-L401); yt-dlp updates via its own -U; ffmpeg provider urls and their published digests are pinned in FFMPEG_SOURCES L387-L395 with digest sources consulted first (FR-14); timeouts: 60 s for forced text fetches, 6 s for the non-forced daily auto-update check (owner-pinned 2026-10-14, audit F3), 1800 s for binary download (DL_TIMEOUT L404, http_text L1336-L1339). All non-forced network touches require either the menu (user action) or auto_update on plus a tty; a failed network contact is silent except when forced (L2142-L2147).
 
-IF-8 CI and selftest (IF to developers): offline; every push and pull request runs selftest + --check on windows/ubuntu/macos (workflow L1-L28).
+  Native implementation: the first endpoint is replaced per FR-13 (release tag, asset, published digest) and every other endpoint, its timeout and its silence rule are unchanged. The 6 s non-forced timeout is load-bearing rather than incidental - a black-holed network would otherwise stall the first keystroke - so it is pinned by a test in both suites. TLS is provided by rustls with webpki-roots; certificate verification is not made optional. Root certificates are bundled rather than read from the OS trust store, so the binary's behaviour does not vary with the host's certificate configuration.
+
+IF-8 CI and selftest (IF to developers): offline; every push and pull request runs selftest + --check on windows/ubuntu/macos (workflow L1-L28). The native port adds a second workflow covering fmt, clippy with warnings denied, unit tests and a cross-implementation differential check on the same three OS; neither workflow contacts the network in a test (NFR-4).
 
 ## 6. Functionality
 
@@ -150,7 +193,23 @@ Header lists related docs. README.md is published text (usage, assets, checksums
 
 ## 10. Validation
 
-Verification map: FR-1 FR-2 FR-4 FR-7 FR-8 FR-9: --selftest sections (169 checks total, live run 2026-10-14). FR-3: selftest load/save checks plus manual LF/unchanged-bytes assertions in selftest (settings merge) and the audit regression "coerce never rewrites settings.json". FR-5: history and reader checks. FR-6: outdir checks plus the audit memo regression. FR-10: color/width/spinner/render checks. FR-11 FR-12: clean_url, fail_sentence, batch checks. FR-13 FR-14: version_tuple, checksum parsers, install_cli, extract_member + probe shim; the 6 s non-forced auto-check timeout is pinned by the audit regression. NFR-4: CI workflow. Acceptance criteria for every requirement are the selftest PASS lines; performance is not a target beyond NFR constraints and has no measured number in this spec (no invented factors).
+Two columns: the Python column is live, the native column is the contract the port is held to. A native cell marked "required" is an obligation on the port, not a description of existing tests; no native check exists yet, and none is claimed to.
+
+| requirement | Python (live) | native (required, not yet present) |
+|---|---|---|
+| FR-1, FR-2, FR-4, FR-7, FR-8, FR-9 | --selftest sections, 169 checks total, live run 2026-10-14 | Rust twins of the same checks, same expected output |
+| FR-3 | selftest load/save checks, LF and unchanged-bytes assertions, "coerce never rewrites settings.json" | twin, plus byte-identical settings.json and coercion notes over a corrupted-input matrix |
+| FR-5 | history and reader checks | twin; console behaviour under a real tty, not only redirected stdout |
+| FR-6 | outdir checks plus the audit memo regression | twin |
+| FR-10 | color/width/spinner/render checks | twin, including the erase sequences and the cursor-up block sequence |
+| FR-11, FR-12 | clean_url, fail_sentence, batch checks | twin, including identical cleaned-partial counts on escape |
+| FR-13 | version_tuple, checksum parsers, install_cli, the 6 s timeout regression | twin of the timeout regression; the digest and `<new> --selftest` gate replaces install_cli's compile() gate per FR-13 and is tested as such |
+| FR-14 | extract_member fixtures, probe shim | twin |
+| FR-15 | --check output | byte-identical `--check` output on all three OS |
+| NFR-1 | not applicable (Python 3 on PATH is a stated prerequisite) | PE import table free of vcruntime*.dll and msvcp*.dll, on the build output and again on the extracted bundle |
+| NFR-4 | workflow | second workflow: fmt, clippy warnings denied, tests, differential harness |
+
+Acceptance criteria for every requirement are the PASS lines of the suite that ships it, with the differential rule of NFR-4 governing any native twin. Performance is not a target beyond NFR constraints and has no measured number in this spec (no invented factors).
 
 ## 11. Stakeholders
 
@@ -160,13 +219,18 @@ Named in the header. Owner of all items: chezhenkie. Releases are the user's alo
 
 Define and Design closed with the repo's early commits (v1.0, v1.1 chapters) and the manual adoption (this spec). Build closed increment per CHANGELOG chapter - each entry a working behavior or verified artifact, cited hashes - gate 2 equivalent per release. Release gate 3 passed with v1.3 and v1.4: four assets each verified by byte size at the destination and (v1.4) by extraction on the target os (CHANGELOG v1.4 linux-mode and permission entries; releases/ v1.4 listing 2026-10-13: windows lean 17651114, windows portable 56317844, linux lean 2969024, linux portable 70570264, plus RELEASE-NOTES.md 3468). Gate 4 (closure): this specsheet records spec-matches-production status at HEAD 7c03b63; differences found are kept as open questions rather than silently normative silence. Operate: monitoring is user-run (--check, auto-update), and retired behavior is listed in the changelog decisions.
 
+NATIVE PORT, gate 0. A second product line, `app-rust/`, is planned to implement this same specification natively. Gate 0 is this amendment: the spec is written before any native code, so every later gate has a fixed reference to be measured against. RUST-PORT-PLAN.md carries the twelve phases and eleven gates. Two rules bind the port and are stated here rather than only in the plan: the Python implementation remains shipped and supported until the owner's cutover, and no functional requirement may be added, removed or altered by the port - the native product must do exactly what this document specifies, and where the port cannot be literal it is recorded as a decision (FR-13 self-update) rather than left implicit. The port's own gate structure replaces gate 2 and gate 3 equivalents per native release: a differential parity gate, then a bundle-extracted-and-run gate on each target platform.
+
 ## 13. Open questions register
 
 | id | decision required | owner | needed | risk if left |
 |---|---|---|---|---|
 | OQ-B | policy for two instances writing settings.json concurrently | chezhenkie | when multi-instance use appears | one side's changes silently dropped |
+| OQ-N1 | whether the two implementations share one settings.json path during the overlap window, or whether the native product dir carries its own | chezhenkie | before the first native bundle is cut | a user running both alternately overwrites one side's settings |
+| OQ-N2 | console and codepage behaviour of the native build on a real Windows console and under a real pty | chezhenkie | phase 6 of RUST-PORT-PLAN.md | every Windows probe to date ran with stdout redirected, so VT enable and the cp1252 safety net in ascii_safe are unverified natively |
+| OQ-N3 | whether xz2, absent from the local crate cache and unbuilt for the shipping targets, stays in the dependency set or is replaced by a pure-Rust decoder | chezhenkie | before the native tar.xz path ships | the linux ffmpeg fetch depends on a C dependency that has not yet built for x86_64-unknown-linux-gnu or msvc |
 
-None open as of 2026-10-14. Closed items are recorded in the decision history.
+None open as of 2026-10-14 other than OQ-B and the three opened by the port amendment (OQ-N1, OQ-N2, OQ-N3). Closed items are recorded in the decision history.
 
 ## 14. Decision history
 
@@ -183,3 +247,5 @@ None open as of 2026-10-14. Closed items are recorded in the decision history.
 - 2026-10-14: OQ-9 closed by owner call: v1.4.1 is released - tag on the changelog commit, four assets published, sizes and digests recorded in README.md and releases/v1.4.1/RELEASE-NOTES.md; every bundle was extracted and run on its target platform before upload.
 - 2026-10-14: v1.4.2 released: version bumped (0b6b1f3), four bundles built on the v1.4.1 platform binaries, extracted and run on their target platforms (windows selftest from extracted trees, linux selftest + binaries in WSL, 169 checks 0 failed both), digests in README and releases/v1.4.2/RELEASE-NOTES.md, tag on the release commit, gh release with the four assets as the final agent action.
 - 2026-10-14: audit-app-python-2026-10-14.md reconciled into this spec. The "all validated per code sites" claim is replaced by the per-field boundary-validation truth (audit F1/F2, reproduced); audit OQ-3 closed by citation (FR-9 pins the separate subtitle pass), audit OQ-4 closed by citation (FR-3 pins quick-mode non-persistence). Owner decisions: non-forced auto-update check timeout pinned at 6 s, forced path stays 60 s (audit F3); audio_quality validation policy set to number-or-"<n>K" with fallback "0"; audit F11 (stable-contract output parsing) deferred, not now; F9 single-module architecture stays pinned (section 4); new OQ-B opened for concurrent settings writers.
+- 2026-10-14: GATE 0 for the native port. This spec amended before any native code exists, per the manual rule that behaviour is specified first. Amended: header status and related documents (RUST-PORT-PLAN.md added); NFR-1 restated as "no system runtime" with the Python and native obligations separated and the crt-static requirement recorded as a gate-asserted property rather than a comment; section 4 split into the shipped Python architecture and the planned native architecture with the capability map, crate policy and build matrix; IF-1 and IF-2 extended to cover the native launcher and parser without changing the argv contract; IF-7 records the FR-13 endpoint change and pins the 6 s timeout in both suites; IF-8 records the second CI workflow; NFR-4 states the differential-twin rule and the instrument-proven-first rule; section 10 becomes a two-column map in which the native column is explicitly an obligation and not a claim of existing tests; section 12 records gate 0 and the rule that no functional requirement changes across the port; section 13 opens OQ-N1 (settings path during overlap), OQ-N2 (real-console verification) and OQ-N3 (xz2). No functional requirement was added, removed or altered.
+  Owner decisions recorded here: minimal vetted crate set, with TLS/HTTP as the only case where a crate is clearly preferable to hand-rolling; `yt-dlp_linux` self-contained in the lean linux bundle; Python retained as the behavioural oracle for the whole migration; native release as v1.5.0 in a parallel product dir; Windows target x86_64-pc-windows-msvc built in CI with no fallback target; self-update by release asset plus published digest plus a `<new> --selftest` probe, then rename-to-`.old` and place, behind the existing y/n prompt.
