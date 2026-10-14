@@ -226,6 +226,6 @@ Verification: selftest pinning parsing of a recorded sample line; manual run aga
 - F8: fixed (ee947fc). Item-12 save removed; quit keeps its explicit save; main_menu saves after act returns. Selftest pins that item 12 does not save.
 - F9: no change. Single module is the pinned specsheet architecture decision; revisit only on churn.
 - F10: fixed (ee947fc). Column-width helpers in menu_line/short_path via unicodedata.east_asian_width. Visual result not yet eyeballed in a real console - owner eyeball pending.
-- F11: deferred by owner call; not now.
-- Selftest after: 162 checks, 0 failed (my run 2026-10-14). Items left for a real console: F3 wall time with unroutable host, F4 Enter-to-first-output, F10 visual check.
+- F11: softened into detection (b98f581, owner-approved). The json-contract rewrite stays declined; the two verifiable scrape sites now surface misses on screen: a subtitle pass exiting 0 with no codes read prints the verdict plus an amber parse-miss note, a failed pass with unrecognized error wording always prints its second note line. Progress coloring stays silent (cosmetic). Helpers sub_success_lines/sub_fail_lines pinned in selftest.
+- Selftest after: 169 checks, 0 failed (my run 2026-10-14). Items left for a real console: F3 wall time with unroutable host, F4 Enter-to-first-output, F10 visual check.
 
