@@ -27,7 +27,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-VERSION = "1.4.2"
+VERSION = "1.5.0"
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = ROOT / "config" / "settings.json"
 BIN_DIR = ROOT / "bin"

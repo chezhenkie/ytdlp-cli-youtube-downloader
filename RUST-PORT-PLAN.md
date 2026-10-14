@@ -19,7 +19,7 @@ Decisions taken for this port:
 | crate policy | minimal vetted set; hand-roll sha256, JSON, RNG, east-asian width |
 | linux lean payload | `yt-dlp_linux` (self-contained), not the zipapp |
 | python code during port | retained as behavioural oracle; all 177 checks get Rust twins |
-| release | `app-rust/`, v1.5.0, parallel product dir |
+| release | `app-rust/`, v2.0.0, parallel product dir (renumbered by owner 2026-10-14; the python line closed at v1.5.0) |
 | CLI self-update | release asset + digest check + `<new> --selftest` probe, then rename-to-`.old` and place, behind the existing y/n prompt |
 
 ## 2. Toolchain
@@ -191,7 +191,7 @@ All 177 checks as Rust tests, harness across the full fixture set, FR-by-FR read
 
 **G9:** 177/177 rust, 177/177 python, zero harness diffs, conformance table written into the specsheet verification map.
 
-### Phase 10 - Bundles and v1.5.0
+### Phase 10 - Bundles and v2.0.0
 
 Four assets. Linux lean ships `yt-dlp_linux` at 40446224 bytes instead of the 3072469-byte zipapp (both are release 2026.08.19 asset sizes; they sum to 43518693). The bundle replaces one entry with the other, so the shipped size lands below that sum - G10 records the measured figure. Portable adds ffmpeg plus GPL texts. Windows unchanged in shape. Launchers become thin, `run-ytdlp.sh` keeping its `$0`-based dash-safe contract.
 
