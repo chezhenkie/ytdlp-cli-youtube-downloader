@@ -114,6 +114,50 @@ jobs:
           diff -u py-check.txt rs-check.txt
           echo "G4 PASS on ${RUNNER_OS}: --check outputs byte-identical"
 
+  session-transcripts:
+    name: piped session transcripts ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+      - name: build the cli (release)
+        working-directory: app-rust
+        run: cargo build --release -p ytdlp-cli
+      - name: piped golden transcripts, python vs native (G6)
+        run: python app-rust/tools/session_diff.py piped
+
+  pty-session-transcripts:
+    name: pty session transcripts ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+      - name: build the cli (release)
+        working-directory: app-rust
+        run: cargo build --release -p ytdlp-cli
+      - name: pty golden transcripts, python vs native (G6)
+        run: python app-rust/tools/session_diff.py pty
+
   windows-build:
     name: windows release and PE import assertions
     runs-on: windows-latest

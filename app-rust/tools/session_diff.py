@@ -129,6 +129,10 @@ def rust_command(tree, exe):
 
 
 def normalize(data, tree):
+    # the tree path appears raw in stdout and JSON-escaped inside
+    # settings.json (windows backslashes), so both spellings project
+    escaped = json.dumps(str(tree)).encode("utf-8")[1:-1]
+    data = data.replace(escaped, b"{root}")
     data = data.replace(str(tree).encode("utf-8"), b"{root}")
     data = VERSION_RE.sub(rb"\1{ver}", data)
     return data
