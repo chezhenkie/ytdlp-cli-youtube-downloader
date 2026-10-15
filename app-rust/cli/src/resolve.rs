@@ -298,6 +298,11 @@ pub fn py_path_join(a: &str, b: &str) -> String {
     path_render(&parser_join(a, b))
 }
 
+/// The yt-dlp download work folder inside the output folder (python
+/// `TEMP_DIR_NAME`, resolution layer): `-P temp:` keeps every per-chunk
+/// fragment file, `.part` file, resume marker and pre-merge file there.
+pub const TEMP_DIR_NAME: &str = ".ytdlp-tmp";
+
 /// `Path(path).parent` rendered.
 pub fn py_path_parent(path: &str) -> String {
     let (drv, root, mut tail) = parse_parts(path);
@@ -986,13 +991,16 @@ pub fn resolve_outdir(saved: &Obj, auto: Option<&str>, root: &str) -> Result<Str
 
 // ---------------------------------------------------------- shapes
 
-/// The shapes where python raises out of the resolution functions; the
-/// tokens mirror the phase-3 harness vocabulary.
+/// The shapes where python raises out of the resolution functions and
+/// the argument layer; the tokens mirror the phase-3 harness vocabulary.
+/// `ValueError` is python's `int()` on a non-numeric string (the
+/// `playlist_max_items` parse in `build_args`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ShapeKind {
     TypeError,
     AttributeError,
     UnicodeError,
+    ValueError,
 }
 
 impl ShapeKind {
@@ -1001,6 +1009,7 @@ impl ShapeKind {
             ShapeKind::TypeError => "type_error",
             ShapeKind::AttributeError => "attribute_error",
             ShapeKind::UnicodeError => "not_utf8",
+            ShapeKind::ValueError => "value_error",
         }
     }
 }

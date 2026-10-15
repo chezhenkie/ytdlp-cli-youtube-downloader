@@ -39,6 +39,12 @@ state:
                            outcomes, settings values); each side
                            materializes it in its own scratch dir and the
                            record projects that dir as {scratch}.
+                           Phase 5 (output_args, build_args,
+                           build_sub_args) carries the settings object,
+                           the url, the ffdir answer, the auto-outdir
+                           answer and the which map in the case object;
+                           the record carries the argv element list, the
+                           port-domain shape token or the which call log.
 
 Interchange format: one line per case carrying exactly the bytes of
 
@@ -732,6 +738,92 @@ def _hook_show_check(module, args):
         shutil.rmtree(work, ignore_errors=True)
 
 
+def _shape_token(exc):
+    if isinstance(exc, TypeError):
+        return "type_error"
+    if isinstance(exc, AttributeError):
+        return "attribute_error"
+    if isinstance(exc, ValueError):
+        return "value_error"
+    raise InstrumentError("unexpected exception shape %s" % type(exc).__name__)
+
+
+def _hook_output_args(module, args):
+    case = args[0]
+    work = _case_scratch(case, "outargs")
+    try:
+        auto = _resolve_scratch(case["auto"], work) if case.get("auto") else None
+        with _bound_world(
+            module,
+            attrs={"ROOT": work / "root", "auto_outdir": (lambda v=auto: v)},
+        ):
+            try:
+                argv = module.output_args(case["s"])
+            except (TypeError, AttributeError, ValueError) as e:
+                return {"args": None, "shape": _shape_token(e)}
+        return {"args": [_project(work, a) for a in argv], "shape": None}
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _hook_build_args(module, args):
+    case = args[0]
+    work = _case_scratch(case, "buildargs")
+    try:
+        calls = []
+        ffdir = case.get("ffdir")
+        ffdir = Path(_resolve_scratch(ffdir, work)) if ffdir else None
+        auto = _resolve_scratch(case["auto"], work) if case.get("auto") else None
+        with _bound_world(
+            module,
+            attrs={"ROOT": work / "root", "auto_outdir": (lambda v=auto: v)},
+        ):
+            with _bound_world(
+                module.shutil,
+                attrs={"which": _which_fake(module, work, case.get("which"), calls)},
+            ):
+                try:
+                    argv = module.build_args(case["s"], case["url"], ffdir)
+                except (TypeError, AttributeError, ValueError) as e:
+                    return {"args": None, "shape": _shape_token(e), "which_calls": calls}
+        return {
+            "args": [_project(work, a) for a in argv],
+            "shape": None,
+            "which_calls": calls,
+        }
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _hook_build_sub_args(module, args):
+    case = args[0]
+    work = _case_scratch(case, "subargs")
+    try:
+        calls = []
+        ffdir = case.get("ffdir")
+        ffdir = Path(_resolve_scratch(ffdir, work)) if ffdir else None
+        auto = _resolve_scratch(case["auto"], work) if case.get("auto") else None
+        with _bound_world(
+            module,
+            attrs={"ROOT": work / "root", "auto_outdir": (lambda v=auto: v)},
+        ):
+            with _bound_world(
+                module.shutil,
+                attrs={"which": _which_fake(module, work, case.get("which"), calls)},
+            ):
+                try:
+                    argv = module.build_sub_args(case["s"], case["url"], ffdir)
+                except (TypeError, AttributeError, ValueError) as e:
+                    return {"args": None, "shape": _shape_token(e), "which_calls": calls}
+        return {
+            "args": [_project(work, a) for a in argv],
+            "shape": None,
+            "which_calls": calls,
+        }
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
 PY_CALL_HOOKS.update(
     {
         "platform_name": _hook_platform_name,
@@ -746,6 +838,9 @@ PY_CALL_HOOKS.update(
         "auto_outdir": _hook_auto_outdir,
         "resolve_outdir": _hook_resolve_outdir,
         "show_check": _hook_show_check,
+        "output_args": _hook_output_args,
+        "build_args": _hook_build_args,
+        "build_sub_args": _hook_build_sub_args,
     }
 )
 

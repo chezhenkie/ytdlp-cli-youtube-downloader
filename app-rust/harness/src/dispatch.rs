@@ -606,6 +606,73 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                 ("which_calls".to_string(), str_arr(which_calls)),
             ]))
         }
+        // Phase 5, argument construction: the case carries the settings
+        // object, the url, the ffmpeg answer, the auto-outdir answer and
+        // the which map (node on PATH); each side materializes its own
+        // scratch dir and records the argv element list (scratch
+        // projected), the shape token, or the which call log.
+        "output_args" => {
+            let case = arg(args, 0, "output_args case")?;
+            let dir = TempCaseDir::new("outargs")?;
+            materialize_files(&dir, obj_field(case, "files"))?;
+            let s = obj_from_field(case, "s")?;
+            let root = resolve_scratch("{scratch}/root", &dir);
+            let auto = field_opt_str(case, "auto")?
+                .map(|rel| resolve_scratch(rel, &dir))
+                .filter(|s| !s.is_empty());
+            let result = args::output_args(&s, &root, auto.as_deref());
+            Ok(argv_record(result, &dir, None))
+        }
+        "build_args" => {
+            let case = arg(args, 0, "build_args case")?;
+            let dir = TempCaseDir::new("buildargs")?;
+            materialize_files(&dir, obj_field(case, "files"))?;
+            let s = obj_from_field(case, "s")?;
+            let url = field_str(case, "url")?;
+            let root = resolve_scratch("{scratch}/root", &dir);
+            let ffdir = case_dir_from_field(case, "ffdir", &dir)?;
+            let auto = field_opt_str(case, "auto")?
+                .map(|rel| resolve_scratch(rel, &dir))
+                .filter(|s| !s.is_empty());
+            let mut which_calls: Vec<String> = Vec::new();
+            let result = {
+                let mut which = map_which_closure(&dir, obj_field(case, "which"), &mut which_calls);
+                args::build_args(
+                    &s,
+                    &url,
+                    ffdir.as_deref(),
+                    &root,
+                    auto.as_deref(),
+                    &mut || which("node").is_some(),
+                )
+            };
+            Ok(argv_record(result, &dir, Some(which_calls)))
+        }
+        "build_sub_args" => {
+            let case = arg(args, 0, "build_sub_args case")?;
+            let dir = TempCaseDir::new("subargs")?;
+            materialize_files(&dir, obj_field(case, "files"))?;
+            let s = obj_from_field(case, "s")?;
+            let url = field_str(case, "url")?;
+            let root = resolve_scratch("{scratch}/root", &dir);
+            let ffdir = case_dir_from_field(case, "ffdir", &dir)?;
+            let auto = field_opt_str(case, "auto")?
+                .map(|rel| resolve_scratch(rel, &dir))
+                .filter(|s| !s.is_empty());
+            let mut which_calls: Vec<String> = Vec::new();
+            let result = {
+                let mut which = map_which_closure(&dir, obj_field(case, "which"), &mut which_calls);
+                args::build_sub_args(
+                    &s,
+                    &url,
+                    ffdir.as_deref(),
+                    &root,
+                    auto.as_deref(),
+                    &mut || which("node").is_some(),
+                )
+            };
+            Ok(argv_record(result, &dir, Some(which_calls)))
+        }
         _ => Err(format!("unknown function: {name}")),
     }
 }
@@ -918,6 +985,55 @@ fn settings_from_case(case: &Json) -> Result<Obj, String> {
     }
 }
 
+/// The case's settings object under `key` (phase-5 argument cases use
+/// "s" and it must be present).
+fn obj_from_field(case: &Json, key: &str) -> Result<Obj, String> {
+    match obj_field(case, key) {
+        Some(Json::Obj(fields)) => fields
+            .iter()
+            .map(|(k, v)| Ok((k.clone(), json_to_value(v)?)))
+            .collect(),
+        Some(other) => Err(format!("{key} must be an object: {other:?}")),
+        None => Err(format!("case needs an object field {key:?}")),
+    }
+}
+
+/// A directory-valued case field (`ffdir`): absent/null/empty reads as
+/// no-ffmpeg, everything else is scratch-resolved and pathlib-rendered
+/// like python's `str(Path(...))` (windows backslash forms).
+fn case_dir_from_field(
+    case: &Json,
+    key: &str,
+    dir: &TempCaseDir,
+) -> Result<Option<String>, String> {
+    Ok(field_opt_str(case, key)?
+        .map(|rel| resolve_scratch(rel, dir))
+        .filter(|p| !p.is_empty())
+        .map(|p| resolve::path_render(&p)))
+}
+
+/// The phase-5 argv record: `args` is the element list (scratch
+/// projected) or null when the call took a shape branch; `shape` carries
+/// the port-domain token; `which_calls` is present for the builder arms.
+fn argv_record(
+    result: Result<Vec<String>, ShapeKind>,
+    dir: &TempCaseDir,
+    which_calls: Option<Vec<String>>,
+) -> Json {
+    let (args, shape) = match result {
+        Ok(argv) => (
+            str_arr(argv.into_iter().map(|a| project(dir, &a)).collect()),
+            Json::Null,
+        ),
+        Err(shape) => (Json::Null, Json::Str(shape.token().to_string())),
+    };
+    let mut fields = vec![("args".to_string(), args), ("shape".to_string(), shape)];
+    if let Some(calls) = which_calls {
+        fields.push(("which_calls".to_string(), str_arr(calls)));
+    }
+    Json::Obj(fields)
+}
+
 /// The case's `env` object, `{scratch}`-resolved when a dir is given.
 fn env_map_from_json(case: &Json, dir: Option<&TempCaseDir>) -> Result<resolve::EnvMap, String> {
     let mut map: resolve::EnvMap = Vec::new();
@@ -958,6 +1074,8 @@ fn entries_str(case: &Json, dir: &TempCaseDir) -> Result<String, String> {
 }
 
 /// A fake `shutil.which` driven by the case's answer map; records calls.
+/// A falsy answer (`""`) reads as a miss, exactly like the python hook's
+/// `if rel else None`.
 fn map_which_closure<'a>(
     dir: &'a TempCaseDir,
     map: Option<&'a Json>,
@@ -966,7 +1084,7 @@ fn map_which_closure<'a>(
     move |name: &str| {
         calls.push(name.to_string());
         match map.and_then(|m| obj_field(m, name)) {
-            Some(Json::Str(rel)) => Some(resolve_scratch(rel, dir)),
+            Some(Json::Str(rel)) if !rel.is_empty() => Some(resolve_scratch(rel, dir)),
             _ => None,
         }
     }
