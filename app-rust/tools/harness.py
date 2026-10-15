@@ -845,6 +845,449 @@ PY_CALL_HOOKS.update(
 )
 
 
+# --------------------------------------------------- phase 6 terminal layer
+#
+# The menu cases drive the terminal layer without a terminal, exactly
+# like the python selftest: the hooks fake read_esc (or bind a StringIO
+# stdin built with newline=None so python's universal-newline rules
+# apply), capture stdout into a StringIO, bind CONFIG_PATH/ROOT/VERSION/
+# auto_outdir/os.name/sys.stdin into a private scratch dir, and return
+# records projected as {scratch}. The scripted-reply vocabulary matches
+# dispatch.rs: a string is a submitted line, null is escape,
+# {"eof": true} and {"ctrl_c": true} are the read failures. The fake
+# read_esc writes nothing (prompts are recorded separately), so the
+# captured stdout is exactly the menu layer's own output - the rust
+# ScriptedReader behaves the same.
+
+
+class _scripted_reader:
+    def __init__(self, replies):
+        self.replies = list(replies)
+        self.prompts = []
+        self.belows = []
+
+    def __call__(self, prompt="", below=None):
+        self.prompts.append(prompt)
+        self.belows.append(list(below) if below is not None else None)
+        if not self.replies:
+            return ""
+        item = self.replies.pop(0)
+        if item is None:
+            return None
+        if isinstance(item, dict):
+            if item.get("eof"):
+                raise EOFError("EOF when reading a line")
+            if item.get("ctrl_c"):
+                raise KeyboardInterrupt()
+            if item.get("esc"):
+                return None
+        return item
+
+
+class _fake_stdin:
+    def __init__(self, isatty):
+        self._isatty = bool(isatty)
+
+    def isatty(self):
+        return self._isatty
+
+
+class _bound_menu:
+    """Binds the terminal-layer globals for one menu call: ROOT,
+    CONFIG_PATH, VERSION, USE_COLOR, auto_outdir, os.name / the fake
+    os.get_terminal_size and sys.stdin."""
+
+    def __init__(self, module, work, case):
+        self.module = module
+        self.work = work
+        self.case = case
+        self.saved = {}
+
+    def __enter__(self):
+        module = self.module
+        case = self.case
+        self.saved = {
+            name: getattr(module, name)
+            for name in ("ROOT", "CONFIG_PATH", "VERSION", "USE_COLOR", "auto_outdir", "os")
+        }
+        self.saved["sys.stdin"] = module.sys.stdin
+        auto = _resolve_scratch(case["auto"], self.work) if case.get("auto") else None
+        real_os = module.os
+        fake_os = types.SimpleNamespace(
+            name="nt" if case.get("is_windows") else "posix", path=real_os.path
+        )
+        terminal = case.get("terminal")
+        if terminal:
+            fake_os.get_terminal_size = (
+                lambda _t=tuple(terminal): real_os.terminal_size(_t)
+            )
+        else:
+
+            def _no_size():
+                raise OSError(25, "Inappropriate ioctl for device")
+
+            fake_os.get_terminal_size = _no_size
+        module.ROOT = self.work
+        module.CONFIG_PATH = self.work / "config" / "settings.json"
+        if "version" in case:
+            module.VERSION = case["version"]
+        module.USE_COLOR = bool(case.get("use_color"))
+        module.auto_outdir = lambda v=auto: v
+        module.os = fake_os
+        module.sys.stdin = _fake_stdin(bool(case.get("stdin_tty")))
+        return self
+
+    def __exit__(self, *exc):
+        module = self.module
+        for name, value in self.saved.items():
+            if name == "sys.stdin":
+                module.sys.stdin = value
+            else:
+                setattr(module, name, value)
+        return False
+
+
+def _project_value(work, value):
+    if isinstance(value, str):
+        return _project(work, value)
+    if isinstance(value, list):
+        return [_project_value(work, item) for item in value]
+    if isinstance(value, dict):
+        return {key: _project_value(work, item) for key, item in value.items()}
+    return value
+
+
+def _seed_settings_file(module, settings):
+    target = module.CONFIG_PATH
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes((json.dumps(settings, indent=2, sort_keys=True) + "\n").encode("utf-8"))
+    return target
+
+
+def _hook_menu_summary(module, args):
+    try:
+        value = module.menu_summary(args[0])
+    except (TypeError, AttributeError, ValueError) as e:
+        return {"value": None, "shape": _shape_token(e)}
+    return {"value": str(value), "shape": None}
+
+
+def _hook_menu_items(module, args):
+    case = args[0]
+    work = _case_scratch(case, "menu-items")
+    try:
+        with _bound_menu(module, work, case):
+            try:
+                rows = module.menu_items(case["s"])
+            except (TypeError, AttributeError, ValueError) as e:
+                return {"rows": None, "shape": _shape_token(e)}
+        return {
+            "rows": [
+                [idx, label, _project(work, str(value)), bool(grey)]
+                for idx, label, value, grey in rows
+            ],
+            "shape": None,
+        }
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _hook_header(module, args):
+    version, use_color = args
+    side = io.StringIO()
+
+    def call():
+        return _with_global(module, "USE_COLOR", bool(use_color), module.header)
+
+    with redirect_stdout(side):
+        _with_global(module, "VERSION", version, call)
+    return {"stdout": side.getvalue()}
+
+
+def _hook_hint(module, args):
+    case = args[0]
+    work = _case_scratch(case, "hint")
+    try:
+        with _bound_menu(module, work, case):
+            side = io.StringIO()
+            with redirect_stdout(side):
+                module.hint(case["s"])
+        return {"stdout": _project(work, side.getvalue())}
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _hook_render(module, args):
+    case = args[0]
+    work = _case_scratch(case, "render")
+    try:
+        with _bound_menu(module, work, case):
+            side = io.StringIO()
+            try:
+                with redirect_stdout(side):
+                    module.render(case["s"])
+            except (TypeError, AttributeError, ValueError) as e:
+                return {"stdout": None, "shape": _shape_token(e)}
+        return {"stdout": _project(work, side.getvalue()), "shape": None}
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _hook_block_under_input(module, args):
+    block, use_color, stdin_tty, terminal = args
+    real_os = module.os
+    saved_size = real_os.get_terminal_size
+    saved_stdin = module.sys.stdin
+
+    def fake_size():
+        if terminal is None:
+            raise OSError(25, "Inappropriate ioctl for device")
+        return real_os.terminal_size((int(terminal[0]), int(terminal[1])))
+
+    module.sys.stdin = _fake_stdin(stdin_tty)
+    real_os.get_terminal_size = fake_size
+    try:
+        result = _with_global(
+            module, "USE_COLOR", bool(use_color), lambda: module.block_under_input(block)
+        )
+    finally:
+        module.sys.stdin = saved_stdin
+        real_os.get_terminal_size = saved_size
+    return {"result": bool(result)}
+
+
+def _hook_read_esc_piped(module, args):
+    prompt, below, stdin_text = args
+    fake_in = io.StringIO(stdin_text, newline=None)
+    side = io.StringIO()
+    saved_stdin = module.sys.stdin
+    module.sys.stdin = fake_in
+    try:
+        with redirect_stdout(side):
+            try:
+                line = module.read_esc(prompt or "", below=below)
+                eof = False
+            except EOFError:
+                line, eof = None, True
+    finally:
+        module.sys.stdin = saved_stdin
+    return {"stdout": side.getvalue(), "line": line, "eof": eof}
+
+
+def _hook_line_edit(module, args):
+    case = args[0]
+    prompt = case.get("prompt", "> ")
+    saved_history = list(module.HISTORY)
+    module.HISTORY.clear()
+    module.HISTORY.extend(case.get("history") or [])
+    side = io.StringIO()
+    snapshots = []
+    try:
+        with redirect_stdout(side):
+            ed = module.LineEdit(prompt)
+            for op in case["ops"]:
+                name = op["op"]
+                if name == "add":
+                    ed.add(op["ch"])
+                elif name == "back":
+                    ed.back()
+                elif name == "recall":
+                    ed.recall(bool(op.get("older", True)))
+                elif name == "remember":
+                    ed.remember()
+                elif name != "text":
+                    raise InstrumentError("unknown line_edit op %r" % name)
+                snapshots.append(ed.text())
+            history_after = list(module.HISTORY)
+    finally:
+        module.HISTORY.clear()
+        module.HISTORY.extend(saved_history)
+    return {
+        "stdout": side.getvalue(),
+        "snapshots": snapshots,
+        "history_after": history_after,
+    }
+
+
+def _menu_reader_case(module, case, work, kind):
+    """Shared prologue for pick_list / ask_bool / act: scripted reader,
+    bound world, seeded settings file. Returns (reader, side, cleanup
+    callable)."""
+    reader = _scripted_reader(case.get("replies") or [])
+    side = io.StringIO()
+    bound = _bound_menu(module, work, case)
+    bound.__enter__()
+    saved_esc = module.read_esc
+    module.read_esc = reader
+    return reader, side, bound, saved_esc
+
+
+def _menu_case_epilogue(module, bound, saved_esc):
+    module.read_esc = saved_esc
+    bound.__exit__(None, None, None)
+
+
+def _hook_pick_list(module, args):
+    case = args[0]
+    work = _case_scratch(case, "pick")
+    try:
+        reader, side, bound, saved_esc = _menu_reader_case(module, case, work, "pick")
+        current = case.get("current")
+        try:
+            with redirect_stdout(side):
+                try:
+                    result = module.pick_list(case["title"], case["options"], current)
+                    outcome = "kept" if result is current else "picked:%s" % (result,)
+                except module.GoBack:
+                    outcome = "goback"
+                except EOFError:
+                    outcome = "eof"
+                except KeyboardInterrupt:
+                    outcome = "interrupted"
+        finally:
+            _menu_case_epilogue(module, bound, saved_esc)
+        return {
+            "stdout": side.getvalue(),
+            "outcome": outcome,
+            "prompts": [_project(work, prompt) for prompt in reader.prompts],
+        }
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _hook_ask_bool(module, args):
+    case = args[0]
+    work = _case_scratch(case, "ask")
+    try:
+        reader, side, bound, saved_esc = _menu_reader_case(module, case, work, "ask")
+        current = case.get("current")
+        try:
+            with redirect_stdout(side):
+                try:
+                    result = module.ask_bool(case["label"], current)
+                    if result is True:
+                        outcome = "true"
+                    elif result is False:
+                        outcome = "false"
+                    else:
+                        outcome = "other"
+                except module.GoBack:
+                    outcome = "goback"
+                except EOFError:
+                    outcome = "eof"
+                except KeyboardInterrupt:
+                    outcome = "interrupted"
+        finally:
+            _menu_case_epilogue(module, bound, saved_esc)
+        return {
+            "stdout": side.getvalue(),
+            "outcome": outcome,
+            "prompts": [_project(work, prompt) for prompt in reader.prompts],
+        }
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _hook_act(module, args):
+    case = args[0]
+    work = _case_scratch(case, "menu")
+    try:
+        reader, side, bound, saved_esc = _menu_reader_case(module, case, work, "menu")
+        settings = json.loads(json.dumps(case["settings"]))
+        target = _seed_settings_file(module, settings)
+        try:
+            with redirect_stdout(side):
+                try:
+                    result = module.act(case["choice"], settings)
+                    outcome = "repaint_true" if result else "repaint_false"
+                except module.GoBack:
+                    outcome = "goback"
+                except SystemExit:
+                    outcome = "exit"
+                except EOFError:
+                    outcome = "eof"
+                except KeyboardInterrupt:
+                    outcome = "interrupted"
+        finally:
+            _menu_case_epilogue(module, bound, saved_esc)
+        file_text = None
+        if target.is_file():
+            file_text = _project(work, target.read_text(encoding="utf-8"))
+        return {
+            "stdout": _project(work, side.getvalue()),
+            "outcome": outcome,
+            "exit": None,
+            "settings_after": _project_value(work, settings),
+            "settings_file": file_text,
+            "prompts": [_project(work, prompt) for prompt in reader.prompts],
+        }
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _hook_main_menu(module, args):
+    case = args[0]
+    work = _case_scratch(case, "menu")
+    try:
+        reader = _scripted_reader(case.get("replies") or [])
+        side = io.StringIO()
+        with _bound_menu(module, work, case):
+            settings = json.loads(json.dumps(case["settings"]))
+            target = _seed_settings_file(module, settings)
+            saved_esc = module.read_esc
+            module.read_esc = reader
+            # the startup check is out of scope for this arm (phase 8);
+            # can_ask false keeps the oracle off the network
+            saved_ask = module.can_ask
+            module.can_ask = lambda: False
+            try:
+                with redirect_stdout(side):
+                    try:
+                        module.main_menu(settings)
+                        outcome, code = "return", 0
+                    except SystemExit as exc:
+                        outcome = "return"
+                        code = exc.code if isinstance(exc.code, int) else 0
+                    except EOFError:
+                        outcome, code = "eof", None
+                    except KeyboardInterrupt:
+                        outcome, code = "interrupted", None
+            finally:
+                module.read_esc = saved_esc
+                module.can_ask = saved_ask
+            file_text = None
+            if target.is_file():
+                file_text = _project(work, target.read_text(encoding="utf-8"))
+        return {
+            "stdout": _project(work, side.getvalue()),
+            "outcome": outcome,
+            "exit": code,
+            "settings_after": _project_value(work, settings),
+            "settings_file": file_text,
+            "prompts": [_project(work, prompt) for prompt in reader.prompts],
+        }
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+PY_CALL_HOOKS.update(
+    {
+        "menu_summary": _hook_menu_summary,
+        "menu_items": _hook_menu_items,
+        "header": _hook_header,
+        "hint": _hook_hint,
+        "render": _hook_render,
+        "block_under_input": _hook_block_under_input,
+        "read_esc_piped": _hook_read_esc_piped,
+        "line_edit": _hook_line_edit,
+        "pick_list": _hook_pick_list,
+        "ask_bool": _hook_ask_bool,
+        "act": _hook_act,
+        "main_menu": _hook_main_menu,
+    }
+)
+
+
 def capture_python(fn, vectors_path):
     require_oracle()
     doc = load_vectors(vectors_path)

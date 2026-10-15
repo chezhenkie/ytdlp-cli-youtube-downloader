@@ -1,0 +1,130 @@
+{
+ "cases": [
+  {
+   "args": [
+    {
+     "current": true,
+     "label": "subtitles",
+     "replies": [
+      "y"
+     ]
+    }
+   ]
+  },
+  {
+   "args": [
+    {
+     "current": true,
+     "label": "subtitles",
+     "replies": [
+      "n"
+     ]
+    }
+   ]
+  },
+  {
+   "args": [
+    {
+     "current": true,
+     "label": "subtitles",
+     "replies": [
+      ""
+     ]
+    }
+   ]
+  },
+  {
+   "args": [
+    {
+     "current": false,
+     "label": "subtitles",
+     "replies": [
+      "maybe"
+     ]
+    }
+   ]
+  },
+  {
+   "args": [
+    {
+     "current": null,
+     "label": "subtitles",
+     "replies": [
+      "maybe"
+     ]
+    }
+   ]
+  },
+  {
+   "args": [
+    {
+     "current": null,
+     "label": "subtitles",
+     "replies": [
+      "yes"
+     ]
+    }
+   ]
+  },
+  {
+   "args": [
+    {
+     "current": null,
+     "label": "subtitles",
+     "replies": [
+      "OFF"
+     ]
+    }
+   ]
+  },
+  {
+   "args": [
+    {
+     "current": 1,
+     "label": "playlist",
+     "replies": [
+      ""
+     ]
+    }
+   ]
+  },
+  {
+   "args": [
+    {
+     "current": true,
+     "label": "subtitles",
+     "replies": [
+      null
+     ]
+    }
+   ]
+  },
+  {
+   "args": [
+    {
+     "current": true,
+     "label": "subtitles",
+     "replies": [
+      {
+       "eof": true
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "args": [
+    {
+     "current": true,
+     "label": "subtitles",
+     "replies": [
+      {
+       "ctrl_c": true
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "fn": "ask_bool"
+}

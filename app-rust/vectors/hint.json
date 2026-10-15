@@ -1,0 +1,107 @@
+{
+ "cases": [
+  {
+   "args": [
+    {
+     "auto": null,
+     "s": {
+      "audio_format": "mp3",
+      "audio_quality": "0",
+      "auto_update": true,
+      "auto_update_last_check": 0,
+      "ffmpeg_path": "",
+      "filename_template": "%(title)s",
+      "output_dir": "",
+      "playlist": false,
+      "playlist_max_items": 0,
+      "settings_version": 1,
+      "subtitle_langs": "en",
+      "subtitles": true,
+      "type": "video",
+      "video_container": "mp4",
+      "video_resolution": "1080",
+      "yt_dlp_path": ""
+     }
+    }
+   ]
+  },
+  {
+   "args": [
+    {
+     "auto": null,
+     "s": {
+      "audio_format": "mp3",
+      "audio_quality": "0",
+      "auto_update": true,
+      "auto_update_last_check": 0,
+      "ffmpeg_path": "",
+      "filename_template": "%(title)s",
+      "output_dir": "",
+      "playlist": false,
+      "playlist_max_items": 0,
+      "settings_version": 1,
+      "subtitle_langs": "en",
+      "subtitles": true,
+      "type": "video",
+      "video_container": "mp4",
+      "video_resolution": "1080",
+      "yt_dlp_path": ""
+     },
+     "use_color": true
+    }
+   ]
+  },
+  {
+   "args": [
+    {
+     "auto": null,
+     "s": {
+      "audio_format": "mp3",
+      "audio_quality": "0",
+      "auto_update": true,
+      "auto_update_last_check": 0,
+      "ffmpeg_path": "",
+      "filename_template": "%(title)s",
+      "output_dir": "{scratch}/out",
+      "playlist": false,
+      "playlist_max_items": 0,
+      "settings_version": 1,
+      "subtitle_langs": "en",
+      "subtitles": true,
+      "type": "video",
+      "video_container": "mp4",
+      "video_resolution": "1080",
+      "yt_dlp_path": ""
+     }
+    }
+   ]
+  },
+  {
+   "args": [
+    {
+     "auto": null,
+     "s": {
+      "audio_format": "mp3",
+      "audio_quality": "0",
+      "auto_update": true,
+      "auto_update_last_check": 0,
+      "ffmpeg_path": "",
+      "filename_template": "%(title)s",
+      "output_dir": "rel",
+      "playlist": false,
+      "playlist_max_items": 0,
+      "settings_version": 1,
+      "subtitle_langs": "en",
+      "subtitles": true,
+      "type": "video",
+      "video_container": "mp4",
+      "video_resolution": "1080",
+      "yt_dlp_path": ""
+     },
+     "use_color": true
+    }
+   ]
+  }
+ ],
+ "fn": "hint"
+}

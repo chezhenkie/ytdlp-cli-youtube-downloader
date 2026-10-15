@@ -1,0 +1,267 @@
+{
+ "cases": [
+  {
+   "args": [
+    {
+     "history": [
+      "a",
+      "b"
+     ],
+     "ops": [
+      {
+       "ch": "x",
+       "op": "add"
+      },
+      {
+       "ch": "y",
+       "op": "add"
+      },
+      {
+       "older": true,
+       "op": "recall"
+      },
+      {
+       "op": "text"
+      },
+      {
+       "older": true,
+       "op": "recall"
+      },
+      {
+       "older": false,
+       "op": "recall"
+      },
+      {
+       "older": false,
+       "op": "recall"
+      },
+      {
+       "op": "text"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "args": [
+    {
+     "history": [
+      "a",
+      "b"
+     ],
+     "ops": [
+      {
+       "ch": "q",
+       "op": "add"
+      },
+      {
+       "op": "remember"
+      },
+      {
+       "older": true,
+       "op": "recall"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "args": [
+    {
+     "history": [],
+     "ops": [
+      {
+       "ch": "a",
+       "op": "add"
+      },
+      {
+       "ch": "b",
+       "op": "add"
+      },
+      {
+       "op": "back"
+      },
+      {
+       "op": "back"
+      },
+      {
+       "op": "back"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "args": [
+    {
+     "history": [],
+     "ops": [
+      {
+       "op": "remember"
+      },
+      {
+       "op": "text"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "args": [
+    {
+     "history": [
+      "old"
+     ],
+     "ops": [
+      {
+       "older": true,
+       "op": "recall"
+      },
+      {
+       "older": false,
+       "op": "recall"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "args": [
+    {
+     "history": [
+      "h1"
+     ],
+     "ops": [
+      {
+       "ch": "z",
+       "op": "add"
+      },
+      {
+       "older": true,
+       "op": "recall"
+      }
+     ],
+     "prompt": "n> "
+    }
+   ]
+  },
+  {
+   "args": [
+    {
+     "history": [
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x",
+      "x"
+     ],
+     "ops": [
+      {
+       "ch": "n",
+       "op": "add"
+      },
+      {
+       "op": "remember"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "fn": "line_edit"
+}

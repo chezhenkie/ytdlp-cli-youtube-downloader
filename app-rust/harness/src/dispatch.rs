@@ -18,7 +18,9 @@
 
 use crate::json::Json;
 use ytdlp_cli::config::{Obj, Value};
+use ytdlp_cli::menu::{self, MenuErr};
 use ytdlp_cli::resolve::{self, ShapeKind};
+use ytdlp_cli::tty::{self, ScriptItem};
 use ytdlp_cli::{args, config, exec, term, ui, update};
 
 pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
@@ -673,6 +675,357 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
             };
             Ok(argv_record(result, &dir, Some(which_calls)))
         }
+        // Phase 6, terminal layer: the menu arms drive the menu through
+        // the recording sink and a scripted reader. Cases carry the
+        // settings object and the world (root implied, auto, color, tty
+        // flags, terminal size, is_windows, version); each side
+        // materializes its own scratch dir and records project it as
+        // {scratch}.
+        "menu_summary" => {
+            let s = value_obj(arg(args, 0, "settings object")?)?;
+            match ui::menu_summary(&s) {
+                Ok(text) => Ok(str_shape(Some(text), None)),
+                Err(shape) => Ok(str_shape(None, Some(shape))),
+            }
+        }
+        "menu_items" => {
+            let case = arg(args, 0, "menu_items case")?;
+            let dir = TempCaseDir::new("menu-items")?;
+            let s = obj_from_field(case, "s")?;
+            let auto = case_auto(case, &dir)?;
+            let root = case_root(&dir);
+            let is_windows = field_opt_bool(case, "is_windows")?.unwrap_or(false);
+            let outdir = match resolve::resolve_outdir(&s, auto.as_deref(), &root) {
+                Ok(outdir) => outdir,
+                Err(shape) => return Ok(rows_shape(None, Some(shape))),
+            };
+            match ui::menu_items(&s, &outdir, is_windows) {
+                Ok(rows) => {
+                    let rows: Vec<Json> = rows
+                        .into_iter()
+                        .map(|row| {
+                            Json::Arr(vec![
+                                Json::Int(row.idx),
+                                Json::Str(row.label),
+                                Json::Str(project(&dir, &row.value)),
+                                Json::Bool(row.grey),
+                            ])
+                        })
+                        .collect();
+                    Ok(rows_shape(Some(rows), None))
+                }
+                Err(shape) => Ok(rows_shape(None, Some(shape))),
+            }
+        }
+        "header" => {
+            let version = arg_str(args, 0)?;
+            let use_color = arg_bool(args, 1)?;
+            let lines = ui::header_lines(version, use_color);
+            Ok(Json::Obj(vec![(
+                "stdout".to_string(),
+                Json::Str(transcript(&lines)),
+            )]))
+        }
+        "hint" => {
+            let case = arg(args, 0, "hint case")?;
+            let dir = TempCaseDir::new("hint")?;
+            let s = obj_from_field(case, "s")?;
+            let auto = case_auto(case, &dir)?;
+            let root = case_root(&dir);
+            let use_color = field_opt_bool(case, "use_color")?.unwrap_or(false);
+            let outdir = resolve::resolve_outdir(&s, auto.as_deref(), &root)
+                .map_err(|shape| format!("hint shape {}: python would raise here", shape.token()))?;
+            let lines = ui::hint_lines(&outdir, use_color);
+            Ok(Json::Obj(vec![(
+                "stdout".to_string(),
+                Json::Str(project(&dir, &transcript(&lines))),
+            )]))
+        }
+        "render" => {
+            let case = arg(args, 0, "render case")?;
+            let dir = TempCaseDir::new("render")?;
+            let s = obj_from_field(case, "s")?;
+            let auto = case_auto(case, &dir)?;
+            let root = case_root(&dir);
+            let version = field_str(case, "version")?;
+            let is_windows = field_opt_bool(case, "is_windows")?.unwrap_or(false);
+            let use_color = field_opt_bool(case, "use_color")?.unwrap_or(false);
+            let outdir = match resolve::resolve_outdir(&s, auto.as_deref(), &root) {
+                Ok(outdir) => outdir,
+                Err(shape) => {
+                    return Ok(Json::Obj(vec![
+                        ("stdout".to_string(), Json::Null),
+                        ("shape".to_string(), Json::Str(shape.token().to_string())),
+                    ]));
+                }
+            };
+            match ui::render_lines(&version, &s, &outdir, is_windows, use_color) {
+                Ok(lines) => Ok(Json::Obj(vec![
+                    (
+                        "stdout".to_string(),
+                        Json::Str(project(&dir, &transcript(&lines))),
+                    ),
+                    ("shape".to_string(), Json::Null),
+                ])),
+                Err(shape) => Ok(Json::Obj(vec![
+                    ("stdout".to_string(), Json::Null),
+                    ("shape".to_string(), Json::Str(shape.token().to_string())),
+                ])),
+            }
+        }
+        "block_under_input" => {
+            let block = arg_str_arr(args, 0)?;
+            let use_color = arg_bool(args, 1)?;
+            let stdin_tty = arg_bool(args, 2)?;
+            let terminal = match arg(args, 3, "terminal size")? {
+                Json::Null => None,
+                Json::Arr(items) if items.len() == 2 => Some((
+                    json_int(&items[0], "columns")?,
+                    json_int(&items[1], "lines")?,
+                )),
+                other => return Err(format!("terminal must be null or [cols, lines]: {other:?}")),
+            };
+            let result = tty::block_under_input(&block, use_color, stdin_tty, terminal);
+            Ok(Json::Obj(vec![("result".to_string(), Json::Bool(result))]))
+        }
+        "read_esc_piped" => {
+            let prompt = opt_str(args, 0)?.unwrap_or("");
+            let below = match arg(args, 1, "below block")? {
+                Json::Null => None,
+                Json::Arr(items) => {
+                    let mut lines = Vec::with_capacity(items.len());
+                    for item in items {
+                        let Json::Str(line) = item else {
+                            return Err(format!("below lines must be strings: {item:?}"));
+                        };
+                        lines.push(line.clone());
+                    }
+                    Some(lines)
+                }
+                other => return Err(format!("below must be null or an array: {other:?}")),
+            };
+            let stdin_text = arg_str(args, 2)?;
+            let mut source = tty::LineSource::from_bytes(stdin_text.as_bytes());
+            let mut rec = tty::RecordingOut::default();
+            let outcome = tty::read_esc_piped(prompt, below.as_deref(), &mut source, &mut rec);
+            let (line, eof) = match outcome {
+                tty::ReadOutcome::Line(text) => (Json::Str(text), Json::Bool(false)),
+                _ => (Json::Null, Json::Bool(true)),
+            };
+            Ok(Json::Obj(vec![
+                ("stdout".to_string(), Json::Str(rec.text())),
+                ("line".to_string(), line),
+                ("eof".to_string(), eof),
+            ]))
+        }
+        "line_edit" => {
+            let case = arg(args, 0, "line_edit case")?;
+            let prompt = field_opt_str(case, "prompt")?.unwrap_or("> ");
+            let mut history = tty::History::new();
+            for item in str_array_field(case, "history")? {
+                history.entries.push(item);
+            }
+            let ops = match obj_field(case, "ops") {
+                Some(Json::Arr(items)) => items,
+                _ => return Err("case needs an ops array".to_string()),
+            };
+            let mut ed = tty::LineEdit::new(prompt, &history);
+            let mut rec = tty::RecordingOut::default();
+            let mut snapshots: Vec<String> = Vec::new();
+            for op in ops {
+                match field_str(op, "op")?.as_str() {
+                    "add" => {
+                        let ch = field_str(op, "ch")?;
+                        let Some(ch) = ch.chars().next() else {
+                            return Err("add needs one char".to_string());
+                        };
+                        ed.add(ch, &mut rec);
+                    }
+                    "back" => ed.back(&mut rec),
+                    "recall" => {
+                        let older = field_opt_bool(op, "older")?.unwrap_or(true);
+                        ed.recall(older, &history, &mut rec);
+                    }
+                    "remember" => ed.remember(&mut history),
+                    "text" => {}
+                    other => return Err(format!("unknown line_edit op {other:?}")),
+                }
+                snapshots.push(ed.text());
+            }
+            Ok(Json::Obj(vec![
+                ("stdout".to_string(), Json::Str(rec.text())),
+                ("snapshots".to_string(), str_arr(snapshots)),
+                ("history_after".to_string(), str_arr(history.entries)),
+            ]))
+        }
+        "pick_list" => {
+            let case = arg(args, 0, "pick_list case")?;
+            let world_dir = TempCaseDir::new("pick")?;
+            let title = field_str(case, "title")?;
+            let options = str_array_field(case, "options")?;
+            let current = obj_field(case, "current").cloned();
+            let current_value = match &current {
+                Some(j) => Some(json_to_value(j)?),
+                None => None,
+            };
+            let use_color = field_opt_bool(case, "use_color")?.unwrap_or(false);
+            let mut rec = tty::RecordingOut::default();
+            let mut reader = scripted_reader(case)?;
+            let world = menu::World {
+                version: "1.5.0",
+                root: &case_root(&world_dir),
+                config_path: "",
+                is_windows: false,
+                use_color,
+                stdin_tty: false,
+                stdout_tty: false,
+                terminal: None,
+                auto: None,
+            };
+            let option_refs: Vec<&str> = options.iter().map(String::as_str).collect();
+            let outcome = {
+                let mut io = menu::Io {
+                    out: &mut rec,
+                    reader: &mut reader,
+                };
+                match menu::pick_list(
+                    &title,
+                    &option_refs,
+                    current_value.as_ref(),
+                    &mut io,
+                    &world,
+                ) {
+                    Ok(None) => "kept".to_string(),
+                    Ok(Some(Value::Str(text))) => format!("picked:{text}"),
+                    Ok(Some(other)) => {
+                        return Err(format!("pick_list returned {other:?}, port bug"))
+                    }
+                    Err(MenuErr::GoBack) => "goback".to_string(),
+                    Err(MenuErr::Eof) => "eof".to_string(),
+                    Err(MenuErr::Interrupted) => "interrupted".to_string(),
+                    Err(other) => return Err(format!("pick_list error {other:?}")),
+                }
+            };
+            Ok(Json::Obj(vec![
+                ("stdout".to_string(), Json::Str(rec.text())),
+                ("outcome".to_string(), Json::Str(outcome)),
+                (
+                    "prompts".to_string(),
+                    str_arr(
+                        reader
+                            .prompts
+                            .iter()
+                            .map(|p| project(&world_dir, p))
+                            .collect(),
+                    ),
+                ),
+            ]))
+        }
+        "ask_bool" => {
+            let case = arg(args, 0, "ask_bool case")?;
+            let label = field_str(case, "label")?;
+            let current = obj_field(case, "current").cloned();
+            let current_value = match &current {
+                Some(j) => Some(json_to_value(j)?),
+                None => None,
+            };
+            let mut rec = tty::RecordingOut::default();
+            let mut reader = scripted_reader(case)?;
+            let outcome = {
+                let mut io = menu::Io {
+                    out: &mut rec,
+                    reader: &mut reader,
+                };
+                match menu::ask_bool(&label, current_value.as_ref(), &mut io) {
+                    Ok(Some(Value::Bool(true))) => "true".to_string(),
+                    Ok(Some(Value::Bool(false))) => "false".to_string(),
+                    Ok(None) => match current_value.as_ref() {
+                        Some(Value::Bool(true)) => "true".to_string(),
+                        Some(Value::Bool(false)) => "false".to_string(),
+                        _ => "other".to_string(),
+                    },
+                    Ok(Some(other)) => return Err(format!("ask_bool returned {other:?}, port bug")),
+                    Err(MenuErr::GoBack) => "goback".to_string(),
+                    Err(MenuErr::Eof) => "eof".to_string(),
+                    Err(MenuErr::Interrupted) => "interrupted".to_string(),
+                    Err(other) => return Err(format!("ask_bool error {other:?}")),
+                }
+            };
+            Ok(Json::Obj(vec![
+                ("stdout".to_string(), Json::Str(rec.text())),
+                ("outcome".to_string(), Json::Str(outcome)),
+                ("prompts".to_string(), str_arr(reader.prompts)),
+            ]))
+        }
+        "act" | "main_menu" => {
+            let case = arg(args, 0, "menu case")?;
+            let dir = TempCaseDir::new("menu")?;
+            let mut s = obj_from_field(case, "settings")?;
+            let root = case_root(&dir);
+            let auto = case_auto(case, &dir)?;
+            let version = field_str(case, "version")?;
+            let config_path = resolve_scratch("{scratch}/config/settings.json", &dir);
+            if let Some(parent) = std::path::Path::new(&config_path).parent() {
+                std::fs::create_dir_all(parent).map_err(|e| format!("scratch setup: {e}"))?;
+            }
+            std::fs::write(&config_path, config::render_settings_file(&s).as_bytes())
+                .map_err(|e| format!("scratch seed: {e}"))?;
+            let world = menu::World {
+                version: &version,
+                root: &root,
+                config_path: &config_path,
+                is_windows: field_opt_bool(case, "is_windows")?.unwrap_or(false),
+                use_color: field_opt_bool(case, "use_color")?.unwrap_or(false),
+                stdin_tty: field_opt_bool(case, "stdin_tty")?.unwrap_or(false),
+                stdout_tty: false,
+                terminal: case_terminal(case)?,
+                auto: auto.as_deref(),
+            };
+            let mut rec = tty::RecordingOut::default();
+            let mut reader = scripted_reader(case)?;
+            let mut download = |_s: &mut Obj, _url: &str| -> i32 { 0 };
+            let mut quiet_check = |_s: &mut Obj| {};
+            let (outcome, exit) = {
+                let mut io = menu::Io {
+                    out: &mut rec,
+                    reader: &mut reader,
+                };
+                if name == "act" {
+                    let choice = field_str(case, "choice")?;
+                    match menu::act(&choice, &mut s, &mut io, &world, &mut download) {
+                        Ok(menu::ActOutcome::Repaint(true)) => ("repaint_true".to_string(), Json::Null),
+                        Ok(menu::ActOutcome::Repaint(false)) => ("repaint_false".to_string(), Json::Null),
+                        Ok(menu::ActOutcome::Exit) => ("exit".to_string(), Json::Null),
+                        Err(MenuErr::GoBack) => ("goback".to_string(), Json::Null),
+                        Err(MenuErr::Eof) => ("eof".to_string(), Json::Null),
+                        Err(MenuErr::Interrupted) => ("interrupted".to_string(), Json::Null),
+                        Err(other) => return Err(format!("act error {other:?}")),
+                    }
+                } else {
+                    match menu::main_menu(&mut s, &mut io, &world, &mut download, &mut quiet_check) {
+                        Ok(code) => ("return".to_string(), Json::Int(code as i64)),
+                        Err(MenuErr::Eof) => ("eof".to_string(), Json::Null),
+                        Err(MenuErr::Interrupted) => ("interrupted".to_string(), Json::Null),
+                        Err(other) => return Err(format!("main_menu error {other:?}")),
+                    }
+                }
+            };
+            let settings_after = value_to_json(&Value::Obj(project_obj(&dir, &s)))?;
+            let settings_file = std::fs::read_to_string(&config_path)
+                .ok()
+                .map(|text| project(&dir, &text));
+            Ok(Json::Obj(vec![
+                ("stdout".to_string(), Json::Str(project(&dir, &rec.text()))),
+                ("outcome".to_string(), Json::Str(outcome)),
+                ("exit".to_string(), exit),
+                ("settings_after".to_string(), settings_after),
+                ("settings_file".to_string(), str_or_null(settings_file)),
+                (
+                    "prompts".to_string(),
+                    str_arr(reader.prompts.iter().map(|p| project(&dir, p)).collect()),
+                ),
+            ]))
+        }
         _ => Err(format!("unknown function: {name}")),
     }
 }
@@ -1096,5 +1449,150 @@ fn shape_record(result: Result<Option<String>, ShapeKind>) -> (Json, Option<&'st
         Ok(Some(p)) => (Json::Str(p), None),
         Ok(None) => (Json::Null, None),
         Err(s) => (Json::Null, Some(s.token())),
+    }
+}
+
+// ------------------------------------------------- phase 6 helpers
+
+/// The transcript text python's `print()`-per-line produces: lines joined
+/// with LF plus one trailing LF (io.StringIO capture has no translation).
+fn transcript(lines: &[String]) -> String {
+    let mut text = lines.join("\n");
+    text.push('\n');
+    text
+}
+
+fn value_obj(j: &Json) -> Result<Obj, String> {
+    match json_to_value(j)? {
+        Value::Obj(obj) => Ok(obj),
+        other => Err(format!("settings must be an object, got {other:?}")),
+    }
+}
+
+/// The scratch dir itself is the case root (python binds ROOT the same
+/// way), so every resolved path projects to `{scratch}`.
+fn case_root(dir: &TempCaseDir) -> String {
+    resolve_scratch("{scratch}", dir)
+}
+
+fn case_auto(case: &Json, dir: &TempCaseDir) -> Result<Option<String>, String> {
+    Ok(field_opt_str(case, "auto")?
+        .map(|rel| resolve_scratch(rel, dir))
+        .filter(|s| !s.is_empty()))
+}
+
+fn case_terminal(case: &Json) -> Result<Option<(i64, i64)>, String> {
+    match obj_field(case, "terminal") {
+        None | Some(Json::Null) => Ok(None),
+        Some(Json::Arr(items)) if items.len() == 2 => Ok(Some((
+            json_int(&items[0], "columns")?,
+            json_int(&items[1], "lines")?,
+        ))),
+        Some(other) => Err(format!("terminal must be null or [cols, lines]: {other:?}")),
+    }
+}
+
+fn json_int(j: &Json, what: &str) -> Result<i64, String> {
+    match j {
+        Json::Int(n) => Ok(*n),
+        other => Err(format!("{what} must be an int, got {other:?}")),
+    }
+}
+
+/// A string array case field (line_edit history, pick_list options).
+fn str_array_field(case: &Json, key: &str) -> Result<Vec<String>, String> {
+    match obj_field(case, key) {
+        None | Some(Json::Null) => Ok(Vec::new()),
+        Some(Json::Arr(items)) => {
+            let mut out = Vec::with_capacity(items.len());
+            for item in items {
+                let Json::Str(text) = item else {
+                    return Err(format!("{key} entries must be strings: {item:?}"));
+                };
+                out.push(text.clone());
+            }
+            Ok(out)
+        }
+        Some(other) => Err(format!("{key} must be an array: {other:?}")),
+    }
+}
+
+/// The scripted reader replies: a string is a submitted line, null is
+/// escape, {"eof": true} and {"ctrl_c": true} are the read failures.
+/// The python hooks encode the same vocabulary.
+fn scripted_reader(case: &Json) -> Result<tty::ScriptedReader, String> {
+    let items = match obj_field(case, "replies") {
+        Some(Json::Arr(items)) => items.clone(),
+        None | Some(Json::Null) => Vec::new(),
+        Some(other) => return Err(format!("replies must be an array: {other:?}")),
+    };
+    let mut replies = Vec::with_capacity(items.len());
+    for item in items {
+        match item {
+            Json::Str(line) => replies.push(ScriptItem::Line(line)),
+            Json::Null => replies.push(ScriptItem::Escape),
+            Json::Obj(_) => {
+                let entry = &item;
+                if field_opt_bool(entry, "eof")?.unwrap_or(false) {
+                    replies.push(ScriptItem::Eof);
+                } else if field_opt_bool(entry, "ctrl_c")?.unwrap_or(false) {
+                    replies.push(ScriptItem::Interrupted);
+                } else if field_opt_bool(entry, "esc")?.unwrap_or(false) {
+                    replies.push(ScriptItem::Escape);
+                } else {
+                    return Err(format!("unknown reply object: {entry:?}"));
+                }
+            }
+            other => return Err(format!("reply must be a string, null or object: {other:?}")),
+        }
+    }
+    Ok(tty::ScriptedReader::new(replies))
+}
+
+fn str_shape(value: Option<String>, shape: Option<ShapeKind>) -> Json {
+    Json::Obj(vec![
+        ("value".to_string(), str_or_null(value)),
+        (
+            "shape".to_string(),
+            match shape {
+                Some(shape) => Json::Str(shape.token().to_string()),
+                None => Json::Null,
+            },
+        ),
+    ])
+}
+
+fn rows_shape(rows: Option<Vec<Json>>, shape: Option<ShapeKind>) -> Json {
+    Json::Obj(vec![
+        (
+            "rows".to_string(),
+            match rows {
+                Some(rows) => Json::Arr(rows),
+                None => Json::Null,
+            },
+        ),
+        (
+            "shape".to_string(),
+            match shape {
+                Some(shape) => Json::Str(shape.token().to_string()),
+                None => Json::Null,
+            },
+        ),
+    ])
+}
+
+/// Project string leaves of a settings object onto `{scratch}`.
+fn project_obj(dir: &TempCaseDir, obj: &Obj) -> Obj {
+    obj.iter()
+        .map(|(k, v)| (k.clone(), project_value(dir, v)))
+        .collect()
+}
+
+fn project_value(dir: &TempCaseDir, value: &Value) -> Value {
+    match value {
+        Value::Str(s) => Value::Str(project(dir, s)),
+        Value::Arr(items) => Value::Arr(items.iter().map(|v| project_value(dir, v)).collect()),
+        Value::Obj(o) => Value::Obj(project_obj(dir, o)),
+        other => other.clone(),
     }
 }
