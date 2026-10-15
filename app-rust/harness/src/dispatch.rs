@@ -1078,7 +1078,7 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                     ("calls".to_string(), http.call_log()),
                 ]));
             }
-            let dest = resolve_scratch(&field_str(case, "dest")?, &dir);
+            let dest = native_path(&resolve_scratch(&field_str(case, "dest")?, &dir));
             mkdir_parent(&dest)?;
             let with_stage = field_opt_bool(case, "stage")?.unwrap_or(false);
             let timeout = case_int_or(case, "timeout", net::DL_TIMEOUT as i64)?;
@@ -2346,10 +2346,20 @@ fn seed_binary(case: &Json, dir: &TempCaseDir) -> Result<Option<String>, String>
     let Some(rel) = field_opt_str(case, "binary")? else {
         return Ok(None);
     };
-    let path = resolve_scratch(rel, dir);
+    let path = native_path(&resolve_scratch(rel, dir));
     mkdir_parent(&path)?;
     std::fs::write(&path, b"yt-dlp").map_err(|e| format!("scratch write: {e}"))?;
     Ok(Some(path))
+}
+
+/// python's `str(Path(...))` on windows is all backslashes no matter
+/// what the case wrote, so the record's paths use the native separator.
+fn native_path(text: &str) -> String {
+    if cfg!(windows) {
+        text.replace('/', "\\")
+    } else {
+        text.to_string()
+    }
 }
 
 fn mkdir_parent(path: &str) -> Result<(), String> {

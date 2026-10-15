@@ -214,7 +214,8 @@ fn run_quick(
     .flatten();
     let mut out = shared.clone();
     let mut reader = tty::TtyReader::new();
-    let mut probe = probe_closure();
+    let cache = std::rc::Rc::new(std::cell::RefCell::new(resolve::VersionCache::default()));
+    let mut probe = probe_closure(&cache);
     let mut http = UreqHttp::new();
     let mut sleep = sleep_closure();
     let mut ctx = exec::DownloadCtx {
@@ -238,15 +239,19 @@ fn run_quick(
     std::process::exit(rc);
 }
 
-/// `probe_version` with its memo, exactly like `--check` builds it.
-/// Python memoizes for the process; the port memoizes per call, which
-/// re-probes a binary that was already probed - same answers, one extra
-/// spawn per session at most.
-fn probe_closure() -> impl FnMut(&str) -> (String, i64) {
-    let mut cache = resolve::VersionCache::default();
+/// `probe_version` behind python's one module memo: an Rc of the cache
+/// lets the menu session's downloads and updater runs answer from the
+/// same map (a batch of two downloads must not spawn `--version` twice,
+/// which the piped session transcripts pin), while `--url` holds one
+/// call's worth. A hit answers from the map; a miss spawns and stores.
+fn probe_closure(
+    cache: &std::rc::Rc<std::cell::RefCell<resolve::VersionCache>>,
+) -> impl FnMut(&str) -> (String, i64) {
+    let cache = std::rc::Rc::clone(cache);
     move |binary: &str| {
+        let mut memo = cache.borrow_mut();
         let mtime = resolve::mtime_seconds(binary);
-        resolve::probe_version(binary, mtime, &mut cache, &mut |b, f| {
+        resolve::probe_version(binary, mtime, &mut memo, &mut |b, f| {
             resolve::spawn_version_probe(b, f)
         })
     }
@@ -278,9 +283,9 @@ fn self_path() -> String {
 }
 
 /// One updater run with the production world. `mode` is python's own
-/// split: `Check` is `auto_update_check(s, force)` (the menu start and
-/// `--update`'s cli half), `All` is `update_all(s)` (`--update` and menu
-/// item 11). The fresh agent and memo per call match `probe_closure`'s
+/// split: `Check` is the menu start's quiet `auto_update_check(s)`,
+/// `All` is `update_all(s)` (`--update` and menu item 11). The fresh
+/// agent and memo per call match `probe_closure`'s
 /// note; an agent is a config clone plus a connection pool, and both
 /// updater paths are one-shot.
 #[derive(Clone, Copy, PartialEq)]
@@ -303,9 +308,10 @@ fn updater_run(
         is_windows,
         use_color,
         sink,
+        cache,
     } = world;
     let mut http = UreqHttp::new();
-    let mut probe = probe_closure();
+    let mut probe = probe_closure(&cache);
     let mut selftest = |binary: &str| match std::process::Command::new(binary)
         .arg("--selftest")
         .status()
@@ -346,12 +352,17 @@ fn updater_run(
         reader: io.reader,
     };
     match mode {
-        UpdMode::Check => update::auto_update_check(s, true, &mut ctx),
+        // Check is only the menu start, which is python's quiet
+        // `auto_update_check(s)`; All is `update_all(s)`
+        UpdMode::Check => update::auto_update_check(s, false, &mut ctx),
         UpdMode::All => update::update_all(s, &mut ctx),
     }
 }
 
-/// The updater's world, owned so both menu closures can build one.
+/// The updater's world, owned so both menu closures can build one. The
+/// memo is shared behind an Rc so the session's downloads and updater
+/// runs answer from python's one module memo: a post-update probe is a
+/// fresh spawn only when the mtime moved, whichever half asks.
 #[derive(Clone)]
 struct UpdWorld {
     root: String,
@@ -361,6 +372,7 @@ struct UpdWorld {
     is_windows: bool,
     use_color: bool,
     sink: tty::SharedSink,
+    cache: std::rc::Rc<std::cell::RefCell<resolve::VersionCache>>,
 }
 
 impl UpdWorld {
@@ -373,6 +385,7 @@ impl UpdWorld {
             is_windows,
             use_color,
             sink: shared.sink(),
+            cache: std::rc::Rc::new(std::cell::RefCell::new(resolve::VersionCache::default())),
         }
     }
 }
@@ -429,6 +442,9 @@ fn run_menu(
 
     let mut out = shared.clone();
     let mut reader = tty::TtyReader::new();
+    // python's probe version memo is one for the process: the download
+    // half and the updater half of one session answer from the same map
+    let memo = std::rc::Rc::new(std::cell::RefCell::new(resolve::VersionCache::default()));
     let world = menu::World {
         version: ytdlp_cli::VERSION,
         root,
@@ -445,7 +461,7 @@ fn run_menu(
         reader: &mut reader,
     };
     let mut download = |s: &mut Obj, url: &str, io: &mut menu::Io| -> i32 {
-        let mut probe = probe_closure();
+        let mut probe = probe_closure(&memo);
         let mut http = UreqHttp::new();
         let mut sleep = sleep_closure();
         let mut ctx = exec::DownloadCtx {
@@ -468,7 +484,8 @@ fn run_menu(
     // FR-13's trigger rule: the check lives at exactly one call site, the
     // top of the menu, tty only, once a day. `--update` and item 11 are
     // the forced forms and run no check of their own.
-    let updater = UpdWorld::new(root, is_windows, use_color, &shared);
+    let mut updater = UpdWorld::new(root, is_windows, use_color, &shared);
+    updater.cache = std::rc::Rc::clone(&memo);
     let mut update =
         |s: &mut Obj, io: &mut menu::Io| match updater_run(s, UpdMode::All, updater.clone(), io) {
             Ok(_) => Ok(()),

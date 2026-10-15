@@ -37,13 +37,12 @@ jobs:
         run: |
           cargo build --workspace
           cargo test --workspace
-      - name: cross-check windows-msvc and linux-musl (ubuntu only)
+      - name: cross-check linux-musl (ubuntu only; ring builds C, so no pure cross)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y musl-tools
-          rustup target add --toolchain 1.98.0 x86_64-pc-windows-msvc x86_64-unknown-linux-musl
-          cargo check --workspace --target x86_64-pc-windows-msvc
+          rustup target add --toolchain 1.98.0 x86_64-unknown-linux-musl
           cargo check --workspace --target x86_64-unknown-linux-musl
 
   differential:
