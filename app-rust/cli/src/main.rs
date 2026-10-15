@@ -10,12 +10,14 @@
 
 use std::process::ExitCode;
 
+use ytdlp_cli::VERSION;
 use ytdlp_cli::cli_args::{self, Outcome};
 use ytdlp_cli::config::{self, LoadOutcome, Obj, Value};
 use ytdlp_cli::exec;
 use ytdlp_cli::menu::{self, MenuErr};
 use ytdlp_cli::net::UreqHttp;
 use ytdlp_cli::resolve;
+use ytdlp_cli::selftest;
 use ytdlp_cli::term::{self, A_AMBER};
 use ytdlp_cli::tty::{self, Out};
 use ytdlp_cli::update::{self, UpdErr, UpdateCtx};
@@ -68,11 +70,9 @@ fn run() -> Result<ExitCode, String> {
         return run_check(&settings, &root, is_windows);
     }
     if invocation.selftest {
-        tty::write_stderr(
-            "ytdlp: the port's checks run as cargo tests; a runtime --selftest lands in \
-             native port phase 9\n",
-        );
-        return Ok(ExitCode::from(2));
+        let mut shared = tty::SharedOut::new(tty::StdoutOut::new());
+        let rc = selftest::run_selftest(VERSION, &root, &config_path, &self_path(), &mut shared);
+        return Ok(ExitCode::from(rc as u8));
     }
     if invocation.update {
         return Ok(run_update(

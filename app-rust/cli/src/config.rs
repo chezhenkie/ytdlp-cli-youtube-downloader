@@ -83,8 +83,9 @@ pub const TYPES: [&str; 3] = ["video", "video no audio", "audio only"];
 /// Python `%r` for the values the defaults carry (int and plain string;
 /// the bool/null/float arms are spelled out for completeness - none of
 /// the coerced keys has such a default, and no default string contains a
-/// quote or backslash that would need escaping).
-fn py_repr(v: &Value) -> String {
+/// quote or backslash that would need escaping). `pub(crate)`: the
+/// packaged selftest renders the same `got` reprs on failure.
+pub(crate) fn py_repr(v: &Value) -> String {
     match v {
         Value::Str(s) => format!("'{s}'"),
         Value::Int(n) => n.to_string(),

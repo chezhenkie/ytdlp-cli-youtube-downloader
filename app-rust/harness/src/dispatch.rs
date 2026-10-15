@@ -1600,6 +1600,76 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                 ])),
             }
         }
+        "selftest" => {
+            // The packaged selftest through a clean scratch world, the
+            // same fixture either side (phase 9): a defaults-only
+            // settings.json in `{scratch}/config`, the self path the
+            // running harness image, both ends filtered to the check
+            // stream (the report never carries scratch paths).
+            let dir = TempCaseDir::new("selftest")?;
+            let root = case_root(&dir);
+            let config_dir = resolve::py_path_join(&root, "config");
+            std::fs::create_dir_all(&config_dir)
+                .map_err(|e| format!("selftest config dir: {e}"))?;
+            let config_path = resolve::py_path_join(&root, "config/settings.json");
+            let _ = config::save_settings(std::path::Path::new(&config_path), &config::defaults());
+            let image = std::env::current_exe()
+                .ok()
+                .and_then(|p| std::fs::canonicalize(&p).ok())
+                .map(|p| p.to_string_lossy().into_owned())
+                .ok_or("selftest: the image path is unavailable")?;
+            let image = image
+                .strip_prefix(r"\\?\UNC\")
+                .map(|rest| format!(r"\\{rest}"))
+                .or_else(|| image.strip_prefix(r"\\?\").map(str::to_string))
+                .unwrap_or(image);
+            let mut rec = tty::RecordingOut::default();
+            let rc = ytdlp_cli::selftest::run_selftest(
+                ytdlp_cli::VERSION,
+                &root,
+                &config_path,
+                &image,
+                &mut rec,
+            );
+            let report = rec.text();
+            // The two check names that carry an honest native wording
+            // (python patched a module global the port never threads;
+            // specsheet section 10, conformance map) project to the
+            // oracle names here, the same rule as the version and
+            // update-source tokens in the phase-8 records.
+            const ALIAS: [(&str, &str); 2] = [
+                (
+                    "cli update source is the releases api",
+                    "cli update url is raw main branch",
+                ),
+                (
+                    "install_cli refuses an image that fails its own checks",
+                    "install_cli refuses a file that does not parse",
+                ),
+            ];
+            let checks: Vec<String> = report
+                .split('\n')
+                .filter(|line| {
+                    line.starts_with("PASS ")
+                        || line.starts_with("FAIL ")
+                        || line.starts_with("selftest: ")
+                        || line.starts_with("--")
+                })
+                .map(|line| {
+                    let mapped: Option<&str> = ALIAS.iter().find_map(|(native, oracle)| {
+                        (line == format!("PASS {native}")).then_some(*oracle)
+                    });
+                    match mapped {
+                        Some(oracle) => format!("PASS {oracle}"),
+                        None => line.to_string(),
+                    }
+                })
+                .collect();
+            Ok(Json::Obj(vec![
+                ("rc".to_string(), Json::Int(rc)),
+                ("stdout".to_string(), Json::Str(checks.join("\n"))),
+            ]))
+        }
         _ => Err(format!("unknown function: {name}")),
     }
 }

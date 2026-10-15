@@ -26,6 +26,10 @@ path = "src/main.rs"
 # matches python's getproxies() (IF-7). zip and tar come with default
 # features off so only decode paths are compiled, and both decompress
 # through pure-rust crates (miniz_oxide, lzma-rust2) - no C toolchain.
+# The archive fixture builders run in tests AND in the packaged
+# selftest, which needs the xz encoder as a main dependency (specsheet
+# section 4, phase-9 note; the decode-only G8 build is recorded as
+# amended).
 [dependencies]
 ureq = "3.4.2"
 zip = { version = "7.2.0", default-features = false, features = [
@@ -35,12 +39,8 @@ tar = { version = "0.4.46", default-features = false }
 lzma-rust2 = { version = "0.15.8", default-features = false, features = [
     "std",
     "xz",
+    "encoder",
 ] }
-
-# The archive tests build their own fixtures, which needs the xz
-# encoder; only `cargo test` sees this, the shipping build decodes.
-[dev-dependencies]
-lzma-rust2 = { version = "0.15.8", features = ["encoder"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = [

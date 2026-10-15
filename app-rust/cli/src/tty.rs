@@ -1213,6 +1213,22 @@ impl Stage {
         }
         out.flush();
     }
+
+    /// The built-in frame set (the selftest and the differential arm
+    /// read them back; python reads `stage.frames` directly).
+    pub fn frames(&self) -> &[Vec<(String, u8)>] {
+        &self.frames
+    }
+
+    /// The built-in tick (python `stage.tick`).
+    pub fn tick_secs(&self) -> f64 {
+        self.tick
+    }
+
+    /// The built-in freeze frame (python `stage.freeze`).
+    pub fn freeze_cells(&self) -> &[(String, u8)] {
+        &self.freeze
+    }
 }
 
 /// A shared live-text handle for writers other than the Stage owner

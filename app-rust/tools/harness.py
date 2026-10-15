@@ -1046,6 +1046,47 @@ def _hook_hint(module, args):
         shutil.rmtree(work, ignore_errors=True)
 
 
+def _hook_selftest(module, args):
+    """Python `selftest()` in a clean scratch world: a defaults-only
+    settings.json at CONFIG_PATH, the CLI self path a fresh copy of this
+    module, and the report filtered to the check stream (the port prints
+    nothing between the checks either way)."""
+    work = _case_scratch({}, "selftest")
+    try:
+        config_dir = work / "config"
+        config_dir.mkdir()
+        config_path = config_dir / "settings.json"
+        config_path.write_text(
+            module.json.dumps(module.DEFAULTS, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        script = work / "ytdlp.py"
+        shutil.copyfile(PY_IMPL, script)
+        saved = {}
+        for name, value in (
+            ("CONFIG_PATH", config_path),
+            ("CLI_SELF_PATH", script),
+            ("ROOT", work),
+        ):
+            saved[name] = getattr(module, name)
+            setattr(module, name, value)
+        try:
+            side = io.StringIO()
+            with redirect_stdout(side):
+                rc = module.selftest()
+        finally:
+            for name, value in saved.items():
+                setattr(module, name, value)
+        lines = [
+            line
+            for line in side.getvalue().splitlines()
+            if line.startswith(("PASS ", "FAIL ", "selftest: ", "--"))
+        ]
+        return {"rc": int(rc), "stdout": "\n".join(lines)}
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
 def _hook_render(module, args):
     case = args[0]
     work = _case_scratch(case, "render")
@@ -1560,6 +1601,7 @@ PY_CALL_HOOKS.update(
         "ask_bool": _hook_ask_bool,
         "act": _hook_act,
         "main_menu": _hook_main_menu,
+        "selftest": _hook_selftest,
         "newest_since": _hook_newest_since,
         "clean_partials": _hook_clean_partials,
         "run_download": _hook_run_download,

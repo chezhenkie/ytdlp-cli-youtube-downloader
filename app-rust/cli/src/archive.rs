@@ -126,6 +126,53 @@ fn from_tar_xz(blob: &str, binname: &str, out: &str) -> Result<Option<String>, S
     Ok(None)
 }
 
+// fixture builders, shipped: the packaged selftest builds the same
+// fixtures at runtime (nothing carries archive bytes through a vector)
+
+/// The gyan.dev essentials layout: one versioned folder, `bin/`
+/// inside it, the binary at `bin/ffmpeg.exe`.
+pub(crate) fn zip_with(names: &[(&str, &[u8])]) -> Vec<u8> {
+    use std::io::Cursor;
+    use zip::write::SimpleFileOptions;
+    use zip::{CompressionMethod, ZipWriter};
+    let mut buf = Cursor::new(Vec::new());
+    {
+        let options = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+        let mut w = ZipWriter::new(&mut buf);
+        for (name, body) in names {
+            w.start_file(*name, options).unwrap();
+            w.write_all(body).unwrap();
+        }
+        w.finish().unwrap();
+    }
+    buf.into_inner()
+}
+
+/// Same nesting in a tar.xz, encoded at build time like python's
+/// `tarfile.open("w:xz")` fixture does - the packaged selftest and the
+/// tests share the builder (the `encoder` feature is a main
+/// dependency now, G8's decode-only build is recorded as amended).
+pub(crate) fn tar_xz_with(names: &[(&str, &[u8])]) -> Vec<u8> {
+    let mut raw = Vec::new();
+    {
+        let mut b = tar::Builder::new(&mut raw);
+        for (name, body) in names {
+            let mut header = tar::Header::new_gnu();
+            header.set_size(body.len() as u64);
+            header.set_mode(0o755);
+            header.set_cksum();
+            b.append_data(&mut header, name, *body).unwrap();
+        }
+        b.finish().unwrap();
+    }
+    let mut out = Vec::new();
+    let mut enc =
+        lzma_rust2::XzWriter::new(&mut out, lzma_rust2::XzOptions::with_preset(1)).unwrap();
+    enc.write_all(&raw).unwrap();
+    enc.finish().unwrap();
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -171,47 +218,8 @@ mod tests {
         dir
     }
 
-    /// The gyan.dev essentials layout: one versioned folder, `bin/`
-    /// inside it, the binary at `bin/ffmpeg.exe`.
-    fn zip_with(names: &[(&str, &[u8])]) -> Vec<u8> {
-        use zip::write::SimpleFileOptions;
-        use zip::{CompressionMethod, ZipWriter};
-        let mut buf = std::io::Cursor::new(Vec::new());
-        {
-            let options =
-                SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
-            let mut w = ZipWriter::new(&mut buf);
-            for (name, body) in names {
-                w.start_file(*name, options).unwrap();
-                w.write_all(body).unwrap();
-            }
-            w.finish().unwrap();
-        }
-        buf.into_inner()
-    }
-
-    /// Same nesting in a tar.xz, written with the encoder the
-    /// dev-dependency turns on.
-    fn tar_xz_with(names: &[(&str, &[u8])]) -> Vec<u8> {
-        let mut raw = Vec::new();
-        {
-            let mut b = tar::Builder::new(&mut raw);
-            for (name, body) in names {
-                let mut header = tar::Header::new_gnu();
-                header.set_size(body.len() as u64);
-                header.set_mode(0o755);
-                header.set_cksum();
-                b.append_data(&mut header, name, *body).unwrap();
-            }
-            b.finish().unwrap();
-        }
-        let mut out = Vec::new();
-        let mut enc =
-            lzma_rust2::XzWriter::new(&mut out, lzma_rust2::XzOptions::with_preset(1)).unwrap();
-        enc.write_all(&raw).unwrap();
-        enc.finish().unwrap();
-        out
-    }
+    /// The tests reuse the shipped fixture builders (the packaged
+    /// selftest builds the same bytes).
 
     #[test]
     fn zip_lifts_the_nested_binary_and_skips_the_rest() {

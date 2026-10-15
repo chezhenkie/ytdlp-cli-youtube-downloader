@@ -4,7 +4,7 @@ Two columns: the Python column is live, the native column is the contract the po
 
 | requirement | Python (live) | native (required, not yet present) |
 |---|---|---|
-| FR-1, FR-2, FR-4, FR-7, FR-8, FR-9 | --selftest sections, 177 checks total, live run 2026-10-14 | Rust twins of the same checks, same expected output |
+| FR-1, FR-2, FR-4, FR-7, FR-8, FR-9 | --selftest sections, 177 checks total, live run 2026-10-14 | Rust twins of the same checks, same expected output; the packaged `--selftest` runs them (phase 9, see the conformance map below) |
 | FR-3 | selftest load/save checks, LF and unchanged-bytes assertions, "coerce never rewrites settings.json" | twin, plus byte-identical settings.json and coercion notes over a corrupted-input matrix |
 | FR-5 | history and reader checks | twin; console behaviour under a real tty, not only redirected stdout |
 | FR-6 | outdir checks plus the audit memo regression | twin |
@@ -17,4 +17,6 @@ Two columns: the Python column is live, the native column is the contract the po
 | NFR-4 | workflow | second workflow: fmt, clippy warnings denied, tests, differential harness |
 
 Acceptance criteria for every requirement are the PASS lines of the suite that ships it, with the differential rule of NFR-4 governing any native twin. Performance is not a target beyond NFR constraints and has no measured number in this spec (no invented factors).
+
+PHASE 9 CONFORMANCE MAP for the packaged `--selftest` (G9 evidence). The native report carries python's 177 checks by name, order and verdict; the honest compare is `app-rust/tools/selftest_compare.py` over the two implementations' `--selftest` reports on the same machine (name + verdict pairs must agree line for line), and the harness vector `vectors/selftest.json` pins the check stream as a record. The two comparator mappings, each a recorded deviation rather than a name change: `cli update url is raw main branch` runs natively as `cli update source is the releases api` (the native FR-13 contract; the raw-main url is python-only), and `install_cli refuses a file that does not parse` runs natively as `install_cli refuses an image that fails its own checks` (the native gate; the rename dance runs on a scratch side-name pair with a scripted gate, because a live-spawned gate would recurse - see OQ-N4 for the live dance). The `{archive-error}` payload of the unreadable-archive line is shape-gated like the phase-8 records (the real stdlib wording differs from the real native wording), and the item-12 audit print goes into the live report on both implementations uncaptured.
 

@@ -18,6 +18,7 @@ pub mod pyfs;
 pub mod pytext;
 pub mod resolve;
 pub mod rng;
+pub mod selftest;
 pub mod settings_json;
 pub mod sha256;
 pub mod term;

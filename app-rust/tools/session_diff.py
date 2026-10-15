@@ -188,6 +188,10 @@ def rust_command(tree, exe, case):
 
 
 FRAME_RE = re.compile(rb"(?:\r\x1b\[K[^\r\n]*)+(?=\r\x1b\[K)")
+# the archive-fault payload is shape-gated (the phase-8 rule): the real
+# stdlib wording differs from the real native wording, so the selftest
+# session projects the payload like the dispatch arms do
+ARCHIVE_ERROR_RE = re.compile(rb"the downloaded archive was unreadable: [^\r\n]*")
 PROG_USAGE_RE = re.compile(rb"usage: (?:ytdlp\.py|ytdlp\.exe|ytdlp) ")
 PROG_ERROR_RE = re.compile(rb"(?m)^(?:ytdlp\.py|ytdlp\.exe|ytdlp): error:")
 # the usage continuation indent is len("usage: ") + len(prog) + 1
@@ -222,6 +226,20 @@ def normalize(data, tree, project_frames=False):
     data = PROG_USAGE_RE.sub(b"usage: {prog} ", data)
     data = PROG_ERROR_RE.sub(b"{prog}: error:", data)
     data = USAGE_INDENT_RE.sub(rb"{ind}\1", data)
+    # the two selftest check names that carry an honest native wording
+    # (specsheet section 10, conformance map) project to the oracle
+    # names, the same rule as the version token above
+    data = data.replace(
+        b"PASS cli update source is the releases api",
+        b"PASS cli update url is raw main branch",
+    )
+    data = data.replace(
+        b"PASS install_cli refuses an image that fails its own checks",
+        b"PASS install_cli refuses a file that does not parse",
+    )
+    data = ARCHIVE_ERROR_RE.sub(
+        b"the downloaded archive was unreadable: {archive-error}", data
+    )
     if project_frames:
         # an animated stage rewrites the line until it freezes; collapse
         # every run of rewrites into one token (the frames themselves are
@@ -522,6 +540,12 @@ PIPED_CASES = [
         "settings": settings_with(output_dir="{scratch}/out"),
         "args": ["--check", "https://example.invalid/v"],
         "env": {"PATH": "{root}/nobin"},
+        "stdin": b"",
+    },
+    {
+        "name": "selftest-report",
+        "settings": settings_with(output_dir="{scratch}/out"),
+        "args": ["--selftest"],
         "stdin": b"",
     },
     {
