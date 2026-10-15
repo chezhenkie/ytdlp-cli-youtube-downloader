@@ -1,6 +1,6 @@
 # RUST-PORT-PLAN.md
 
-Companion to `ytdlp-cli-specsheet.md`, which remains the source of truth for product behaviour. This document plans the implementation move from `app-python/` to `app-rust/`.
+Companion to the specsheet in `specsheet/` (`specsheet/README.md` is the main document, sections 1-14 live in its numbered part files), which remains the source of truth for product behaviour. This document plans the implementation move from `app-python/` to `app-rust/`.
 
 ## 1. Baseline
 
@@ -125,7 +125,7 @@ Gates are stop conditions. Each produces a number or a diff.
 
 ### Phase 0 - Specsheet amendment
 
-Amend `ytdlp-cli-specsheet.md` before any rust:
+Amend the specsheet (`specsheet/README.md` plus its part files) before any rust:
 
 - NFR-1 from "stdlib only, Python 3" to "no system runtime"
 - architecture section: single module to crate map
