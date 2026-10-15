@@ -1031,7 +1031,10 @@ impl Drop for KeyWatch {
     fn drop(&mut self) {
         if let Some(saved) = &self.saved {
             unsafe {
-                libc::tcsetattr(self.fd, libc::TCSAFLUSH, saved);
+                // python's KeyWatch.restore uses TCSADRAIN (phase-7
+                // parity fix: the phase-6 draft had TCSAFLUSH, which
+                // would discard type-ahead the user already typed).
+                libc::tcsetattr(self.fd, libc::TCSADRAIN, saved);
             }
         }
     }
@@ -1143,6 +1146,20 @@ impl Stage {
         lock(&self.state).live = text;
     }
 
+    /// A shared handle for the download pump threads (python's
+    /// `stage.live = ...` from another thread).
+    pub fn live_handle(&self) -> StageLive {
+        StageLive {
+            state: Arc::clone(&self.state),
+        }
+    }
+
+    /// The current live text (tests and the differential arm read it
+    /// after the pump threads joined).
+    pub fn live(&self) -> Option<String> {
+        lock(&self.state).live.clone()
+    }
+
     pub fn done(&mut self, text: Option<&str>) {
         lock(&self.state).stop = true;
         // python joins with a 1.0 s timeout; the loop checks the flag
@@ -1165,6 +1182,28 @@ impl Stage {
             out.write(&format!("{} {}\n", plain_cells(&self.freeze), final_text));
         }
         out.flush();
+    }
+}
+
+/// A shared live-text handle for writers other than the Stage owner
+/// (the download pump threads).
+pub struct StageLive {
+    state: Arc<Mutex<StageState>>,
+}
+
+impl StageLive {
+    pub fn set(&self, text: Option<String>) {
+        lock(&self.state).live = text;
+    }
+}
+
+/// A dropped Stage stops its spin thread at the next tick. Python's
+/// daemon thread would keep running until process exit, which only ever
+/// mattered on traceback paths that end the process; the port may
+/// continue (menu flows), so the flag is set here.
+impl Drop for Stage {
+    fn drop(&mut self) {
+        lock(&self.state).stop = true;
     }
 }
 

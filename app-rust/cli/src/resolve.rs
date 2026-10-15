@@ -1113,6 +1113,19 @@ pub fn which_from_process(cmd: &str) -> Option<String> {
     which(cmd, path.as_deref(), pathext.as_deref())
 }
 
+/// The running platform's `platform_name()` answer: python's os.name /
+/// sys.platform mapped for the hosts this product builds for.
+pub fn host_platform() -> String {
+    let os_name = if cfg!(windows) { "nt" } else { "posix" };
+    let sys_platform = match std::env::consts::OS {
+        "windows" => "win32",
+        "linux" => "linux",
+        "macos" => "darwin",
+        other => other,
+    };
+    platform_name(os_name, sys_platform)
+}
+
 /// `os.path.getmtime(path)` in seconds, `None` on OSError.
 pub fn mtime_seconds(path: &str) -> Option<f64> {
     let meta = std::fs::metadata(path).ok()?;

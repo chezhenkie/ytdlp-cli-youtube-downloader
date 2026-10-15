@@ -1,10 +1,11 @@
-# Native port workspace (RUST-PORT-PLAN.md). Two members: the product
-# binary (cli/) and the differential harness dispatcher (harness/), a
-# development tool that is never shipped in a bundle.
+# Native port workspace (RUST-PORT-PLAN.md). Three members: the product
+# binary (cli/), the differential harness dispatcher (harness/) and the
+# scripted yt-dlp stand-in (fake-ytdlp/), the latter two development
+# tools that are never shipped in a bundle.
 
 [workspace]
 resolver = "3"
-members = ["cli", "harness"]
+members = ["cli", "harness", "fake-ytdlp"]
 
 [workspace.package]
 version = "2.0.0"

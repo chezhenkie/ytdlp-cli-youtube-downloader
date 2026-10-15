@@ -205,7 +205,7 @@ pub fn run_batch(
     entries: &[String],
     io: &mut Io,
     world: &World,
-    download: &mut dyn FnMut(&mut Obj, &str) -> i32,
+    download: &mut dyn FnMut(&mut Obj, &str, &mut Io) -> i32,
 ) -> Result<bool, MenuErr> {
     let total = entries.len();
     let mut started = false;
@@ -244,7 +244,7 @@ pub fn run_batch(
             );
             continue;
         };
-        if download(s, &url) == 130 {
+        if download(s, &url, io) == 130 {
             break;
         }
         started = true;
@@ -259,7 +259,7 @@ pub fn multi_url(
     s: &mut Obj,
     io: &mut Io,
     world: &World,
-    download: &mut dyn FnMut(&mut Obj, &str) -> i32,
+    download: &mut dyn FnMut(&mut Obj, &str, &mut Io) -> i32,
 ) -> Result<bool, MenuErr> {
     let mut entries: Vec<String> = Vec::new();
     loop {
@@ -377,7 +377,7 @@ pub fn act(
     s: &mut Obj,
     io: &mut Io,
     world: &World,
-    download: &mut dyn FnMut(&mut Obj, &str) -> i32,
+    download: &mut dyn FnMut(&mut Obj, &str, &mut Io) -> i32,
 ) -> Result<ActOutcome, MenuErr> {
     let is_audio_only = matches!(config::get(s, "type"), Some(Value::Str(t)) if t == "audio only");
     let repaint = match choice {
@@ -685,7 +685,7 @@ pub fn main_menu(
     s: &mut Obj,
     io: &mut Io,
     world: &World,
-    download: &mut dyn FnMut(&mut Obj, &str) -> i32,
+    download: &mut dyn FnMut(&mut Obj, &str, &mut Io) -> i32,
     quiet_check: &mut dyn FnMut(&mut Obj),
 ) -> Result<i32, MenuErr> {
     tty::enable_vt_output();
@@ -745,7 +745,7 @@ pub fn main_menu(
                         )?,
                     );
                     print_lines(io, &ui::hint_lines(&outdir, world.use_color));
-                    download(s, &url);
+                    download(s, &url, io);
                     results = true;
                     save(s, world)?;
                     continue;
@@ -838,7 +838,7 @@ mod tests {
         std::fs::write(&path, config::render_settings_file(settings)).expect("seed");
         let mut rec = RecordingOut::default();
         let mut reader = ScriptedReader::new(replies);
-        let mut download = |_s: &mut Obj, _url: &str| -> i32 { 0 };
+        let mut download = |_s: &mut Obj, _url: &str, _io: &mut Io| -> i32 { 0 };
         let w = world(&path, "1.5.0", false, false, None);
         let outcome = {
             let mut io = Io {
@@ -969,7 +969,7 @@ mod tests {
 
         let mut rec = RecordingOut::default();
         let mut reader = ScriptedReader::new(vec![ScriptItem::Line(String::new())]);
-        let mut download = |_s: &mut Obj, _url: &str| -> i32 { 0 };
+        let mut download = |_s: &mut Obj, _url: &str, _io: &mut Io| -> i32 { 0 };
         let w = world(&path, "1.5.0", false, false, None);
         {
             let mut io = Io {
@@ -1056,7 +1056,7 @@ mod tests {
             ScriptItem::Line("en,8".to_string()),
             ScriptItem::Line(String::new()),
         ]);
-        let mut download = |_s: &mut Obj, _url: &str| -> i32 { 0 };
+        let mut download = |_s: &mut Obj, _url: &str, _io: &mut Io| -> i32 { 0 };
         let w = world(&path, "1.5.0", true, true, Some((120, 50)));
         {
             let mut io = Io {
@@ -1100,7 +1100,7 @@ mod tests {
             std::fs::write(&path, config::render_settings_file(&s)).expect("seed");
             let mut rec = RecordingOut::default();
             let mut reader = ScriptedReader::new(replies);
-            let mut download = |_s: &mut Obj, _url: &str| -> i32 { 0 };
+            let mut download = |_s: &mut Obj, _url: &str, _io: &mut Io| -> i32 { 0 };
             let mut quiet = |_s: &mut Obj| {};
             let w = world(&path, "1.5.0", false, false, None);
             {
@@ -1146,7 +1146,7 @@ mod tests {
             std::fs::write(&path, config::render_settings_file(&s)).expect("seed");
             let mut rec = RecordingOut::default();
             let mut reader = ScriptedReader::new(replies);
-            let mut download = |_s: &mut Obj, _url: &str| -> i32 { 0 };
+            let mut download = |_s: &mut Obj, _url: &str, _io: &mut Io| -> i32 { 0 };
             let mut quiet = |_s: &mut Obj| {};
             let w = world(&path, "1.5.0", false, false, None);
             let mut io = Io {
@@ -1195,7 +1195,7 @@ mod tests {
             ScriptItem::Escape,
             ScriptItem::Line("13".to_string()),
         ]);
-        let mut download = |_s: &mut Obj, _url: &str| -> i32 { 0 };
+        let mut download = |_s: &mut Obj, _url: &str, _io: &mut Io| -> i32 { 0 };
         let mut quiet = |_s: &mut Obj| {};
         let w = world(&path2, "1.5.0", false, false, None);
         let mut io = Io {

@@ -1,17 +1,19 @@
 //! ytdlp cli - native binary.
 //!
-//! Phase 6 (RUST-PORT-PLAN.md) wires the interactive menu: no
-//! arguments or `--menu` runs `main_menu`, `--check` keeps its phase-4
-//! path. Downloads, the updaters and the URL quick mode land in later
-//! phases; until then they print a clear message and exit 2.
+//! Phase 7 (RUST-PORT-PLAN.md) wires the download run: the URL quick mode
+//! with the argparse-compatible parser (IF-2) and the menu's real
+//! downloader. `--check` keeps its phase-4 path, the menu its phase-6
+//! path; the updaters (`--update`, `--selftest`) print typed refusals
+//! until phases 8 and 9.
 
-use std::io::Write;
 use std::process::ExitCode;
 
-use ytdlp_cli::config::{self, LoadOutcome, Obj};
+use ytdlp_cli::cli_args::{self, Outcome};
+use ytdlp_cli::config::{self, LoadOutcome, Obj, Value};
+use ytdlp_cli::exec;
 use ytdlp_cli::menu::{self, MenuErr};
 use ytdlp_cli::resolve;
-use ytdlp_cli::term;
+use ytdlp_cli::term::{self, A_AMBER};
 use ytdlp_cli::tty::{self, Out};
 
 fn main() -> ExitCode {
@@ -25,58 +27,132 @@ fn main() -> ExitCode {
 }
 
 fn run() -> Result<ExitCode, String> {
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    if args.iter().any(|a| a == "--check") {
-        return run_check();
+    let mut argv = std::env::args();
+    let arg0 = argv.next().unwrap_or_default();
+    let args: Vec<String> = argv.collect();
+    // python's prog: os.path.basename(sys.argv[0])
+    let prog = std::path::Path::new(&arg0)
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| arg0.clone());
+    let width = cli_args::cli_width();
+    let invocation = match cli_args::parse(&prog, &args, width) {
+        Outcome::Help(text) => {
+            print_stdout(&text)?;
+            return Ok(ExitCode::SUCCESS);
+        }
+        Outcome::Error(text) => {
+            eprint!("{text}");
+            return Ok(ExitCode::from(2));
+        }
+        Outcome::Parsed(invocation) => invocation,
+    };
+
+    let root = resolve::real_root()?;
+    let is_windows = cfg!(windows);
+    let use_color = tty::stdout_is_tty();
+    let config_path = resolve::py_path_join(&root, "config/settings.json");
+    let shared = tty::SharedOut::new(tty::StdoutOut::new());
+    let mut settings = load_and_announce(&config_path, use_color, &shared)?;
+    apply_overrides(&mut settings, &invocation);
+
+    // python's dispatch order: --check, --selftest, --update, url, menu
+    if invocation.check {
+        return run_check(&settings, &root, is_windows);
     }
-    if args.is_empty() || args.iter().any(|a| a == "--menu") {
-        return run_menu();
+    if invocation.selftest {
+        eprintln!(
+            "ytdlp: the port's checks run as cargo tests; a runtime --selftest lands in \
+             native port phase 9"
+        );
+        return Ok(ExitCode::from(2));
     }
-    eprintln!(
-        "ytdlp: this build wires --check and the interactive menu (native port phase 6); \
-         downloads and updaters land in later phases"
-    );
-    Ok(ExitCode::from(2))
+    if invocation.update {
+        eprintln!("ytdlp: the updaters land in native port phase 8");
+        return Ok(ExitCode::from(2));
+    }
+    if let Some(url) = &invocation.url
+        && !invocation.menu
+    {
+        return Ok(run_quick(
+            &settings, url, &root, is_windows, use_color, &shared,
+        ));
+    }
+    run_menu(settings, &root, is_windows, use_color, &config_path, shared)
+}
+
+/// `load_settings` plus python's two announcement forms: the unreadable
+/// line plain, the coercion notes amber when stdout is a tty.
+fn load_and_announce(
+    config_path: &str,
+    use_color: bool,
+    shared: &tty::SharedOut,
+) -> Result<Obj, String> {
+    let mut out = shared.clone();
+    match config::load_settings(std::path::Path::new(config_path)).map_err(|e| e.to_string())? {
+        LoadOutcome::Loaded { settings, notes } => {
+            for note in &notes {
+                out.write("  ");
+                out.write(&term::c(use_color, A_AMBER, &format!("note: {note}")));
+                out.write("\n");
+            }
+            out.flush();
+            Ok(settings)
+        }
+        LoadOutcome::Unreadable { settings, message } => {
+            out.write(&message);
+            out.write("\n");
+            out.flush();
+            Ok(settings)
+        }
+    }
+}
+
+/// `apply_overrides`: one-shot overrides mutate the in-memory settings
+/// only (FR-3); quick runs never persist them.
+fn apply_overrides(s: &mut Obj, inv: &cli_args::Invocation) {
+    if inv.audio {
+        config::set(s, "type", Value::Str("audio only".to_string()));
+    }
+    if let Some(format) = &inv.format {
+        config::set(s, "video_container", Value::Str(format.clone()));
+    }
+    if let Some(resolution) = &inv.resolution {
+        config::set(s, "video_resolution", Value::Str(resolution.clone()));
+    }
+    if let Some(af) = &inv.af {
+        config::set(s, "audio_format", Value::Str(af.clone()));
+    }
+    if let Some(outdir) = &inv.outdir {
+        config::set(s, "output_dir", Value::Str(outdir.clone()));
+    }
+    if inv.subs {
+        config::set(s, "subtitles", Value::Bool(true));
+    }
+    if inv.playlist {
+        config::set(s, "playlist", Value::Bool(true));
+    }
+    if let Some(template) = &inv.template {
+        config::set(s, "filename_template", Value::Str(template.clone()));
+    }
 }
 
 /// `--check` (phase 4, G4): the seven diagnostic lines.
-fn run_check() -> Result<ExitCode, String> {
-    let root = resolve::real_root()?;
+fn run_check(settings: &Obj, root: &str, is_windows: bool) -> Result<ExitCode, String> {
     let env = resolve::env_map_from_process();
     let home = resolve::home_from_process(&env)?;
-    let platform = resolve::platform_name(os_name(), sys_platform());
-    let is_windows = cfg!(windows);
-    let bin_dir = resolve::py_path_join(&root, "bin");
-    let config_path = resolve::py_path_join(&root, "config/settings.json");
-
-    // python's load_settings prints first: the unreadable line early-
-    // returns the defaults; otherwise the coercion notes.
-    let settings = match config::load_settings(std::path::Path::new(&config_path))
-        .map_err(|e| e.to_string())?
-    {
-        LoadOutcome::Loaded { settings, notes } => {
-            let mut head: Vec<String> = Vec::with_capacity(notes.len());
-            for note in &notes {
-                head.push(format!("  note: {note}"));
-            }
-            print_lines(&head)?;
-            settings
-        }
-        LoadOutcome::Unreadable { settings, message } => {
-            print_lines(&[message])?;
-            settings
-        }
-    };
-
+    let platform = resolve::host_platform();
+    let bin_dir = resolve::py_path_join(root, "bin");
+    let config_path = resolve::py_path_join(root, "config/settings.json");
     let (win_desktop, win_downloads) = shell_folders(&env);
     let config_exists = std::fs::metadata(&config_path).is_ok();
     let world = resolve::CheckWorld {
         platform: &platform,
-        root: &root,
+        root,
         bin_dir: &bin_dir,
         config_path: &config_path,
         config_exists,
-        saved: &settings,
+        saved: settings,
         is_windows,
         home: &home,
         env: &env,
@@ -92,45 +168,71 @@ fn run_check() -> Result<ExitCode, String> {
         })
     };
     let lines = resolve::show_check(&world, &mut which, &mut probe).map_err(|e| e.to_string())?;
-    print_lines(&lines)?;
+    let shared = tty::SharedOut::new(tty::StdoutOut::new());
+    let mut sink = shared.clone();
+    for line in &lines {
+        sink.write(line);
+        sink.write("\n");
+    }
+    sink.flush();
     Ok(ExitCode::SUCCESS)
 }
 
-/// The interactive menu (phase 6, G6).
-fn run_menu() -> Result<ExitCode, String> {
-    let root = resolve::real_root()?;
+/// The URL quick mode: python's `main()` fast path - dispatch straight to
+/// `do_download` and exit with its rc (`sys.exit(rc)`).
+fn run_quick(
+    settings: &Obj,
+    url: &str,
+    root: &str,
+    is_windows: bool,
+    use_color: bool,
+    shared: &tty::SharedOut,
+) -> ExitCode {
     let env = resolve::env_map_from_process();
     let home = resolve::home_from_env(&env).unwrap_or_default();
-    let config_path = resolve::py_path_join(&root, "config/settings.json");
-    let use_color = tty::stdout_is_tty();
-
-    // load_settings first, like python: the unreadable line or the
-    // coercion notes print before the menu paints (colored notes when
-    // stdout is a tty; enable_vt_output comes later, in main_menu, as in
-    // python - 2026-10-15 measurement, windows terminal already has VT)
-    let mut sink = tty::StdoutOut::new();
-    let mut settings: Obj = match config::load_settings(std::path::Path::new(&config_path))
-        .map_err(|e| e.to_string())?
-    {
-        LoadOutcome::Loaded { settings, notes } => {
-            for note in &notes {
-                sink.write(&format!(
-                    "  {}\n",
-                    term::c(use_color, term::A_AMBER, &format!("note: {note}"))
-                ));
-            }
-            sink.flush();
-            settings
-        }
-        LoadOutcome::Unreadable { settings, message } => {
-            sink.write(&message);
-            sink.write("\n");
-            sink.flush();
-            settings
-        }
+    let (win_desktop, win_downloads) = shell_folders(&env);
+    let auto = resolve::auto_outdir_lookup(
+        is_windows,
+        win_desktop.as_deref(),
+        win_downloads.as_deref(),
+        &home,
+        &env,
+    )
+    .ok()
+    .flatten();
+    let mut out = shared.clone();
+    let mut reader = tty::TtyReader::new();
+    let mut version_cache = resolve::VersionCache::default();
+    let mut ctx = exec::DownloadCtx {
+        root,
+        is_windows,
+        use_color,
+        stdin_tty: tty::stdin_is_tty(),
+        sink: shared.sink(),
+        out: &mut out,
+        reader: &mut reader,
+        version_cache: &mut version_cache,
+        auto: auto.as_deref(),
     };
+    let mut rt = exec::RunRt::real();
+    let rc = exec::do_download(settings, url, &mut ctx, &mut rt);
+    // python's `sys.exit(rc)`: -1 lands as 255 on posix and 0xFFFFFFFF
+    // on windows (measured 2026-10-15)
+    std::process::exit(rc);
+}
 
-    let is_windows = cfg!(windows);
+/// The interactive menu (phase 6, G6) with the phase-7 downloader wired.
+fn run_menu(
+    settings: Obj,
+    root: &str,
+    is_windows: bool,
+    use_color: bool,
+    config_path: &str,
+    shared: tty::SharedOut,
+) -> Result<ExitCode, String> {
+    let mut settings = settings;
+    let env = resolve::env_map_from_process();
+    let home = resolve::home_from_env(&env).unwrap_or_default();
     let (win_desktop, win_downloads) = shell_folders(&env);
     let mut outdir_cache = resolve::OutdirCache::default();
     let auto = outdir_cache
@@ -145,13 +247,13 @@ fn run_menu() -> Result<ExitCode, String> {
         })
         .map_err(|e| e.to_string())?;
 
-    let shared = tty::SharedOut::new(tty::StdoutOut::new());
     let mut out = shared.clone();
     let mut reader = tty::TtyReader::new();
+    let mut version_cache = resolve::VersionCache::default();
     let world = menu::World {
         version: ytdlp_cli::VERSION,
-        root: &root,
-        config_path: &config_path,
+        root,
+        config_path,
         is_windows,
         use_color,
         stdin_tty: tty::stdin_is_tty(),
@@ -163,15 +265,20 @@ fn run_menu() -> Result<ExitCode, String> {
         out: &mut out,
         reader: &mut reader,
     };
-    let download_sink = shared.clone();
-    let mut download = move |_s: &mut Obj, url: &str| -> i32 {
-        // phase 7 wires the real downloader
-        let mut sink = download_sink.clone();
-        sink.write(&format!(
-            "  downloading is not wired in this build yet (native port phase 7): {url}\n"
-        ));
-        sink.flush();
-        0
+    let mut download = |s: &mut Obj, url: &str, io: &mut menu::Io| -> i32 {
+        let mut ctx = exec::DownloadCtx {
+            root: world.root,
+            is_windows: world.is_windows,
+            use_color: world.use_color,
+            stdin_tty: world.stdin_tty,
+            sink: shared.sink(),
+            out: io.out,
+            reader: io.reader,
+            version_cache: &mut version_cache,
+            auto: world.auto,
+        };
+        let mut rt = exec::RunRt::real();
+        exec::do_download(s, url, &mut ctx, &mut rt)
     };
     let mut quiet_check = |s: &mut Obj| menu::auto_update_check_startup(s);
 
@@ -197,6 +304,8 @@ fn run_menu() -> Result<ExitCode, String> {
     }
 }
 
+/// The `auto_outdir` memo answer for the quick path (the menu path keeps
+/// its own OutdirCache).
 fn exit_one(message: &str) -> ExitCode {
     eprintln!("ytdlp: {message}");
     ExitCode::from(1)
@@ -215,33 +324,11 @@ fn shell_folders(env: &resolve::EnvMap) -> (Option<String>, Option<String>) {
     }
 }
 
-/// python's os.name for the running interpreter.
-fn os_name() -> &'static str {
-    if cfg!(windows) { "nt" } else { "posix" }
-}
-
-/// python's sys.platform for the running interpreter, mapped from the
-/// targets this product builds for.
-fn sys_platform() -> &'static str {
-    match std::env::consts::OS {
-        "windows" => "win32",
-        "linux" => "linux",
-        "macos" => "darwin",
-        other => other,
-    }
-}
-
-/// python text-mode stdout line endings: `\n` translates to os.linesep
-/// on windows (measured 2026-10-15: CRLF on redirected stdout). The
-/// text is written UTF-8; python uses the locale encoding on windows, so
-/// non-ASCII path content can differ in bytes (recorded deviation).
-fn print_lines(lines: &[String]) -> Result<(), String> {
-    let newline: &[u8] = if cfg!(windows) { b"\r\n" } else { b"\n" };
-    let stdout = std::io::stdout();
-    let mut out = stdout.lock();
-    for line in lines {
-        out.write_all(line.as_bytes()).map_err(|e| e.to_string())?;
-        out.write_all(newline).map_err(|e| e.to_string())?;
-    }
-    out.flush().map_err(|e| e.to_string())
+/// `print()` of one text block to stdout: python's text-mode newline
+/// translation and console handling live in the production sink.
+fn print_stdout(text: &str) -> Result<(), String> {
+    let mut out = tty::StdoutOut::new();
+    out.write(text);
+    out.flush();
+    Ok(())
 }

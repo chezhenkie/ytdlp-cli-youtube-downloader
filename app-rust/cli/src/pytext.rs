@@ -71,6 +71,18 @@ pub fn py_strip(text: &str) -> &str {
     text.trim_matches(py_space)
 }
 
+/// Python `str.rstrip()` with no argument (the download pump's line
+/// cleanup).
+pub fn py_rstrip(text: &str) -> &str {
+    text.trim_end_matches(py_space)
+}
+
+/// Python `str.split()` with no argument over the python whitespace set
+/// (`" ".join(line.split())` in the download pump).
+pub fn py_split_ws(text: &str) -> Vec<&str> {
+    text.split(py_space).filter(|s| !s.is_empty()).collect()
+}
+
 /// Python `str.splitlines()` break set, as the first line only: the text
 /// up to the first break character (`\r\n` counts as one break, which is
 /// the same prefix).

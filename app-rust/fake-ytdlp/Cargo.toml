@@ -1,0 +1,11 @@
+[package]
+name = "fake-ytdlp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Scripted yt-dlp stand-in for the offline differential and session tests; never shipped."
+
+[[bin]]
+name = "fake-ytdlp"
+path = "src/main.rs"

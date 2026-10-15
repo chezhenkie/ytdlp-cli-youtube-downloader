@@ -7,6 +7,7 @@
 //! config, resolve, args, exec, update, ui.
 
 pub mod args;
+pub mod cli_args;
 pub mod config;
 pub mod exec;
 pub mod menu;
