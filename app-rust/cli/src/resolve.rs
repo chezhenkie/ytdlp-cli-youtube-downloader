@@ -1731,6 +1731,39 @@ mod tests {
         assert!(fail_cache.is_empty(), "no failure is ever stored");
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn ffmpeg9_shim_probe_falls_back_and_succeeds() {
+        // G4 shim: a real executable that rejects --version (banner on
+        // stderr, nonzero rc) and answers -version on stdout, the way an
+        // ffmpeg 9 build does (measured exit 0xABAFB008 on windows; shell
+        // rcs are 8-bit, so the shim uses 171)
+        use std::os::unix::fs::PermissionsExt;
+        let dir = scratch("shim");
+        let shim = dir.join("ffmpeg9");
+        let script = "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then\n  echo banner >&2\n  exit 171\nfi\necho \"ffmpeg version 9\"\nexit 0\n";
+        std::fs::write(&shim, script).expect("shim");
+        std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+        let path = shim.to_string_lossy().to_string();
+
+        let first = spawn_version_probe(&path, "--version").expect("spawn ok");
+        assert_eq!(first.rc, 171);
+        assert_eq!(first.stdout, "");
+        assert_eq!(first.stderr, "banner\n");
+        let second = spawn_version_probe(&path, "-version").expect("spawn ok");
+        assert_eq!(second.rc, 0);
+        assert_eq!(second.stdout, "ffmpeg version 9\n");
+
+        let mut cache = VersionCache::default();
+        let mut spawn = |b: &str, f: &str| spawn_version_probe(b, f);
+        let probe = probe_version(&path, Some(1.0), &mut cache, &mut spawn);
+        assert_eq!(probe, ("ffmpeg version 9".to_string(), 0));
+        let again = probe_version(&path, Some(1.0), &mut cache, &mut spawn);
+        assert_eq!(again, probe);
+        assert_eq!(cache.len(), 1, "the successful answer is memoized");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn f6_outdir_lookup_runs_once_across_calls() {
         // audit F6 (named regression): the process memo answers every call
