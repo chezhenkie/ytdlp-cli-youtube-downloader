@@ -129,6 +129,7 @@ fn from_tar_xz(blob: &str, binname: &str, out: &str) -> Result<Option<String>, S
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::resolve;
     use std::sync::Arc;
     use std::sync::Mutex;
 
@@ -229,7 +230,7 @@ mod tests {
         std::fs::create_dir_all(&out_dir).unwrap();
         let (sink, lines) = recording();
         let out = extract_member(&blob, "zip", "ffmpeg.exe", &out_dir, &sink);
-        assert_eq!(out, Some(format!("{out_dir}/ffmpeg.exe")));
+        assert_eq!(out, Some(resolve::py_path_join(&out_dir, "ffmpeg.exe")));
         assert_eq!(std::fs::read(out.unwrap()).unwrap(), b"the binary");
         assert!(lines.lock().unwrap().is_empty());
         // nothing else from the archive landed
@@ -250,7 +251,7 @@ mod tests {
         std::fs::create_dir_all(&out_dir).unwrap();
         let (sink, lines) = recording();
         let out = extract_member(&blob, "tar.xz", "ffmpeg", &out_dir, &sink);
-        assert_eq!(out, Some(format!("{out_dir}/ffmpeg")));
+        assert_eq!(out, Some(resolve::py_path_join(&out_dir, "ffmpeg")));
         assert_eq!(std::fs::read(out.unwrap()).unwrap(), b"the tar binary");
         assert!(lines.lock().unwrap().is_empty());
         std::fs::remove_dir_all(&dir).unwrap();

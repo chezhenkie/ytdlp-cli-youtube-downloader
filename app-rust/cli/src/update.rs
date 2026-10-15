@@ -1089,7 +1089,7 @@ mod tests {
     #[test]
     fn update_all_runs_both_halves() {
         let mut h = Harness::new("both");
-        let yt = format!("{}/yt-dlp.exe", h.dir);
+        let yt = resolve::py_path_join(&h.dir, "yt-dlp.exe");
         std::fs::write(&yt, b"yt-dlp").unwrap();
         let mut s = settings();
         config::set(&mut s, "yt_dlp_path", Value::Str(yt.clone()));
@@ -1144,7 +1144,7 @@ mod tests {
     #[test]
     fn a_yt_dlp_that_fails_its_pre_check_is_not_started() {
         let mut h = Harness::new("bad-ytdlp");
-        let yt = format!("{}/yt-dlp.exe", h.dir);
+        let yt = resolve::py_path_join(&h.dir, "yt-dlp.exe");
         std::fs::write(&yt, b"yt-dlp").unwrap();
         let mut s = settings();
         config::set(&mut s, "yt_dlp_path", Value::Str(yt));

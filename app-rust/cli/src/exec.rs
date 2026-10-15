@@ -1290,7 +1290,7 @@ mod tests {
     fn install_ffmpeg_verifies_then_installs() {
         let mut w = InstallWorld::new("ffmpeg-ok", "linux");
         let got = w.install("linux", false);
-        assert_eq!(got, Some(format!("{}/ffmpeg", w.bin_dir)));
+        assert_eq!(got, Some(resolve::py_path_join(&w.bin_dir, "ffmpeg")));
         assert_eq!(w.printed(), Vec::<String>::new());
         // the order is the gate: the published digest first, then the
         // download with the 30-minute ceiling and the .ff- temp dir
@@ -1321,7 +1321,7 @@ mod tests {
     fn install_ffmpeg_works_on_the_windows_archive_too() {
         let mut w = InstallWorld::new("ffmpeg-win", "windows");
         let got = w.install("windows", false);
-        assert_eq!(got, Some(format!("{}/ffmpeg.exe", w.bin_dir)));
+        assert_eq!(got, Some(resolve::py_path_join(&w.bin_dir, "ffmpeg.exe")));
         assert_eq!(w.bin_listing(), vec!["ffmpeg.exe".to_string()]);
         assert_eq!(w.printed(), Vec::<String>::new());
         std::fs::remove_dir_all(&w.dir).unwrap();
@@ -1331,7 +1331,7 @@ mod tests {
     fn the_stage_line_reports_progress_and_its_verdicts() {
         let mut w = InstallWorld::new("ffmpeg-stage", "linux");
         let got = w.install("linux", true);
-        assert_eq!(got, Some(format!("{}/ffmpeg", w.bin_dir)));
+        assert_eq!(got, Some(resolve::py_path_join(&w.bin_dir, "ffmpeg")));
         // the live texts the download reported, and the stage's own
         // final line (off a tty the spin frames never print)
         let live = w.http.live();
@@ -1424,7 +1424,7 @@ mod tests {
         let mut w = InstallWorld::new("ffmpeg-retry", "linux");
         w.probe_answers.push_back((String::new(), -1));
         let got = w.install("linux", false);
-        assert_eq!(got, Some(format!("{}/ffmpeg", w.bin_dir)));
+        assert_eq!(got, Some(resolve::py_path_join(&w.bin_dir, "ffmpeg")));
         assert_eq!(w.probed.len(), 2);
         assert_eq!(w.slept, vec![1.0]);
         assert!(w.printed().is_empty());
