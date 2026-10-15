@@ -17,6 +17,7 @@
 //! byte comparison is impossible; its twins live in cli/src/term.rs.
 
 use crate::json::Json;
+use ytdlp_cli::cli_args;
 use ytdlp_cli::config::{Obj, Value};
 use ytdlp_cli::menu::{self, MenuErr};
 use ytdlp_cli::resolve::{self, ShapeKind};
@@ -988,7 +989,7 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
             };
             let mut rec = tty::RecordingOut::default();
             let mut reader = scripted_reader(case)?;
-            let mut download = |_s: &mut Obj, _url: &str| -> i32 { 0 };
+            let mut download = |_s: &mut Obj, _url: &str, _io: &mut menu::Io| -> i32 { 0 };
             let mut quiet_check = |_s: &mut Obj| {};
             let (outcome, exit) = {
                 let mut io = menu::Io {
@@ -1036,7 +1037,254 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                 ),
             ]))
         }
+        "newest_since" | "clean_partials" => {
+            let case = arg(args, 0, "download-support case")?;
+            let dir = TempCaseDir::new("dlfs")?;
+            materialize_files(&dir, obj_field(case, "files"))?;
+            let folder = resolve_scratch(&field_str(case, "folder")?, &dir);
+            // the gate is relative to each side's own clock, so the two
+            // runs cannot disagree about a fixture's freshness
+            let since = now_secs() + field_f64(case, "since_offset")?;
+            let slack = field_f64(case, "slack")?;
+            if name == "newest_since" {
+                Ok(match exec::newest_since(&folder, since, slack) {
+                    Some(path) => Json::Str(project(&dir, &path)),
+                    None => Json::Null,
+                })
+            } else {
+                let mut removed = exec::clean_partials(&folder, since, slack);
+                removed.sort();
+                Ok(str_arr(removed))
+            }
+        }
+        "run_download" => {
+            let case = arg(args, 0, "run_download case")?;
+            let stdout = case_lines(case, "stdout")?;
+            let stderr = case_lines(case, "stderr")?;
+            let polls: std::collections::VecDeque<Option<i64>> =
+                case_polls(case)?.into_iter().collect();
+            let escapes: std::collections::VecDeque<bool> =
+                case_bools(case, "escapes")?.into_iter().collect();
+            let interrupt_after = match obj_field(case, "interrupt_after") {
+                None | Some(Json::Null) => None,
+                Some(Json::Int(n)) => Some(*n),
+                Some(other) => {
+                    return Err(format!("interrupt_after must be int or null: {other:?}"));
+                }
+            };
+            let use_color = field_opt_bool(case, "use_color")?.unwrap_or(false);
+            let with_stage = field_opt_bool(case, "stage")?.unwrap_or(false);
+            let kill_calls = std::rc::Rc::new(std::cell::Cell::new(0i64));
+            let kill_tick = std::rc::Rc::clone(&kill_calls);
+            let sleeps = std::rc::Rc::new(std::cell::Cell::new(0i64));
+            let stage = with_stage.then(|| {
+                tty::Stage::new(
+                    "downloading (escape to stop)",
+                    Vec::new(),
+                    0.0,
+                    vec![(".".to_string(), 214u8)],
+                    use_color,
+                    std::sync::Arc::new(std::sync::Mutex::new(tty::StdoutOut::new()))
+                        as tty::SharedSink,
+                )
+            });
+            let (sleep_tick, sleep_check) = (std::rc::Rc::clone(&sleeps), sleeps);
+            let mut rt = exec::RunRt {
+                spawn: Box::new(move |_binary, _opts| {
+                    Ok(exec::Spawned {
+                        stdout: Box::new(std::io::Cursor::new(joined_lines(&stdout))),
+                        stderr: Box::new(std::io::Cursor::new(joined_lines(&stderr))),
+                        child: Box::new(ArmChild {
+                            polls: polls.clone(),
+                        }),
+                    })
+                }),
+                watch: Box::new(move || {
+                    Box::new(ArmWatch {
+                        hits: escapes.clone(),
+                    }) as Box<dyn exec::EscapeWatch>
+                }),
+                kill: Box::new(move |_child| kill_tick.set(kill_tick.get() + 1)),
+                interrupted: Box::new(move || {
+                    interrupt_after.is_some_and(|n| sleep_check.get() > n)
+                }),
+                sleep_frame: Box::new(move || sleep_tick.set(sleep_tick.get() + 1)),
+                interrupt_scope: None,
+            };
+            let (rc, stopped, err, sub_codes) =
+                exec::run_download("yt-dlp", &[], stage.as_ref(), use_color, &mut rt);
+            // the live text is read after the pump threads joined
+            let live = stage.as_ref().and_then(|s| s.live());
+            Ok(Json::Obj(vec![
+                ("rc".to_string(), Json::Int(rc)),
+                ("stopped".to_string(), Json::Bool(stopped)),
+                ("err".to_string(), Json::Str(err)),
+                ("sub_codes".to_string(), str_arr(sub_codes)),
+                ("live".to_string(), str_or_null(live)),
+                ("kill_calls".to_string(), Json::Int(kill_calls.get())),
+            ]))
+        }
+        "cli_args" => {
+            let case = arg(args, 0, "cli_args case")?;
+            let prog = field_str(case, "prog")?;
+            let width = field_i64(case, "width")?;
+            let argv: Vec<String> = match obj_field(case, "argv") {
+                Some(Json::Arr(items)) => {
+                    let mut out = Vec::with_capacity(items.len());
+                    for item in items {
+                        match item {
+                            Json::Str(s) => out.push(s.clone()),
+                            other => {
+                                return Err(format!("argv elements must be strings: {other:?}"));
+                            }
+                        }
+                    }
+                    out
+                }
+                other => return Err(format!("argv must be an array: {other:?}")),
+            };
+            match cli_args::parse(&prog, &argv, width) {
+                cli_args::Outcome::Help(text) => Ok(Json::Obj(vec![
+                    ("kind".to_string(), Json::Str("help".to_string())),
+                    ("exit".to_string(), Json::Int(0)),
+                    ("text".to_string(), Json::Str(text)),
+                ])),
+                cli_args::Outcome::Error(text) => Ok(Json::Obj(vec![
+                    ("kind".to_string(), Json::Str("error".to_string())),
+                    ("exit".to_string(), Json::Int(2)),
+                    ("text".to_string(), Json::Str(text)),
+                ])),
+                cli_args::Outcome::Parsed(inv) => Ok(Json::Obj(vec![
+                    ("kind".to_string(), Json::Str("parsed".to_string())),
+                    ("url".to_string(), str_or_null(inv.url)),
+                    ("audio".to_string(), Json::Bool(inv.audio)),
+                    ("format".to_string(), str_or_null(inv.format)),
+                    ("resolution".to_string(), str_or_null(inv.resolution)),
+                    ("af".to_string(), str_or_null(inv.af)),
+                    ("outdir".to_string(), str_or_null(inv.outdir)),
+                    ("template".to_string(), str_or_null(inv.template)),
+                    ("subs".to_string(), Json::Bool(inv.subs)),
+                    ("playlist".to_string(), Json::Bool(inv.playlist)),
+                    ("menu".to_string(), Json::Bool(inv.menu)),
+                    ("check".to_string(), Json::Bool(inv.check)),
+                    ("update".to_string(), Json::Bool(inv.update)),
+                    ("selftest".to_string(), Json::Bool(inv.selftest)),
+                ])),
+            }
+        }
         _ => Err(format!("unknown function: {name}")),
+    }
+}
+
+/// The run_download arm's scripted child handle.
+struct ArmChild {
+    polls: std::collections::VecDeque<Option<i64>>,
+}
+
+impl exec::ChildHandle for ArmChild {
+    fn poll(&mut self) -> Option<i64> {
+        self.polls.pop_front().unwrap_or(Some(0))
+    }
+    fn wait(&mut self) -> i64 {
+        0
+    }
+    fn pid(&self) -> u32 {
+        4242
+    }
+}
+
+/// The run_download arm's scripted escape watch.
+struct ArmWatch {
+    hits: std::collections::VecDeque<bool>,
+}
+
+impl exec::EscapeWatch for ArmWatch {
+    fn escape_hit(&mut self) -> bool {
+        self.hits.pop_front().unwrap_or(false)
+    }
+}
+
+/// Case lines joined the way python's line iteration yields them: one
+/// `\n` per line, always terminated.
+fn joined_lines(lines: &[String]) -> Vec<u8> {
+    let mut out: Vec<u8> = Vec::new();
+    for line in lines {
+        out.extend_from_slice(line.as_bytes());
+        out.push(b'\n');
+    }
+    out
+}
+
+fn now_secs() -> f64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs_f64())
+        .unwrap_or(0.0)
+}
+
+fn case_lines(case: &Json, key: &str) -> Result<Vec<String>, String> {
+    match obj_field(case, key) {
+        None | Some(Json::Null) => Ok(Vec::new()),
+        Some(Json::Arr(items)) => {
+            let mut out = Vec::with_capacity(items.len());
+            for item in items {
+                match item {
+                    Json::Str(s) => out.push(s.clone()),
+                    other => return Err(format!("{key} lines must be strings: {other:?}")),
+                }
+            }
+            Ok(out)
+        }
+        Some(other) => Err(format!("{key} must be an array: {other:?}")),
+    }
+}
+
+fn case_polls(case: &Json) -> Result<Vec<Option<i64>>, String> {
+    match obj_field(case, "polls") {
+        Some(Json::Arr(items)) => {
+            let mut out = Vec::with_capacity(items.len());
+            for item in items {
+                match item {
+                    Json::Null => out.push(None),
+                    Json::Int(n) => out.push(Some(*n)),
+                    other => return Err(format!("polls must be int or null: {other:?}")),
+                }
+            }
+            Ok(out)
+        }
+        other => Err(format!("polls must be an array: {other:?}")),
+    }
+}
+
+fn case_bools(case: &Json, key: &str) -> Result<Vec<bool>, String> {
+    match obj_field(case, key) {
+        None | Some(Json::Null) => Ok(Vec::new()),
+        Some(Json::Arr(items)) => {
+            let mut out = Vec::with_capacity(items.len());
+            for item in items {
+                match item {
+                    Json::Bool(b) => out.push(*b),
+                    other => return Err(format!("{key} must be bools: {other:?}")),
+                }
+            }
+            Ok(out)
+        }
+        Some(other) => Err(format!("{key} must be an array: {other:?}")),
+    }
+}
+
+fn field_i64(case: &Json, key: &str) -> Result<i64, String> {
+    match obj_field(case, key) {
+        Some(Json::Int(n)) => Ok(*n),
+        other => Err(format!("case needs an int field {key:?}: {other:?}")),
+    }
+}
+
+fn field_f64(case: &Json, key: &str) -> Result<f64, String> {
+    match obj_field(case, key) {
+        Some(Json::Float(x)) => Ok(*x),
+        Some(Json::Int(n)) => Ok(*n as f64),
+        other => Err(format!("case needs a number field {key:?}: {other:?}")),
     }
 }
 
@@ -1332,8 +1580,26 @@ fn materialize_files(dir: &TempCaseDir, files: Option<&Json>) -> Result<(), Stri
         }
         #[cfg(not(unix))]
         let _ = exec;
+        // the download-support arms backdate fixtures (mtime = now - age)
+        if let Some(age) = field_opt_f64(item, "age_secs")? {
+            let when = std::time::SystemTime::now()
+                .checked_sub(std::time::Duration::from_secs_f64(age))
+                .unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+            if let Ok(handle) = std::fs::OpenOptions::new().write(true).open(&target) {
+                let _ = handle.set_modified(when);
+            }
+        }
     }
     Ok(())
+}
+
+fn field_opt_f64(case: &Json, key: &str) -> Result<Option<f64>, String> {
+    match obj_field(case, key) {
+        None | Some(Json::Null) => Ok(None),
+        Some(Json::Float(x)) => Ok(Some(*x)),
+        Some(Json::Int(n)) => Ok(Some(*n as f64)),
+        other => Err(format!("{key} must be a number field: {other:?}")),
+    }
 }
 
 /// The case's `saved` object as the settings value model.

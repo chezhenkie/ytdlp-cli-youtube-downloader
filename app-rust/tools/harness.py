@@ -101,8 +101,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import types
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 TOOLS_DIR = Path(__file__).resolve().parent
@@ -110,7 +111,7 @@ APP_RUST = TOOLS_DIR.parent
 REPO_ROOT = APP_RUST.parent
 PY_IMPL = REPO_ROOT / "app-python" / "src" / "ytdlp.py"
 VECTORS_DIR = APP_RUST / "vectors"
-ORACLE = (3, 14)
+ORACLE = (3, 14, 4)
 # the dispatcher error-path fixture; it exists to prove the rust side
 # refuses unknown names and is never part of the differential.
 ERROR_PATH_FIXTURE = "no_such_function.json"
@@ -121,10 +122,13 @@ class InstrumentError(Exception):
 
 
 def require_oracle():
-    if sys.version_info[:2] != ORACLE:
+    # The oracle is pinned to the exact patch: argparse's invalid-choice
+    # text renders the choices unquoted in 3.14.4 and quoted in 3.14.6
+    # (measured 2026-10-15), so "3.14.x" is not one oracle.
+    if sys.version_info[:3] != ORACLE:
         raise InstrumentError(
-            "oracle interpreter is CPython %d.%d.x, running %s"
-            % (ORACLE[0], ORACLE[1], sys.version.split()[0])
+            "oracle interpreter is CPython %d.%d.%d, running %s"
+            % (ORACLE[0], ORACLE[1], ORACLE[2], sys.version.split()[0])
         )
 
 
@@ -1288,6 +1292,253 @@ def _hook_main_menu(module, args):
         shutil.rmtree(work, ignore_errors=True)
 
 
+# --------------------------------------------------- phase 7 execution
+#
+# The run_download cases script the whole process surface exactly like
+# the rust `RunRt` seam: a fake Popen (scripted stdout/stderr lines and
+# poll returns), a fake KeyWatch (scripted escape hits), a recording
+# `_kill_tree` and a fake time shim whose sleep raises KeyboardInterrupt
+# once `interrupt_after` sleeps have completed (the rust side checks its
+# flag after the same number of frame sleeps). The cli_args hook runs the
+# real argparse parser over the schema main() builds - the same schema,
+# and cmd_selftest proves the replica against the real CLI - capturing
+# the three outcome classes the rust `cli_args::parse` returns.
+
+
+def _age_fixture_files(work, case):
+    """Backdate the case's fixture files (mtime = now - age_secs)."""
+    for item in case.get("files") or []:
+        if item.get("dir") or "age_secs" not in item:
+            continue
+        target = work / item["path"]
+        when = time.time() - float(item["age_secs"])
+        os.utime(str(target), (when, when))
+
+
+def _hook_newest_since(module, args):
+    case = args[0]
+    work = _case_scratch(case, "dlfs")
+    try:
+        _age_fixture_files(work, case)
+        folder = Path(_resolve_scratch(case["folder"], work))
+        since = time.time() + float(case["since_offset"])
+        result = module.newest_since(folder, since, float(case["slack"]))
+        return _project(work, str(result)) if result is not None else None
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _hook_clean_partials(module, args):
+    case = args[0]
+    work = _case_scratch(case, "dlfs")
+    try:
+        _age_fixture_files(work, case)
+        folder = Path(_resolve_scratch(case["folder"], work))
+        since = time.time() + float(case["since_offset"])
+        removed = module.clean_partials(folder, since, float(case["slack"]))
+        return sorted(removed)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+class _fake_proc:
+    def __init__(self, case):
+        self.stdout = [line.encode("utf-8") + b"\n" for line in case.get("stdout") or []]
+        self.stderr = [line.encode("utf-8") + b"\n" for line in case.get("stderr") or []]
+        self.polls = list(case.get("polls") or [])
+        self.pid = 4242
+        self.returncode = 0
+
+    def poll(self):
+        if self.polls:
+            rc = self.polls.pop(0)
+        else:
+            rc = 0
+        if rc is not None:
+            self.returncode = rc
+        return rc
+
+    def wait(self):
+        return 0
+
+
+class _fake_keywatch:
+    def __init__(self, case):
+        self.hits = list(case.get("escapes") or [])
+        self.restored = False
+
+    def escape_hit(self):
+        return self.hits.pop(0) if self.hits else False
+
+    def restore(self):
+        self.restored = True
+
+
+class _fake_time:
+    def __init__(self, interrupt_after):
+        self.interrupt_after = interrupt_after
+        self.sleeps = 0
+
+    def sleep(self, _secs):
+        self.sleeps += 1
+        if self.interrupt_after is not None and self.sleeps > self.interrupt_after:
+            raise KeyboardInterrupt()
+
+    def time(self):
+        return 0.0
+
+
+class _bound_exec_globals:
+    """subprocess / KeyWatch / _kill_tree / time / USE_COLOR bound for one
+    scripted run_download call."""
+
+    def __init__(self, module, case, proc, watch, shim, kills):
+        self.module = module
+        self.case = case
+        self.proc = proc
+        self.watch = watch
+        self.shim = shim
+        self.kills = kills
+
+    def __enter__(self):
+        m = self.module
+        names = ("subprocess", "KeyWatch", "_kill_tree", "time", "USE_COLOR")
+        self.saved = {name: getattr(m, name) for name in names}
+        m.subprocess = types.SimpleNamespace(
+            PIPE=subprocess.PIPE,
+            DEVNULL=subprocess.DEVNULL,
+            Popen=lambda argv, **kw: self.proc,
+        )
+        m.KeyWatch = lambda: self.watch
+        m._kill_tree = lambda p: self.kills.__setitem__(0, self.kills[0] + 1)
+        m.time = self.shim
+        m.USE_COLOR = bool(self.case.get("use_color"))
+        return self
+
+    def __exit__(self, *exc):
+        for name, value in self.saved.items():
+            setattr(self.module, name, value)
+        return False
+
+
+def _hook_run_download(module, args):
+    case = args[0]
+    kills = [0]
+    proc = _fake_proc(case)
+    watch = _fake_keywatch(case)
+    shim = _fake_time(case.get("interrupt_after"))
+    stage = None
+    if case.get("stage"):
+        stage = module.Stage("downloading (escape to stop)", [], 0.0, [(".", 214)])
+    with _bound_exec_globals(module, case, proc, watch, shim, kills):
+        rc, stopped, err, codes = module.run_download("yt-dlp", [], stage)
+    return {
+        "rc": rc,
+        "stopped": stopped,
+        "err": err,
+        "sub_codes": list(codes),
+        "live": stage.live if stage is not None else None,
+        "kill_calls": kills[0],
+    }
+
+
+def _cli_parser(module, prog, width_hint=None):
+    """main()'s parser rebuilt for the arm; the container/resolution/audio
+    value lists come from the module so they cannot drift."""
+    if width_hint is not None:
+        os.environ["COLUMNS"] = str(width_hint + 2)
+    else:
+        os.environ.pop("COLUMNS", None)
+    p = argparse.ArgumentParser(description="yt-dlp CLI wrapper", prog=prog)
+    p.add_argument("url", nargs="?", help="download this URL with saved defaults")
+    p.add_argument("-a", "--audio", action="store_true", help="audio only")
+    p.add_argument("-f", "--format", choices=module.CONTAINERS, help="container")
+    p.add_argument("-r", "--resolution", choices=module.RESOLUTIONS, help="max height")
+    p.add_argument("--af", choices=module.AUDIO_FORMATS, help="audio format")
+    p.add_argument("-o", "--outdir", help="output folder")
+    p.add_argument("--template", help="output filename template")
+    p.add_argument("--subs", action="store_true", help="subtitles")
+    p.add_argument("--playlist", action="store_true", help="playlist mode")
+    p.add_argument("--menu", action="store_true", help="force menu even with URL")
+    p.add_argument("--check", action="store_true", help="show resolved paths/versions")
+    p.add_argument("--update", action="store_true", help="update the yt-dlp binary in place")
+    p.add_argument("--selftest", action="store_true", help="run built-in logic tests")
+    return p
+
+
+def _hook_cli_args(module, args):
+    case = args[0]
+    parser = _cli_parser(module, case["prog"], width_hint=int(case["width"]))
+    out, err = io.StringIO(), io.StringIO()
+    try:
+        with redirect_stdout(out), redirect_stderr(err):
+            ns = parser.parse_args(case["argv"])
+    except SystemExit as exc:
+        if exc.code == 0:
+            return {"kind": "help", "exit": 0, "text": out.getvalue()}
+        return {"kind": "error", "exit": 2, "text": err.getvalue()}
+    finally:
+        os.environ.pop("COLUMNS", None)
+    return {
+        "kind": "parsed",
+        "url": ns.url,
+        "audio": bool(ns.audio),
+        "format": ns.format,
+        "resolution": ns.resolution,
+        "af": ns.af,
+        "outdir": ns.outdir,
+        "template": ns.template,
+        "subs": bool(ns.subs),
+        "playlist": bool(ns.playlist),
+        "menu": bool(ns.menu),
+        "check": bool(ns.check),
+        "update": bool(ns.update),
+        "selftest": bool(ns.selftest),
+    }
+
+
+def _selftest_cli_replica():
+    """Instrument self-check (NFR-4 spirit): the cli_args hook's parser
+    replica must match the real CLI before the arm judges anything."""
+    spec = importlib.util.spec_from_file_location("ytdlp_oracle", PY_IMPL)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    problems = []
+    env = dict(os.environ)
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["COLUMNS"] = "80"
+    env["LINES"] = "24"
+    proc = subprocess.run(
+        [sys.executable, str(PY_IMPL), "-h"], capture_output=True, env=env, timeout=60
+    )
+    real_help = proc.stdout.decode("utf-8", "replace").replace("\r\n", "\n")
+    parser = _cli_parser(module, "ytdlp.py", width_hint=78)
+    replica_help = parser.format_help()
+    os.environ.pop("COLUMNS", None)
+    if real_help != replica_help:
+        problems.append("help text differs from the real CLI")
+    env2 = dict(os.environ)
+    env2["PYTHONIOENCODING"] = "utf-8"
+    proc2 = subprocess.run(
+        [sys.executable, str(PY_IMPL), "-f", "junk"],
+        capture_output=True,
+        env=env2,
+        timeout=60,
+        input=b"",
+    )
+    real_err = proc2.stderr.decode("utf-8", "replace").replace("\r\n", "\n")
+    out, err = io.StringIO(), io.StringIO()
+    try:
+        with redirect_stdout(out), redirect_stderr(err):
+            _cli_parser(module, "ytdlp.py", width_hint=78).parse_args(["-f", "junk"])
+    except SystemExit:
+        pass
+    os.environ.pop("COLUMNS", None)
+    if err.getvalue() != real_err:
+        problems.append("error text differs from the real CLI")
+    return problems
+
+
 PY_CALL_HOOKS.update(
     {
         "menu_summary": _hook_menu_summary,
@@ -1302,6 +1553,10 @@ PY_CALL_HOOKS.update(
         "ask_bool": _hook_ask_bool,
         "act": _hook_act,
         "main_menu": _hook_main_menu,
+        "newest_since": _hook_newest_since,
+        "clean_partials": _hook_clean_partials,
+        "run_download": _hook_run_download,
+        "cli_args": _hook_cli_args,
     }
 )
 
@@ -1435,6 +1690,16 @@ def cmd_selftest(args):
 
     got = count_records(first)
     checks.append(("record count matches vector cases", got == len(doc["cases"]), "%d records, %d cases" % (got, len(doc["cases"]))))
+
+    if fn == "cli_args":
+        problems = _selftest_cli_replica()
+        checks.append(
+            (
+                "cli_args parser replica matches the real CLI",
+                not problems,
+                "ok" if not problems else "; ".join(problems),
+            )
+        )
 
     failed = 0
     for name, ok, detail in checks:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Binary-level golden-transcript differ for the ytdlp native port (G6).
+"""Binary-level golden-transcript differ for the ytdlp native port (G6, G7).
 
 The two implementations are staged in private trees - the python at
 `src/ytdlp.py` with a copied oracle source, the native binary beside an
@@ -16,6 +16,14 @@ like the harness's {scratch}:
     carries python v1.5.0's transcripts (RUST-PORT-PLAN.md phase 6
     notes).
 
+Phase 7 adds executable cases: a case may stage the scripted yt-dlp
+stand-in (`app-rust/fake-ytdlp`) into the tree's `bin/`, pin PATH to that
+bin so a runner's real ffmpeg/node cannot leak in, script the stand-in
+per case, and compare the argv the wrapper handed over plus a directory
+listing. Animated stage rewrites are collapsed to `{frame}` in cases that
+declare `project_frames` (frame counts are timing, not behaviour; the
+frame content itself is digest-pinned by cli tests).
+
 Modes:
 
     piped   both processes with a scripted stdin pipe (runs anywhere)
@@ -23,11 +31,12 @@ Modes:
             (posix only; the real-console windows check is OQ-N2, owner
             hands-on on the CI artifact)
 
-Oracle: CPython 3.14.x is the pinned oracle interpreter (plan G2).
+Oracle: CPython 3.14.4 exactly (argparse text changed in a later patch;
+see tools/harness.py).
 
 Usage:
-    python session_diff.py piped [--rust-bin B] [--only NAME] [--keep]
-    python session_diff.py pty   [--rust-bin B] [--only NAME] [--keep]
+    python session_diff.py piped [--rust-bin B] [--fake-bin F] [--only NAME] [--keep]
+    python session_diff.py pty   [--rust-bin B] [--fake-bin F] [--only NAME] [--keep]
 
 Exit codes: 0 pass, 1 a case failed, 2 instrument error.
 """
@@ -47,7 +56,7 @@ TOOLS_DIR = Path(__file__).resolve().parent
 APP_RUST = TOOLS_DIR.parent
 REPO_ROOT = APP_RUST.parent
 PY_SRC = REPO_ROOT / "app-python" / "src" / "ytdlp.py"
-ORACLE = (3, 14)
+ORACLE = (3, 14, 4)
 VERSION_RE = re.compile(rb"(yt-dlp cli  v)\d+\.\d+\.\d+")
 
 
@@ -60,11 +69,18 @@ def default_rust_bin():
     return APP_RUST / "target" / "release" / exe
 
 
+def default_fake_bin():
+    exe = "fake-ytdlp.exe" if os.name == "nt" else "fake-ytdlp"
+    return APP_RUST / "target" / "release" / exe
+
+
 def require_oracle():
-    if sys.version_info[:2] != ORACLE:
+    # exactly 3.14.4, like tools/harness.py: argparse text changed in a
+    # later patch (invalid-choice choices quoted, measured 2026-10-15)
+    if sys.version_info[:3] != ORACLE:
         raise InstrumentError(
-            "oracle interpreter is CPython %d.%d.x, running %s"
-            % (ORACLE[0], ORACLE[1], sys.version.split()[0])
+            "oracle interpreter is CPython %d.%d.%d, running %s"
+            % (ORACLE[0], ORACLE[1], ORACLE[2], sys.version.split()[0])
         )
 
 
@@ -98,38 +114,93 @@ def render_settings(obj):
     return (json.dumps(obj, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
 
-def stage_tree(kind, work, settings, rust_bin, keep):
+def stage_tree(kind, work, case, rust_bin, fake_bin):
     tree = work / kind
+    # one fresh tree per case: a leftover bin/ or out/ from the previous
+    # case would leak into resolution and the listings (measured
+    # 2026-10-15: a staged ffmpeg changed a later case's ffmpeg offer)
+    if tree.exists():
+        shutil.rmtree(tree)
     (tree / "bin").mkdir(parents=True, exist_ok=True)
     (tree / "config").mkdir(parents=True, exist_ok=True)
-    cfg = dict(settings)
+    cfg = dict(case["settings"])
     if isinstance(cfg.get("output_dir"), str) and cfg["output_dir"].startswith("{scratch}"):
         # Path() collapses the mixed separators into the native form
         cfg["output_dir"] = str(Path(cfg["output_dir"].replace("{scratch}", str(tree))))
     (tree / "config" / "settings.json").write_bytes(render_settings(cfg))
+    # scripted stand-ins: one copy per declared name, native exe suffix
+    for name in (case.get("bin") or {}):
+        suffix = ".exe" if os.name == "nt" else ""
+        target = tree / "bin" / (name + suffix)
+        shutil.copyfile(fake_bin, target)
+        if os.name != "nt":
+            target.chmod(0o755)
     if kind == "py":
         (tree / "src").mkdir(parents=True, exist_ok=True)
         shutil.copyfile(PY_SRC, tree / "src" / "ytdlp.py")
         exe = None
     else:
-        exe = tree / ("ytdlp.exe" if os.name == "nt" else "ytdlp")
+        # staged under the oracle's script name: argparse's help and
+        # usage wrap depend on len(prog), so the two fixtures must carry
+        # the same program name for a byte comparison (the real launcher
+        # names are environment, RUST-PORT-PLAN phase 7 notes)
+        exe = tree / "ytdlp.py"
         shutil.copyfile(rust_bin, exe)
         if os.name != "nt":
             exe.chmod(0o755)
     return tree, exe
 
 
-def py_command(tree):
-    args = [sys.executable, str(tree / "src" / "ytdlp.py"), "--menu"]
-    env = {"PYTHONIOENCODING": "utf-8"}
-    return args, env
+def case_env(tree, case, kind):
+    env = {}
+    if kind == "py":
+        env["PYTHONIOENCODING"] = "utf-8"
+    spec = (case.get("bin") or {}).get("yt-dlp")
+    if spec is not None:
+        # PATH is pinned to the tree's bin: a CI machine's real ffmpeg or
+        # node must not leak into resolution
+        env["PATH"] = str(tree / "bin")
+        env["FAKE_YTDLP_MODE"] = spec.get("mode", "ok")
+        env["FAKE_YTDLP_SUB_MODE"] = spec.get("sub_mode", "sub-ok")
+        if "size" in spec:
+            env["FAKE_YTDLP_SIZE"] = str(spec["size"])
+        if "name" in spec:
+            env["FAKE_YTDLP_NAME"] = spec["name"]
+        if "sleep" in spec:
+            env["FAKE_YTDLP_SLEEP"] = str(spec["sleep"])
+        if case.get("argv_file"):
+            env["FAKE_YTDLP_ARGV"] = str(tree / case["argv_file"])
+    for key, value in (case.get("env") or {}).items():
+        env[key] = value.replace("{root}", str(tree))
+    return env
 
 
-def rust_command(tree, exe):
-    return [str(exe), "--menu"], {}
+def case_args(case):
+    return list(case.get("args") or ["--menu"])
 
 
-def normalize(data, tree):
+def py_command(tree, case):
+    return [sys.executable, str(tree / "src" / "ytdlp.py")] + case_args(case)
+
+
+def rust_command(tree, exe, case):
+    return [str(exe)] + case_args(case)
+
+
+FRAME_RE = re.compile(rb"(?:\r\x1b\[K[^\r\n]*)+(?=\r\x1b\[K)")
+PROG_USAGE_RE = re.compile(rb"usage: (?:ytdlp\.py|ytdlp\.exe|ytdlp) ")
+PROG_ERROR_RE = re.compile(rb"(?m)^(?:ytdlp\.py|ytdlp\.exe|ytdlp): error:")
+# the usage continuation indent is len("usage: ") + len(prog) + 1
+USAGE_INDENT_RE = re.compile(rb"(?m)^ {13,16}(\S)")
+# a download verdict line starts with the frozen spinner frame, which is
+# a random draw per run (python random.choice / the native PCG32)
+SPINNER_COLOR_DONE_RE = re.compile(
+    rb"\r\x1b\[K(?:\x1b\[[0-9;]+m|[^\x1b\r\n])+\x1b\[0m (?=downloading - )"
+)
+SPINNER_PIPED_DONE_RE = re.compile(rb"(?m)^\S+ (?=downloading - )")
+
+
+def normalize(data, tree, project_frames=False):
     # the tree path appears raw in stdout and JSON-escaped inside
     # settings.json, so both spellings project. The python side derives
     # its root through Path.resolve(), which can differ from the
@@ -146,24 +217,61 @@ def normalize(data, tree):
         data = data.replace(escaped, b"{root}")
         data = data.replace(form.encode("utf-8"), b"{root}")
     data = VERSION_RE.sub(rb"\1{ver}", data)
+    # the argparse prog is the interpreter's script name on one side and
+    # the exe basename on the other
+    data = PROG_USAGE_RE.sub(b"usage: {prog} ", data)
+    data = PROG_ERROR_RE.sub(b"{prog}: error:", data)
+    data = USAGE_INDENT_RE.sub(rb"{ind}\1", data)
+    if project_frames:
+        # an animated stage rewrites the line until it freezes; collapse
+        # every run of rewrites into one token (the frames themselves are
+        # pinned by the cli tests, not by a timing-dependent count)
+        data = FRAME_RE.sub(b"\r\x1b[K{frame}", data)
+        data = SPINNER_COLOR_DONE_RE.sub(b"\r\x1b[K{frame} ", data)
+        data = SPINNER_PIPED_DONE_RE.sub(b"{frame} ", data)
     return data
 
 
-def compare_case(name, py, rs, work):
-    py_rc, py_out, py_err, py_cfg = py
-    rs_rc, rs_out, rs_err, rs_cfg = rs
+def case_extras(tree, case, project_frames):
+    """The case's extra artifacts: the argv the wrapper handed to the
+    stand-in (as a file it appends) and a directory listing."""
+    extras = {}
+    if case.get("argv_file"):
+        path = tree / case["argv_file"]
+        raw = path.read_bytes() if path.is_file() else b"<missing>"
+        extras["argv_file"] = normalize(raw, tree, project_frames)
+    listing_root = case.get("fs_list")
+    if listing_root:
+        root = tree / listing_root
+        names = []
+        if root.is_dir():
+            for path in sorted(root.rglob("*")):
+                names.append(str(path.relative_to(root)).replace(os.sep, "/"))
+        extras["fs_list"] = ("\n".join(names) + "\n").encode("utf-8")
+    return extras
+
+
+def compare_case(name, py, rs, work, strict_stderr=False):
+    py_rc, py_out, py_err, py_cfg, py_extra = py
+    rs_rc, rs_out, rs_err, rs_cfg, rs_extra = rs
     problems = []
     if py_rc != rs_rc:
         problems.append("exit code: python %d, native %d" % (py_rc, rs_rc))
     if py_out != rs_out:
         problems.append("stdout differs")
-    if (not py_err) != (not rs_err):
+    if strict_stderr:
+        if py_err != rs_err:
+            problems.append("stderr differs")
+    elif (not py_err) != (not rs_err):
         problems.append(
             "stderr presence differs: python %d bytes, native %d bytes"
             % (len(py_err), len(rs_err))
         )
     if py_cfg != rs_cfg:
         problems.append("settings.json differs")
+    for key in sorted(set(py_extra) | set(rs_extra)):
+        if py_extra.get(key) != rs_extra.get(key):
+            problems.append("%s differs" % key)
     if not problems:
         print("PASS %s" % name)
         return True
@@ -185,16 +293,22 @@ def compare_case(name, py, rs, work):
     if py_cfg != rs_cfg:
         print("  python settings: %r" % py_cfg[:220])
         print("  native settings: %r" % rs_cfg[:220])
+    for key in sorted(set(py_extra) | set(rs_extra)):
+        if py_extra.get(key) != rs_extra.get(key):
+            print("  python %s: %r" % (key, py_extra.get(key, b"")[:220]))
+            print("  native %s: %r" % (key, rs_extra.get(key, b"")[:220]))
     return False
 
 
-def read_result(tree, proc, out, err):
+def read_result(tree, case, proc, out, err):
     cfg = (tree / "config" / "settings.json").read_bytes()
+    project_frames = bool(case.get("project_frames"))
     return (
         proc.returncode,
-        normalize(out, tree),
-        normalize(err, tree)[:4096],
-        normalize(cfg, tree),
+        normalize(out, tree, project_frames),
+        normalize(err, tree, project_frames)[:4096],
+        normalize(cfg, tree, project_frames),
+        case_extras(tree, case, project_frames),
     )
 
 
@@ -273,27 +387,180 @@ PIPED_CASES = [
         "settings": settings_with(output_dir="{scratch}/out"),
         "stdin": b"9\n\n13\n",
     },
+    # ---- phase 7: the download run (offline: the scripted stand-in) ----
+    {
+        "name": "quick-download-no-ffmpeg",
+        "project_frames": True,
+        "settings": settings_with(output_dir="{scratch}/out", subtitles=False),
+        "args": ["https://example.invalid/v"],
+        "bin": {"yt-dlp": {"mode": "ok", "size": 1572864, "name": "video.mp4"}},
+        "argv_file": "argv.txt",
+        "fs_list": "out",
+        "stdin": b"",
+    },
+    {
+        "name": "quick-download-with-ffmpeg",
+        "project_frames": True,
+        "settings": settings_with(output_dir="{scratch}/out", subtitles=False),
+        "args": ["https://example.invalid/v"],
+        "bin": {"yt-dlp": {"mode": "ok", "size": 1048576}, "ffmpeg": {}},
+        "argv_file": "argv.txt",
+        "fs_list": "out",
+        "stdin": b"",
+    },
+    {
+        "name": "quick-download-fail-keeps-partial",
+        "project_frames": True,
+        "settings": settings_with(output_dir="{scratch}/out", subtitles=False),
+        "args": ["https://example.invalid/v"],
+        "bin": {"yt-dlp": {"mode": "fail"}},
+        "fs_list": "out",
+        "stdin": b"",
+    },
+    {
+        "name": "quick-download-probe-fail",
+        "project_frames": True,
+        "settings": settings_with(output_dir="{scratch}/out", subtitles=False),
+        "args": ["https://example.invalid/v"],
+        "bin": {"yt-dlp": {"mode": "probe-fail"}},
+        "stdin": b"",
+    },
+    {
+        "name": "quick-download-no-binary",
+        "settings": settings_with(output_dir="{scratch}/out", subtitles=False),
+        "args": ["https://example.invalid/v"],
+        "env": {"PATH": "{root}/nobin"},
+        "stdin": b"",
+    },
+    {
+        "name": "quick-not-a-url",
+        "project_frames": True,
+        "settings": settings_with(output_dir="{scratch}/out"),
+        "args": ["notaurl"],
+        "stdin": b"",
+    },
+    {
+        "name": "quick-subs-ok",
+        "project_frames": True,
+        "settings": settings_with(output_dir="{scratch}/out", subtitles=True),
+        "args": ["https://example.invalid/v"],
+        "bin": {"yt-dlp": {"mode": "ok", "sub_mode": "sub-ok"}},
+        "fs_list": "out",
+        "stdin": b"",
+    },
+    {
+        "name": "quick-subs-miss-note",
+        "project_frames": True,
+        "settings": settings_with(output_dir="{scratch}/out", subtitles=True),
+        "args": ["https://example.invalid/v"],
+        "bin": {"yt-dlp": {"mode": "ok", "sub_mode": "sub-miss"}},
+        "stdin": b"",
+    },
+    {
+        "name": "quick-subs-429-keeps-vtt",
+        "project_frames": True,
+        "settings": settings_with(output_dir="{scratch}/out", subtitles=True),
+        "args": ["https://example.invalid/v"],
+        "bin": {"yt-dlp": {"mode": "ok", "sub_mode": "sub-429"}},
+        "fs_list": "out",
+        "stdin": b"",
+    },
+    {
+        "name": "quick-audio-override-argv",
+        "project_frames": True,
+        "settings": settings_with(output_dir="{scratch}/out", subtitles=False),
+        "args": ["-a", "https://example.invalid/v"],
+        "bin": {"yt-dlp": {"mode": "ok"}},
+        "argv_file": "argv.txt",
+        "stdin": b"",
+    },
+    {
+        "name": "menu-url-download",
+        "project_frames": True,
+        "settings": settings_with(output_dir="{scratch}/out", subtitles=False),
+        "bin": {"yt-dlp": {"mode": "ok"}},
+        "argv_file": "argv.txt",
+        "stdin": b"https://example.invalid/v\n13\n",
+    },
+    {
+        "name": "batch-two-runs-and-a-bad-row",
+        "project_frames": True,
+        "settings": settings_with(output_dir="{scratch}/out", subtitles=False),
+        "bin": {"yt-dlp": {"mode": "ok"}},
+        "argv_file": "argv.txt",
+        "stdin": b"9\nhttps://example.invalid/1\nnotaurl\nhttps://example.invalid/2\n\n13\n",
+    },
+    {
+        "name": "help-text-78",
+        "settings": settings_with(output_dir="{scratch}/out"),
+        "args": ["-h"],
+        "stdin": b"",
+    },
+    {
+        "name": "help-text-38",
+        "settings": settings_with(output_dir="{scratch}/out"),
+        "args": ["-h"],
+        "env": {"COLUMNS": "40"},
+        "stdin": b"",
+    },
+    {
+        "name": "bad-choice-error",
+        "settings": settings_with(output_dir="{scratch}/out"),
+        "args": ["-f", "junk"],
+        "stderr_bytes": True,
+        "stdin": b"",
+    },
+    {
+        "name": "url-plus-menu-boots-menu",
+        "settings": settings_with(output_dir="{scratch}/out"),
+        "args": ["https://example.invalid/v", "--menu"],
+        "env": {"PATH": "{root}/nobin"},
+        "stdin": b"13\n",
+    },
+    {
+        "name": "check-with-url",
+        "settings": settings_with(output_dir="{scratch}/out"),
+        "args": ["--check", "https://example.invalid/v"],
+        "env": {"PATH": "{root}/nobin"},
+        "stdin": b"",
+    },
+    {
+        "name": "terminator-url",
+        "settings": settings_with(output_dir="{scratch}/out"),
+        "args": ["--", "notaurl"],
+        "stdin": b"",
+    },
 ]
 
 
-def run_piped_case(case, work, rust_bin):
-    py_tree, _ = stage_tree("py", work, case["settings"], rust_bin, False)
-    rs_tree, rs_exe = stage_tree("rs", work, case["settings"], rust_bin, False)
-    py_args, py_env = py_command(py_tree)
-    rs_args, rs_env = rust_command(rs_tree, rs_exe)
+def run_piped_case(case, work, rust_bin, fake_bin):
+    py_tree, _ = stage_tree("py", work, case, rust_bin, fake_bin)
+    rs_tree, rs_exe = stage_tree("rs", work, case, rust_bin, fake_bin)
     env = dict(os.environ)
-    env.update(py_env)
+    env.update(case_env(py_tree, case, "py"))
     py_proc = subprocess.run(
-        py_args, input=case["stdin"], capture_output=True, cwd=py_tree, env=env, timeout=120
+        py_command(py_tree, case),
+        input=case["stdin"],
+        capture_output=True,
+        cwd=py_tree,
+        env=env,
+        timeout=120,
     )
     env = dict(os.environ)
-    env.update(rs_env)
+    env.update(case_env(rs_tree, case, "rs"))
     rs_proc = subprocess.run(
-        rs_args, input=case["stdin"], capture_output=True, cwd=rs_tree, env=env, timeout=120
+        rust_command(rs_tree, rs_exe, case),
+        input=case["stdin"],
+        capture_output=True,
+        cwd=rs_tree,
+        env=env,
+        timeout=120,
     )
-    py = read_result(py_tree, py_proc, py_proc.stdout, py_proc.stderr)
-    rs = read_result(rs_tree, rs_proc, rs_proc.stdout, rs_proc.stderr)
-    return compare_case(case["name"], py, rs, work)
+    py = read_result(py_tree, case, py_proc, py_proc.stdout, py_proc.stderr)
+    rs = read_result(rs_tree, case, rs_proc, rs_proc.stdout, rs_proc.stderr)
+    return compare_case(
+        case["name"], py, rs, work, strict_stderr=bool(case.get("stderr_bytes"))
+    )
 
 
 # ------------------------------------------------------------------ pty
@@ -339,6 +606,82 @@ PTY_CASES = [
         "settings": settings_with(output_dir="{scratch}/out"),
         "bursts": [b"\x03"],
     },
+    # ---- phase 7: executable download cases ----
+    {
+        "name": "pty-escape-mid-download",
+        "settings": settings_with(output_dir="{scratch}/out", subtitles=False),
+        "bin": {"yt-dlp": {"mode": "sleep", "sleep": 20}, "ffmpeg": {}},
+        "project_frames": True,
+        "fs_list": "out",
+        "bursts": [
+            b"https://example.invalid/v\n",
+            {"wait": "downloading (escape", "send": "\x1b"},
+            b"13\n",
+        ],
+    },
+    {
+        "name": "pty-ctrl-c-mid-download",
+        "settings": settings_with(output_dir="{scratch}/out", subtitles=False),
+        "bin": {"yt-dlp": {"mode": "sleep", "sleep": 20}, "ffmpeg": {}},
+        "project_frames": True,
+        "fs_list": "out",
+        "bursts": [
+            b"https://example.invalid/v\n",
+            {"wait": "downloading (escape", "send": "\x03"},
+            b"13\n",
+        ],
+    },
+    {
+        "name": "pty-quick-escape-130",
+        "settings": settings_with(output_dir="{scratch}/out", subtitles=False),
+        "args": ["https://example.invalid/v"],
+        "bin": {"yt-dlp": {"mode": "sleep", "sleep": 20}, "ffmpeg": {}},
+        "boot": "checking yt-dlp",
+        "project_frames": True,
+        "fs_list": "out",
+        "bursts": [
+            {"wait": "downloading (escape", "send": "\x1b"},
+        ],
+    },
+    {
+        "name": "pty-quick-ctrl-c-cancelled",
+        "settings": settings_with(output_dir="{scratch}/out", subtitles=False),
+        "args": ["https://example.invalid/v"],
+        "bin": {"yt-dlp": {"mode": "sleep", "sleep": 20}, "ffmpeg": {}},
+        "boot": "checking yt-dlp",
+        "project_frames": True,
+        "fs_list": "out",
+        "bursts": [
+            {"wait": "downloading (escape", "send": "\x03"},
+        ],
+    },
+    {
+        "name": "pty-ffmpeg-offer-decline",
+        "settings": settings_with(output_dir="{scratch}/out", subtitles=False),
+        "bin": {"yt-dlp": {"mode": "ok"}},
+        "skip_platform": "darwin",
+        "project_frames": True,
+        "bursts": [
+            b"https://example.invalid/v\n",
+            {"wait": "y/n (enter = no)", "send": "n\n"},
+            b"13\n",
+        ],
+    },
+    {
+        "name": "pty-item9-escape-breaks-batch",
+        "settings": settings_with(output_dir="{scratch}/out", subtitles=False),
+        "bin": {"yt-dlp": {"mode": "sleep", "sleep": 20}, "ffmpeg": {}},
+        "project_frames": True,
+        "fs_list": "out",
+        "bursts": [
+            b"9\n",
+            b"https://example.invalid/1\n",
+            b"https://example.invalid/2\n",
+            b"\n",
+            {"wait": "downloading (escape", "send": "\x1b"},
+            b"13\n",
+        ],
+    },
 ]
 
 
@@ -348,6 +691,19 @@ def set_winsize(fd, cols, rows):
     import termios
 
     fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
+
+
+def _pty_child_setup():
+    """Make the child a session leader with the pty as its controlling
+    terminal, so a `\\x03` typed at the terminal generates SIGINT
+    (python's cbreak keeps ISIG on). Without this the pty has no
+    foreground process group and the byte is delivered to nobody -
+    measured 2026-10-15 while wiring the mid-download Ctrl+C case."""
+    import fcntl
+    import termios
+
+    os.setsid()
+    fcntl.ioctl(0, termios.TIOCSCTTY, 0)
 
 
 def drain(master, data, quiet, deadline):
@@ -377,7 +733,9 @@ def wait_for(master, data, needle, deadline):
     child waits forever)."""
     while needle not in data:
         if time.monotonic() >= deadline:
-            raise InstrumentError("never saw %r in the transcript" % needle)
+            raise InstrumentError(
+                "never saw %r in the transcript; tail=%r" % (needle, bytes(data[-400:]))
+            )
         ready, _, _ = select.select([master], [], [], 0.1)
         if not ready:
             continue
@@ -390,19 +748,19 @@ def wait_for(master, data, needle, deadline):
         data.extend(chunk)
 
 
-def run_pty_case(case, work, rust_bin, cols=80, rows=24):
+def run_pty_case(case, work, rust_bin, fake_bin, cols=80, rows=24):
     results = []
-    for kind, extra_env in (("py", {"PYTHONIOENCODING": "utf-8"}), ("rs", {})):
-        tree, exe = stage_tree(kind, work, case["settings"], rust_bin, False)
+    for kind in ("py", "rs"):
+        tree, exe = stage_tree(kind, work, case, rust_bin, fake_bin)
         if kind == "py":
-            cmd = [sys.executable, str(tree / "src" / "ytdlp.py"), "--menu"]
+            cmd = py_command(tree, case)
         else:
-            cmd = [str(exe), "--menu"]
+            cmd = rust_command(tree, exe, case)
         master, slave = os.openpty()
         set_winsize(slave, cols, rows)
         err_file = open(work / ("stderr-" + kind + ".txt"), "wb")
         env = dict(os.environ)
-        env.update(extra_env)
+        env.update(case_env(tree, case, kind))
         proc = subprocess.Popen(
             cmd,
             stdin=slave,
@@ -411,14 +769,27 @@ def run_pty_case(case, work, rust_bin, cols=80, rows=24):
             cwd=tree,
             env=env,
             close_fds=True,
+            preexec_fn=_pty_child_setup,
         )
         os.close(slave)
         data = bytearray()
         try:
-            # wait for the main prompt first: the child must be in
-            # read_esc (raw mode) before a burst can survive
-            wait_for(master, data, b"> ", time.monotonic() + 20.0)
+            # wait for the case's boot marker first: the child must be in
+            # read_esc (raw mode) before a burst can survive (menu cases
+            # boot to the "> " prompt; quick-mode cases to the preflight
+            # stage line)
+            boot = case.get("boot", "> ").encode()
+            wait_for(master, data, boot, time.monotonic() + 20.0)
             for burst in case["bursts"]:
+                if isinstance(burst, dict):
+                    # wait for a transcript marker (e.g. the download
+                    # stage line) before sending
+                    wait_for(
+                        master, data, burst["wait"].encode(), time.monotonic() + 20.0
+                    )
+                    time.sleep(0.15)
+                    os.write(master, burst["send"].encode())
+                    continue
                 deadline = time.monotonic() + 8.0
                 drain(master, data, 0.25, deadline)
                 # the child prints its prompt before it switches the
@@ -438,15 +809,23 @@ def run_pty_case(case, work, rust_bin, cols=80, rows=24):
             os.close(master)
         stderr_bytes = (work / ("stderr-" + kind + ".txt")).read_bytes()
         cfg = (tree / "config" / "settings.json").read_bytes()
+        project_frames = bool(case.get("project_frames"))
         results.append(
             (
                 rc,
-                normalize(bytes(data), tree),
-                normalize(stderr_bytes, tree)[:4096],
-                normalize(cfg, tree),
+                normalize(bytes(data), tree, project_frames),
+                normalize(stderr_bytes, tree, project_frames)[:4096],
+                normalize(cfg, tree, project_frames),
+                case_extras(tree, case, project_frames),
             )
         )
-    return compare_case(case["name"], results[0], results[1], work)
+    return compare_case(
+        case["name"],
+        results[0],
+        results[1],
+        work,
+        strict_stderr=bool(case.get("stderr_bytes")),
+    )
 
 
 # ------------------------------------------------------------------ main
@@ -456,6 +835,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog="session_diff.py", description=__doc__.splitlines()[0])
     parser.add_argument("mode", choices=["piped", "pty"])
     parser.add_argument("--rust-bin")
+    parser.add_argument("--fake-bin")
     parser.add_argument("--only", help="run one case by name")
     parser.add_argument("--keep", action="store_true", help="keep the staged trees")
     args = parser.parse_args(argv)
@@ -467,6 +847,12 @@ def main(argv=None):
             raise InstrumentError(
                 "rust binary not found: %s (cargo build --release -p ytdlp-cli)" % rust_bin
             )
+        fake_bin = Path(args.fake_bin) if args.fake_bin else default_fake_bin()
+        if not fake_bin.exists():
+            raise InstrumentError(
+                "fake yt-dlp not found: %s (cargo build --release -p fake-ytdlp) "
+                % fake_bin
+            )
         if args.mode == "pty" and os.name == "nt":
             raise InstrumentError(
                 "pty mode is posix; the windows console check is owner hands-on (OQ-N2)"
@@ -476,6 +862,10 @@ def main(argv=None):
             cases = [c for c in cases if c["name"] == args.only]
             if not cases:
                 raise InstrumentError("no case named %r" % args.only)
+        skipped = [c for c in cases if sys.platform.startswith(c.get("skip_platform", "\0"))]
+        cases = [c for c in cases if c not in skipped]
+        for case in skipped:
+            print("SKIP %s (platform %s)" % (case["name"], sys.platform))
 
         work = Path(tempfile.mkdtemp(prefix="ytdlp-session-"))
         passed = 0
@@ -483,9 +873,9 @@ def main(argv=None):
         try:
             for case in cases:
                 ok = (
-                    run_piped_case(case, work, rust_bin)
+                    run_piped_case(case, work, rust_bin, fake_bin)
                     if args.mode == "piped"
-                    else run_pty_case(case, work, rust_bin)
+                    else run_pty_case(case, work, rust_bin, fake_bin)
                 )
                 if ok:
                     passed += 1

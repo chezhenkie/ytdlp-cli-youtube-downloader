@@ -1,0 +1,65 @@
+{
+  "fn": "newest_since",
+  "cases": [
+    {
+      "args": [
+        {
+          "folder": "{scratch}/out",
+          "since_offset": -60.0,
+          "slack": 2.0,
+          "files": [
+            {"path": "out/old.txt", "age_secs": 120.0},
+            {"path": "out/new.txt", "age_secs": 5.0},
+            {"path": "out/fresh-dir", "dir": true}
+          ]
+        }
+      ]
+    },
+    {
+      "args": [
+        {
+          "folder": "{scratch}/out",
+          "since_offset": 60.0,
+          "slack": 2.0,
+          "files": [
+            {"path": "out/new.txt", "age_secs": 5.0}
+          ]
+        }
+      ]
+    },
+    {
+      "args": [
+        {
+          "folder": "{scratch}/out",
+          "since_offset": -60.0,
+          "slack": 2.0,
+          "files": []
+        }
+      ]
+    },
+    {
+      "args": [
+        {
+          "folder": "{scratch}/gone",
+          "since_offset": -60.0,
+          "slack": 2.0,
+          "files": []
+        }
+      ]
+    },
+    {
+      "args": [
+        {
+          "folder": "{scratch}/out",
+          "since_offset": -60.0,
+          "slack": 2.0,
+          "files": [
+            {"path": "out/mid.txt", "age_secs": 30.0},
+            {"path": "out/newer.txt", "age_secs": 10.0},
+            {"path": "out/older.txt", "age_secs": 50.0}
+          ]
+        }
+      ]
+    }
+  ]
+}

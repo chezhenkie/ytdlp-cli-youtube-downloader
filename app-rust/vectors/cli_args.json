@@ -1,0 +1,125 @@
+{
+  "fn": "cli_args",
+  "cases": [
+    {
+      "args": [
+        {"prog": "ytdlp.py", "width": 78, "argv": ["-h"]}
+      ]
+    },
+    {
+      "args": [
+        {"prog": "ytdlp.py", "width": 38, "argv": ["-h"]}
+      ]
+    },
+    {
+      "args": [
+        {"prog": "ytdlp.py", "width": 78, "argv": ["-f", "junk"]}
+      ]
+    },
+    {
+      "args": [
+        {"prog": "ytdlp.py", "width": 78, "argv": ["--nope", "notaurl"]}
+      ]
+    },
+    {
+      "args": [
+        {"prog": "ytdlp.py", "width": 78, "argv": ["--a", "notaurl"]}
+      ]
+    },
+    {
+      "args": [
+        {"prog": "ytdlp.py", "width": 78, "argv": ["-o"]}
+      ]
+    },
+    {
+      "args": [
+        {"prog": "ytdlp.py", "width": 78, "argv": ["--template", "-a", "notaurl"]}
+      ]
+    },
+    {
+      "args": [
+        {"prog": "ytdlp.py", "width": 78, "argv": ["--subs=1"]}
+      ]
+    },
+    {
+      "args": [
+        {"prog": "ytdlp.py", "width": 78, "argv": ["a", "b", "c"]}
+      ]
+    },
+    {
+      "args": [
+        {"prog": "ytdlp.py", "width": 78, "argv": ["-af", "mp4", "notaurl"]}
+      ]
+    },
+    {
+      "args": [
+        {"prog": "ytdlp.py", "width": 78, "argv": ["--format=mp4", "notaurl"]}
+      ]
+    },
+    {
+      "args": [
+        {"prog": "ytdlp.py", "width": 78, "argv": ["-fmp4", "notaurl"]}
+      ]
+    },
+    {
+      "args": [
+        {"prog": "ytdlp.py", "width": 78, "argv": ["--che", "notaurl"]}
+      ]
+    },
+    {
+      "args": [
+        {"prog": "ytdlp.py", "width": 78, "argv": ["--", "-weird"]}
+      ]
+    },
+    {
+      "args": [
+        {"prog": "ytdlp.py", "width": 78, "argv": ["-"]}
+      ]
+    },
+    {
+      "args": [
+        {"prog": "ytdlp.py", "width": 78, "argv": ["-5"]}
+      ]
+    },
+    {
+      "args": [
+        {"prog": "ytdlp.py", "width": 78, "argv": ["a b"]}
+      ]
+    },
+    {
+      "args": [
+        {"prog": "ytdlp.py", "width": 78, "argv": ["--template", "--", "notaurl"]}
+      ]
+    },
+    {
+      "args": [
+        {
+          "prog": "ytdlp.py",
+          "width": 78,
+          "argv": [
+            "-a",
+            "-r",
+            "720",
+            "--template",
+            "%(title)s %(id)s",
+            "-o",
+            "out",
+            "--subs",
+            "--playlist",
+            "notaurl"
+          ]
+        }
+      ]
+    },
+    {
+      "args": [
+        {"prog": "ytdlp.py", "width": 78, "argv": ["--menu", "notaurl"]}
+      ]
+    },
+    {
+      "args": [
+        {"prog": "ytdlp.py", "width": 78, "argv": ["-o", "-zzz", "notaurl"]}
+      ]
+    }
+  ]
+}

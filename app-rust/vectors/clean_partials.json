@@ -1,0 +1,62 @@
+{
+  "fn": "clean_partials",
+  "cases": [
+    {
+      "args": [
+        {
+          "folder": "{scratch}/out",
+          "since_offset": -60.0,
+          "slack": 5.0,
+          "files": [
+            {"path": "out/keep.txt", "age_secs": 5.0},
+            {"path": "out/a.part", "age_secs": 5.0},
+            {"path": "out/b.f137.mp4.part-Frag3", "age_secs": 5.0},
+            {"path": "out/c.ytdl", "age_secs": 5.0},
+            {"path": "out/stale.part", "age_secs": 600.0},
+            {"path": "out/stale2.ytdl", "age_secs": 600.0},
+            {"path": "out/xpart.txt", "age_secs": 5.0},
+            {"path": "out/d.part", "dir": true}
+          ]
+        }
+      ]
+    },
+    {
+      "args": [
+        {
+          "folder": "{scratch}/out",
+          "since_offset": 60.0,
+          "slack": 5.0,
+          "files": [
+            {"path": "out/fresh.part", "age_secs": 5.0},
+            {"path": "out/fresh.ytdl", "age_secs": 5.0}
+          ]
+        }
+      ]
+    },
+    {
+      "args": [
+        {
+          "folder": "{scratch}/gone",
+          "since_offset": -60.0,
+          "slack": 5.0,
+          "files": []
+        }
+      ]
+    },
+    {
+      "args": [
+        {
+          "folder": "{scratch}/out",
+          "since_offset": -60.0,
+          "slack": 5.0,
+          "files": [
+            {"path": "out/UPPER.PART", "age_secs": 5.0},
+            {"path": "out/UPPER.YTDL", "age_secs": 5.0},
+            {"path": "out/inner.partial", "age_secs": 5.0},
+            {"path": "out/weird.part.ytdl", "age_secs": 5.0}
+          ]
+        }
+      ]
+    }
+  ]
+}
