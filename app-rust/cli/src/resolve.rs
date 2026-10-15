@@ -1386,21 +1386,27 @@ mod tests {
     #[test]
     fn parser_join_spot_pins() {
         // Path(a)/b renders, pinned against the probed matrices
-        assert_eq!(py_path_join("/root", "a//b"), "/root/a/b");
-        assert_eq!(py_path_join("/root", "../x"), "/root/../x");
-        assert_eq!(py_path_join("/root", "/x"), "/x");
-        assert_eq!(py_path_join("/root", ""), "/root");
+        #[cfg(not(windows))]
+        {
+            assert_eq!(py_path_join("/root", "a//b"), "/root/a/b");
+            assert_eq!(py_path_join("/root", "../x"), "/root/../x");
+            assert_eq!(py_path_join("/root", "/x"), "/x");
+            assert_eq!(py_path_join("/root", ""), "/root");
+            assert_eq!(py_path_parent("/a/b/c"), "/a/b");
+            assert_eq!(py_path_parent("/"), "/");
+        }
         #[cfg(windows)]
         {
+            assert_eq!(py_path_join("C:\\root", "a//b"), "C:\\root\\a\\b");
+            assert_eq!(py_path_join("C:\\root", "../x"), "C:\\root\\..\\x");
             assert_eq!(py_path_join("C:\\root", "C:x"), "C:\\root\\x");
             assert_eq!(py_path_join("C:\\root", "C:\\x"), "C:\\x");
             assert_eq!(py_path_join("C:\\root", "/x"), "C:\\x");
             assert_eq!(py_path_join("C:\\root", ""), "C:\\root");
             assert_eq!(py_path_join("C:\\root", "bin"), "C:\\root\\bin");
+            assert_eq!(py_path_parent("C:\\a\\b\\c"), "C:\\a\\b");
         }
-        assert_eq!(py_path_parent("/a/b/c"), "/a/b");
         assert_eq!(py_path_parent("a"), ".");
-        assert_eq!(py_path_parent("/"), "/");
     }
 
     #[test]
@@ -1658,23 +1664,23 @@ mod tests {
 
     #[test]
     fn resolve_outdir_shapes_and_fallbacks() {
+        #[cfg(not(windows))]
+        let (root, auto, fallback, rel) = ("/root", "/auto", "/root/downloads", "/root/rel");
+        #[cfg(windows)]
+        let (root, auto, fallback, rel) = (
+            "C:\\root",
+            "C:\\auto",
+            "C:\\root\\downloads",
+            "C:\\root\\rel",
+        );
         let mut none = Vec::new();
-        assert_eq!(
-            resolve_outdir(&none, None, "/root").expect("ok"),
-            "/root/downloads"
-        );
-        assert_eq!(
-            resolve_outdir(&none, Some("/auto"), "/root").expect("ok"),
-            "/auto"
-        );
+        assert_eq!(resolve_outdir(&none, None, root).expect("ok"), fallback);
+        assert_eq!(resolve_outdir(&none, Some(auto), root).expect("ok"), auto);
         none.push(("output_dir".to_string(), Value::Str(" rel ".to_string())));
-        assert_eq!(
-            resolve_outdir(&none, None, "/root").expect("ok"),
-            "/root/rel"
-        );
+        assert_eq!(resolve_outdir(&none, None, root).expect("ok"), rel);
         let junk = vec![("output_dir".to_string(), Value::Int(5))];
         assert_eq!(
-            resolve_outdir(&junk, None, "/root"),
+            resolve_outdir(&junk, None, root),
             Err(ShapeKind::AttributeError)
         );
     }
