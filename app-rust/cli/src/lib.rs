@@ -9,6 +9,7 @@
 pub mod args;
 pub mod config;
 pub mod exec;
+pub mod printable_table;
 pub mod pytext;
 pub mod resolve;
 pub mod rng;

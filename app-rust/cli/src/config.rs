@@ -8,6 +8,7 @@
 //! coercion below is the one place raw values are validated before they
 //! reach int()/argv/renders.
 
+use crate::pytext::py_repr_str;
 use crate::settings_json;
 use std::fmt;
 use std::io;
@@ -164,11 +165,13 @@ pub fn py_float_repr(x: f64) -> String {
     out
 }
 
-/// Python `str(value)` for the values that can reach the audio-quality
-/// check. Only the numeric and string arms need exact representation:
-/// every other shape starts with a non-digit regardless of era, so the
-/// quality pattern cannot match it either way (arr/obj reprs included).
-fn py_str(v: &Value) -> String {
+/// Python `str(value)` over the whole settings value model: scalars with
+/// their exact CPython spelling and containers as their `repr` text
+/// (`['en']`, `{'k': 1}`), because raw settings values reach `%s`/`str()`
+/// sites that land in argv or on screen before any coercion touches them.
+/// Container elements render with `py_repr_str`; the coercion path uses
+/// the same function for its quality check.
+pub fn py_str(v: &Value) -> String {
     match v {
         Value::Null => "None".to_string(),
         Value::Bool(true) => "True".to_string(),
@@ -176,8 +179,26 @@ fn py_str(v: &Value) -> String {
         Value::Int(n) => n.to_string(),
         Value::Float(x) => py_float_repr(*x),
         Value::Str(s) => s.clone(),
-        Value::Arr(_) => "[]".to_string(),
-        Value::Obj(_) => "{}".to_string(),
+        Value::Arr(items) => {
+            let inner: Vec<String> = items.iter().map(py_repr_value).collect();
+            format!("[{}]", inner.join(", "))
+        }
+        Value::Obj(fields) => {
+            let inner: Vec<String> = fields
+                .iter()
+                .map(|(k, v)| format!("{}: {}", py_repr_str(k), py_repr_value(v)))
+                .collect();
+            format!("{{{}}}", inner.join(", "))
+        }
+    }
+}
+
+/// `repr(value)` for a container element: scalars as `str()`, strings
+/// quoted per CPython.
+fn py_repr_value(v: &Value) -> String {
+    match v {
+        Value::Str(s) => py_repr_str(s),
+        other => py_str(other),
     }
 }
 
@@ -188,7 +209,7 @@ fn py_str(v: &Value) -> String {
 /// is i64 and every consumer - a `> 0` test and a `1-<n>` argv - cannot
 /// observe the difference). Unicode digits and other int() niceties are
 /// deliberately not accepted; see the module port notes in the spec.
-fn py_int(text: &str) -> Option<i64> {
+pub(crate) fn py_int(text: &str) -> Option<i64> {
     let t = text.trim();
     let (neg, body) = match t.strip_prefix(['+', '-']) {
         Some(rest) => (t.starts_with('-'), rest),
@@ -693,6 +714,55 @@ mod tests {
         let path = dir.join(name);
         std::fs::write(&path, bytes).expect("seed file");
         path
+    }
+
+    #[test]
+    fn py_str_renders_containers_like_cpython() {
+        // pins from the CPython 3.14.6 probe (2026-10-15)
+        let e = |items: Vec<Value>| Value::Arr(items);
+        assert_eq!(py_str(&e(vec![Value::Str("en".into())])), "['en']");
+        assert_eq!(py_str(&e(vec![Value::Str("a b".into())])), "['a b']");
+        assert_eq!(
+            py_str(&e(vec![
+                e(vec![Value::Str("a".into())]),
+                Value::Null,
+                Value::Bool(true),
+                Value::Int(1),
+                Value::Float(2.5),
+                e(vec![]),
+                Value::Obj(vec![]),
+            ])),
+            "[['a'], None, True, 1, 2.5, [], {}]"
+        );
+        assert_eq!(
+            py_str(&Value::Obj(vec![(
+                "k".into(),
+                e(vec![Value::Str("x".into()), Value::Int(1)])
+            )])),
+            "{'k': ['x', 1]}"
+        );
+        assert_eq!(
+            py_str(&e(vec![
+                Value::Str("tab\there".into()),
+                Value::Str("q\"q".into()),
+                Value::Str("b\\s".into()),
+            ])),
+            "['tab\\there', 'q\"q', 'b\\\\s']"
+        );
+        assert_eq!(py_str(&e(vec![Value::Str("a'b".into()),])), "[\"a'b\"]");
+        assert_eq!(
+            py_str(&e(vec![
+                Value::Float(f64::NAN),
+                Value::Float(f64::INFINITY)
+            ])),
+            "[nan, inf]"
+        );
+        // coercing a container quality value still lands on the default
+        let mut s =
+            junk_from_defaults(&[("audio_quality", Value::Arr(vec![Value::Str("9".into())]))]);
+        let notes = coerce_settings(&mut s);
+        assert_eq!(notes.len(), 1);
+        assert_eq!(to_map(&s)["audio_quality"], Value::Str("0".to_string()));
     }
 
     #[test]

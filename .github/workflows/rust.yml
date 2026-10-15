@@ -69,6 +69,8 @@ jobs:
         run: python app-rust/tools/harness.py run-all --rust-bin app-rust/target/release/ytdlp-harness
       - name: east-asian width table matches the pinned oracle
         run: python app-rust/tools/gen_width_table.py --check
+      - name: printable table matches the pinned oracle
+        run: python app-rust/tools/gen_printable_table.py --check
 
   check-parity:
     name: check parity ${{ matrix.os }}
