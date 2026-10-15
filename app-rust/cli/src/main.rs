@@ -114,7 +114,10 @@ fn run_menu() -> Result<ExitCode, String> {
     {
         LoadOutcome::Loaded { settings, notes } => {
             for note in &notes {
-                sink.write(&format!("  {}\n", term::c(use_color, term::A_AMBER, &format!("note: {note}"))));
+                sink.write(&format!(
+                    "  {}\n",
+                    term::c(use_color, term::A_AMBER, &format!("note: {note}"))
+                ));
             }
             sink.flush();
             settings
@@ -172,7 +175,13 @@ fn run_menu() -> Result<ExitCode, String> {
     };
     let mut quiet_check = |s: &mut Obj| menu::auto_update_check_startup(s);
 
-    match menu::main_menu(&mut settings, &mut io, &world, &mut download, &mut quiet_check) {
+    match menu::main_menu(
+        &mut settings,
+        &mut io,
+        &world,
+        &mut download,
+        &mut quiet_check,
+    ) {
         Ok(code) => Ok(ExitCode::from(code as u8)),
         // python's uncaught path for a read that returns EOF or Ctrl+C
         // inside a submenu: exit 1 (the traceback text is not ported,

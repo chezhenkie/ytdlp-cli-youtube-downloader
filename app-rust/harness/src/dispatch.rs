@@ -733,8 +733,9 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
             let auto = case_auto(case, &dir)?;
             let root = case_root(&dir);
             let use_color = field_opt_bool(case, "use_color")?.unwrap_or(false);
-            let outdir = resolve::resolve_outdir(&s, auto.as_deref(), &root)
-                .map_err(|shape| format!("hint shape {}: python would raise here", shape.token()))?;
+            let outdir = resolve::resolve_outdir(&s, auto.as_deref(), &root).map_err(|shape| {
+                format!("hint shape {}: python would raise here", shape.token())
+            })?;
             let lines = ui::hint_lines(&outdir, use_color);
             Ok(Json::Obj(vec![(
                 "stdout".to_string(),
@@ -898,7 +899,7 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                     Ok(None) => "kept".to_string(),
                     Ok(Some(Value::Str(text))) => format!("picked:{text}"),
                     Ok(Some(other)) => {
-                        return Err(format!("pick_list returned {other:?}, port bug"))
+                        return Err(format!("pick_list returned {other:?}, port bug"));
                     }
                     Err(MenuErr::GoBack) => "goback".to_string(),
                     Err(MenuErr::Eof) => "eof".to_string(),
@@ -944,7 +945,9 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                         Some(Value::Bool(false)) => "false".to_string(),
                         _ => "other".to_string(),
                     },
-                    Ok(Some(other)) => return Err(format!("ask_bool returned {other:?}, port bug")),
+                    Ok(Some(other)) => {
+                        return Err(format!("ask_bool returned {other:?}, port bug"));
+                    }
                     Err(MenuErr::GoBack) => "goback".to_string(),
                     Err(MenuErr::Eof) => "eof".to_string(),
                     Err(MenuErr::Interrupted) => "interrupted".to_string(),
@@ -993,8 +996,12 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                 if name == "act" {
                     let choice = field_str(case, "choice")?;
                     match menu::act(&choice, &mut s, &mut io, &world, &mut download) {
-                        Ok(menu::ActOutcome::Repaint(true)) => ("repaint_true".to_string(), Json::Null),
-                        Ok(menu::ActOutcome::Repaint(false)) => ("repaint_false".to_string(), Json::Null),
+                        Ok(menu::ActOutcome::Repaint(true)) => {
+                            ("repaint_true".to_string(), Json::Null)
+                        }
+                        Ok(menu::ActOutcome::Repaint(false)) => {
+                            ("repaint_false".to_string(), Json::Null)
+                        }
                         Ok(menu::ActOutcome::Exit) => ("exit".to_string(), Json::Null),
                         Err(MenuErr::GoBack) => ("goback".to_string(), Json::Null),
                         Err(MenuErr::Eof) => ("eof".to_string(), Json::Null),
@@ -1002,7 +1009,8 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                         Err(other) => return Err(format!("act error {other:?}")),
                     }
                 } else {
-                    match menu::main_menu(&mut s, &mut io, &world, &mut download, &mut quiet_check) {
+                    match menu::main_menu(&mut s, &mut io, &world, &mut download, &mut quiet_check)
+                    {
                         Ok(code) => ("return".to_string(), Json::Int(code as i64)),
                         Err(MenuErr::Eof) => ("eof".to_string(), Json::Null),
                         Err(MenuErr::Interrupted) => ("interrupted".to_string(), Json::Null),

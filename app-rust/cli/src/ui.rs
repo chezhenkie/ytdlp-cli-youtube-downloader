@@ -165,7 +165,10 @@ pub fn menu_items(s: &Obj, outdir: &str, is_windows: bool) -> Result<Vec<MenuRow
     let res_text = config::py_str(res);
     let (shown, container, media) = if audio_only {
         (
-            format!("audio only ({})", config::py_str(required(s, "audio_format")?)),
+            format!(
+                "audio only ({})",
+                config::py_str(required(s, "audio_format")?)
+            ),
             "-".to_string(),
             "-".to_string(),
         )
@@ -306,9 +309,17 @@ pub fn header_lines(version: &str, use_color: bool) -> Vec<String> {
             " ".repeat(right as usize)
         )
     } else {
-        format!("|{}{text}{}|", " ".repeat(left as usize), " ".repeat(right as usize))
+        format!(
+            "|{}{text}{}|",
+            " ".repeat(left as usize),
+            " ".repeat(right as usize)
+        )
     };
-    vec![c(use_color, A_LBLUE, &div), line, c(use_color, A_LBLUE, &div)]
+    vec![
+        c(use_color, A_LBLUE, &div),
+        line,
+        c(use_color, A_LBLUE, &div),
+    ]
 }
 
 /// `hint(s)`: amber instructions plus grey detail lines, above the
@@ -344,7 +355,9 @@ pub fn render_lines(
     let m = c(use_color, A_DARKGREY, "|");
     lines.push(format!("{m}{}{m}", " ".repeat(WIDTH as usize)));
     for row in menu_items(s, outdir, is_windows)? {
-        lines.push(menu_line(row.idx, &row.label, &row.value, row.grey, use_color));
+        lines.push(menu_line(
+            row.idx, &row.label, &row.value, row.grey, use_color,
+        ));
     }
     let desc = "press escape to exit submenu";
     let pad = WIDTH - desc.chars().count() as i64;

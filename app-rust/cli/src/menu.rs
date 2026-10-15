@@ -13,10 +13,10 @@
 //! every reachable state.
 
 use crate::args::{TEMPLATE_DEFAULT, clean_url, parse_lang_input};
-use crate::config::{self, AUDIO_FORMATS, CONTAINERS, RESOLUTIONS, TYPES, Obj, Value};
+use crate::config::{self, AUDIO_FORMATS, CONTAINERS, Obj, RESOLUTIONS, TYPES, Value};
 use crate::resolve::{self, ShapeKind};
 use crate::term::{A_AMBER, A_DARKGREY, A_GREY, CLEAR, c};
-use crate::tty::{self, Out, Reader, ReadOutcome};
+use crate::tty::{self, Out, ReadOutcome, Reader};
 use crate::ui::{self, WIDTH};
 
 /// Everything the menu reads from its process world (python reads these
@@ -155,7 +155,10 @@ pub fn ask_bool(
     current: Option<&Value>,
     io: &mut Io,
 ) -> Result<Option<Value>, MenuErr> {
-    let prompt = format!("  {label} (now {}) y/n (enter = keep): ", ui::onoff(current));
+    let prompt = format!(
+        "  {label} (now {}) y/n (enter = keep): ",
+        ui::onoff(current)
+    );
     let raw = read_line_or(io, &prompt, None)?;
     match raw.trim().to_lowercase().as_str() {
         "y" | "yes" | "on" | "1" => Ok(Some(Value::Bool(true))),
@@ -234,7 +237,10 @@ pub fn run_batch(
         let Some(url) = url else {
             print_line(
                 io,
-                &format!("  {} not a url - skipped", c(world.use_color, A_AMBER, "...")),
+                &format!(
+                    "  {} not a url - skipped",
+                    c(world.use_color, A_AMBER, "...")
+                ),
             );
             continue;
         };
@@ -289,6 +295,9 @@ pub fn folder_dialog(initial: &str, world: &World) -> Option<String> {
     }
     #[cfg(windows)]
     {
+        // python's windows dialog ignores the initial path (BROWSEINFO
+        // has no initial-directory field)
+        let _ = initial;
         windows_folder_dialog()
     }
     #[cfg(unix)]
@@ -317,13 +326,17 @@ fn windows_folder_dialog() -> Option<String> {
     }
     let mut path = [0u16; MAX_PATH_W];
     let ok = unsafe { SHGetPathFromIDListW(pidl, path.as_mut_ptr()) };
-    unsafe { CoTaskMemFree(Some(pidl.cast())) };
+    unsafe { CoTaskMemFree(pidl.cast()) };
     if ok == 0 {
         return None;
     }
     let len = path.iter().position(|&c| c == 0).unwrap_or(path.len());
     let picked = String::from_utf16_lossy(&path[..len]);
-    if picked.is_empty() { None } else { Some(picked) }
+    if picked.is_empty() {
+        None
+    } else {
+        Some(picked)
+    }
 }
 
 #[cfg(unix)]
@@ -464,7 +477,11 @@ pub fn act(
             if !raw.is_empty() {
                 // python: raw.isdigit() and 1 <= int(raw) <= len
                 let isdigits = raw.chars().all(|ch| ch.is_ascii_digit());
-                let slot = if isdigits { raw.parse::<i64>().ok() } else { None };
+                let slot = if isdigits {
+                    raw.parse::<i64>().ok()
+                } else {
+                    None
+                };
                 match slot {
                     Some(n) if (1..=TEMPLATE_PRESETS.len() as i64).contains(&n) => {
                         config::set(
@@ -490,15 +507,21 @@ pub fn act(
                     .iter()
                     .map(|line| c(world.use_color, A_DARKGREY, line))
                     .collect();
-                let under =
-                    tty::block_under_input(&plain, world.use_color, world.stdin_tty, world.terminal);
+                let under = tty::block_under_input(
+                    &plain,
+                    world.use_color,
+                    world.stdin_tty,
+                    world.terminal,
+                );
                 if !under {
                     // no room under a live cursor: the block goes above the
                     // input, where it is on screen while the value is typed
                     print_lines(io, &block);
                 }
                 print_line(io, "  enter languages separated by commas (enter = keep):");
-                let below = if under { Some(plain.as_slice()) } else { None };
+                // python passes the COLORED block as `below` and the plain
+                // lines to the room check
+                let below = if under { Some(block.as_slice()) } else { None };
                 let raw = read_line_or(io, "", below)?;
                 let raw = raw.trim().to_string();
                 if !raw.is_empty() {
@@ -589,7 +612,10 @@ pub fn act(
         "11" => {
             // the updaters arrive with phase 8; until then a typed
             // refusal (the phase-4 wires-only discipline)
-            print_line(io, "  updaters are not wired in this build yet (native port phase 8)");
+            print_line(
+                io,
+                "  updaters are not wired in this build yet (native port phase 8)",
+            );
             tty::hold(io.out, io.reader);
             true
         }
@@ -646,10 +672,9 @@ pub fn auto_update_check_startup(s: &mut Obj) {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs_f64())
         .unwrap_or(0.0);
-    if now - last < 86400.0 {
-        return;
+    if now - last >= 86400.0 {
+        // phase 8: one GET, the version compare and the install prompt
     }
-    // phase 8: one GET, the version compare and the install prompt
 }
 
 /// `main_menu`: the loop the whole interactive product runs in.
@@ -748,3 +773,413 @@ pub const TEMPLATE_PRESETS: [&str; 4] = [
     "%(title)s %(timestamp>%Y-%m-%d %H-%M)s",
     "%(title)s %(id)s",
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tty::{RecordingOut, ScriptItem, ScriptedReader};
+
+    struct TempConfig {
+        dir: std::path::PathBuf,
+    }
+
+    impl TempConfig {
+        fn new() -> Self {
+            use std::sync::atomic::{AtomicUsize, Ordering};
+            static N: AtomicUsize = AtomicUsize::new(0);
+            let n = N.fetch_add(1, Ordering::SeqCst);
+            let dir =
+                std::env::temp_dir().join(format!("ytdlp-menu-test-{}-{n}", std::process::id()));
+            std::fs::create_dir_all(&dir).expect("temp dir");
+            Self { dir }
+        }
+
+        fn config_path(&self) -> String {
+            self.dir
+                .join("settings.json")
+                .to_string_lossy()
+                .into_owned()
+        }
+
+        fn read(&self) -> String {
+            std::fs::read_to_string(self.config_path()).unwrap_or_default()
+        }
+    }
+
+    impl Drop for TempConfig {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.dir);
+        }
+    }
+
+    fn world<'a>(
+        config_path: &'a str,
+        version: &'a str,
+        use_color: bool,
+        stdin_tty: bool,
+        terminal: Option<(i64, i64)>,
+    ) -> World<'a> {
+        World {
+            version,
+            root: "",
+            config_path,
+            is_windows: false,
+            use_color,
+            stdin_tty,
+            stdout_tty: use_color,
+            terminal,
+            auto: None,
+        }
+    }
+
+    fn mega(choice: &str, replies: Vec<ScriptItem>, settings: &mut Obj) -> (String, Vec<String>) {
+        let tmp = TempConfig::new();
+        let path = tmp.config_path();
+        std::fs::write(&path, config::render_settings_file(settings)).expect("seed");
+        let mut rec = RecordingOut::default();
+        let mut reader = ScriptedReader::new(replies);
+        let mut download = |_s: &mut Obj, _url: &str| -> i32 { 0 };
+        let w = world(&path, "1.5.0", false, false, None);
+        let outcome = {
+            let mut io = Io {
+                out: &mut rec,
+                reader: &mut reader,
+            };
+            act(choice, settings, &mut io, &w, &mut download)
+        };
+        assert!(
+            outcome.is_ok(),
+            "act({choice}) failed: {outcome:?}",
+            outcome = outcome.err()
+        );
+        (rec.text(), reader.prompts)
+    }
+
+    #[test]
+    fn pick_list_flows_and_holds() {
+        let current = Value::Str("a".to_string());
+        let run = |replies: Vec<ScriptItem>| {
+            let mut rec = RecordingOut::default();
+            let mut reader = ScriptedReader::new(replies);
+            let w = world("", "1.5.0", false, false, None);
+            let result = {
+                let mut io = Io {
+                    out: &mut rec,
+                    reader: &mut reader,
+                };
+                pick_list("t", &["a", "b"], Some(&current), &mut io, &w)
+            };
+            (rec.text(), reader.prompts.clone(), result)
+        };
+
+        let (text, prompts, result) = run(vec![ScriptItem::Line("2".to_string())]);
+        assert_eq!(result.unwrap(), Some(Value::Str("b".to_string())));
+        assert_eq!(prompts.len(), 1);
+        assert_eq!(prompts[0], "  number (enter = keep a): ");
+        assert!(text.contains("    [x]  1  a"), "{text}");
+        assert!(text.contains("    [ ]  2  b"), "{text}");
+
+        let (text, prompts, result) = run(vec![
+            ScriptItem::Line("abc".to_string()),
+            ScriptItem::Line(String::new()),
+        ]);
+        assert_eq!(result.unwrap(), None);
+        assert_eq!(prompts, vec!["  number (enter = keep a): ", ""]);
+        assert!(text.contains("  invalid number"));
+
+        let (text, prompts, result) = run(vec![
+            ScriptItem::Line("9".to_string()),
+            ScriptItem::Line(String::new()),
+        ]);
+        assert_eq!(result.unwrap(), None);
+        assert_eq!(prompts.len(), 2);
+        assert!(text.contains("  out of range"));
+
+        let (_, prompts, result) = run(vec![ScriptItem::Line(String::new())]);
+        assert_eq!(result.unwrap(), None, "empty keeps the current value");
+        assert_eq!(prompts.len(), 1, "keep does not hold");
+
+        let (_, _, result) = run(vec![ScriptItem::Escape]);
+        assert!(matches!(result, Err(MenuErr::GoBack)));
+        let (_, _, result) = run(vec![ScriptItem::Eof]);
+        assert!(matches!(result, Err(MenuErr::Eof)));
+        let (_, _, result) = run(vec![ScriptItem::Interrupted]);
+        assert!(matches!(result, Err(MenuErr::Interrupted)));
+    }
+
+    #[test]
+    fn ask_bool_answers() {
+        let run = |reply: &str| {
+            let mut rec = RecordingOut::default();
+            let mut reader = ScriptedReader::new(vec![ScriptItem::Line(reply.to_string())]);
+            let current = Value::Bool(true);
+            let mut io = Io {
+                out: &mut rec,
+                reader: &mut reader,
+            };
+            ask_bool("subtitles", Some(&current), &mut io).unwrap()
+        };
+        assert_eq!(run("y"), Some(Value::Bool(true)));
+        assert_eq!(run("yes"), Some(Value::Bool(true)));
+        assert_eq!(run("off"), Some(Value::Bool(false)));
+        assert_eq!(run("0"), Some(Value::Bool(false)));
+        assert_eq!(run("maybe"), None, "anything else keeps the current value");
+        assert_eq!(run(""), None);
+    }
+
+    /// Audit F8-style save discipline: item 12 changes the value but
+    /// saves nothing; the quit path saves; main_menu saves after act.
+    #[test]
+    fn save_points() {
+        let tmp = TempConfig::new();
+        let path = tmp.config_path();
+        let mut s = config::defaults();
+        std::fs::write(&path, config::render_settings_file(&s)).expect("seed");
+        let seeded = tmp.read();
+
+        let mut rec = RecordingOut::default();
+        let mut reader = ScriptedReader::new(vec![ScriptItem::Line(String::new())]);
+        let mut download = |_s: &mut Obj, _url: &str| -> i32 { 0 };
+        let w = world(&path, "1.5.0", false, false, None);
+        {
+            let mut io = Io {
+                out: &mut rec,
+                reader: &mut reader,
+            };
+            let outcome = act("12", &mut s, &mut io, &w, &mut download).unwrap();
+            assert!(matches!(outcome, ActOutcome::Repaint(true)));
+        }
+        assert_eq!(config::get(&s, "auto_update"), Some(&Value::Bool(false)));
+        assert_eq!(tmp.read(), seeded, "item 12 must not save");
+
+        let mut rec = RecordingOut::default();
+        let mut reader = ScriptedReader::new(vec![
+            ScriptItem::Line("12".to_string()),
+            ScriptItem::Line(String::new()),
+            ScriptItem::Line("13".to_string()),
+        ]);
+        let mut s = config::defaults();
+        std::fs::write(&path, config::render_settings_file(&s)).expect("seed");
+        let mut quiet = |_s: &mut Obj| {};
+        {
+            let mut io = Io {
+                out: &mut rec,
+                reader: &mut reader,
+            };
+            let code = main_menu(&mut s, &mut io, &w, &mut download, &mut quiet).unwrap();
+            assert_eq!(code, 0);
+        }
+        assert!(
+            tmp.read().contains("\"auto_update\": false"),
+            "quit saves the toggled value: {}",
+            tmp.read()
+        );
+    }
+
+    /// The hold rule per site: a refusal or notice followed by an
+    /// unlabelled read, so the menu repaint cannot eat the message.
+    #[test]
+    fn hold_sites() {
+        // item 8 with a non-numeric max
+        let mut s = config::defaults();
+        config::set(&mut s, "playlist", Value::Bool(true));
+        let (text, prompts) = mega(
+            "8",
+            vec![
+                ScriptItem::Line("y".to_string()),
+                ScriptItem::Line("abc".to_string()),
+                ScriptItem::Line(String::new()),
+            ],
+            &mut s,
+        );
+        assert!(text.contains("  not a number - kept 0"), "{text}");
+        assert_eq!(prompts.last().unwrap(), "", "item 8 holds");
+
+        // item 10's notice
+        let mut s = config::defaults();
+        config::set(&mut s, "auto_update", Value::Bool(false));
+        let (text, prompts) = mega("10", vec![ScriptItem::Line(String::new())], &mut s);
+        assert!(text.contains("  defaults restored"));
+        assert_eq!(prompts.last().unwrap(), "", "item 10 holds");
+        assert_eq!(config::get(&s, "auto_update"), Some(&Value::Bool(true)));
+
+        // item 12's notice
+        let mut s = config::defaults();
+        let (text, prompts) = mega("12", vec![ScriptItem::Line(String::new())], &mut s);
+        assert!(text.contains("  auto update off - checked once a day at start"));
+        assert_eq!(prompts.last().unwrap(), "", "item 12 holds");
+    }
+
+    /// The [11,1,11] cursor dance: the ten-line language block is handed
+    /// to the reader as the colored `below` block (len(block)+1 = 11 up),
+    /// and the verdict rewinds one row, rewrites it, repaints the block
+    /// and steps back up.
+    #[test]
+    fn item7_under_input_cursor_layout() {
+        let tmp = TempConfig::new();
+        let path = tmp.config_path();
+        let mut s = config::defaults();
+        std::fs::write(&path, config::render_settings_file(&s)).expect("seed");
+        let mut rec = RecordingOut::default();
+        let mut reader = ScriptedReader::new(vec![
+            ScriptItem::Line("y".to_string()),
+            ScriptItem::Line("en,8".to_string()),
+            ScriptItem::Line(String::new()),
+        ]);
+        let mut download = |_s: &mut Obj, _url: &str| -> i32 { 0 };
+        let w = world(&path, "1.5.0", true, true, Some((120, 50)));
+        {
+            let mut io = Io {
+                out: &mut rec,
+                reader: &mut reader,
+            };
+            let outcome = act("7", &mut s, &mut io, &w, &mut download).unwrap();
+            assert!(matches!(outcome, ActOutcome::Repaint(true)));
+        }
+        let plain = ui::sub_lang_lines(WIDTH);
+        assert_eq!(plain.len(), 10);
+        let block: Vec<String> = plain.iter().map(|line| c(true, A_DARKGREY, line)).collect();
+        let below = reader.belows[1]
+            .clone()
+            .expect("the lang read gets a below block");
+        assert_eq!(below, block, "the colored block goes below the input line");
+        let text = rec.text();
+        assert!(
+            text.contains(&format!("\x1b[{}A", block.len() + 1)),
+            "the rewind is len(block)+1"
+        );
+        assert!(
+            text.contains("\x1b[1A\r\x1b[2K"),
+            "the verdict rewrites the input row"
+        );
+        assert!(text.contains("  not a language code, dropped: 8"));
+        assert!(text.contains(&format!("\x1b[{}A", block.len() + 1)));
+        // the block itself is painted once in the verdict repaint
+        assert!(text.contains(&block[0]));
+    }
+
+    /// The results flag: only an action that paints its own screen sets
+    /// results, and then escape wipes the screen with a repaint (item 9
+    /// answered "downloads ran").
+    #[test]
+    fn escape_wipes_results_only_when_set() {
+        let tmp = TempConfig::new();
+        let path = tmp.config_path();
+        let run = |replies: Vec<ScriptItem>| {
+            let mut s = config::defaults();
+            std::fs::write(&path, config::render_settings_file(&s)).expect("seed");
+            let mut rec = RecordingOut::default();
+            let mut reader = ScriptedReader::new(replies);
+            let mut download = |_s: &mut Obj, _url: &str| -> i32 { 0 };
+            let mut quiet = |_s: &mut Obj| {};
+            let w = world(&path, "1.5.0", false, false, None);
+            {
+                let mut io = Io {
+                    out: &mut rec,
+                    reader: &mut reader,
+                };
+                let code = main_menu(&mut s, &mut io, &w, &mut download, &mut quiet).unwrap();
+                assert_eq!(code, 0);
+            }
+            rec.text()
+        };
+
+        // item 9 with one url and an empty line runs the batch (no
+        // repaint requested); the escape then wipes the screen
+        let with_escape = run(vec![
+            ScriptItem::Line("9".to_string()),
+            ScriptItem::Line("https://a/1".to_string()),
+            ScriptItem::Line(String::new()),
+            ScriptItem::Escape,
+            ScriptItem::Line("13".to_string()),
+        ]);
+        let headers_with = with_escape.matches("yt-dlp cli  v1.5.0").count();
+        assert_eq!(headers_with, 5, "boot + 3 batch paints + escape wipe");
+
+        // the same session without the escape never repaints again
+        let no_escape = run(vec![
+            ScriptItem::Line("9".to_string()),
+            ScriptItem::Line("https://a/1".to_string()),
+            ScriptItem::Line(String::new()),
+            ScriptItem::Line("13".to_string()),
+        ]);
+        let headers_without = no_escape.matches("yt-dlp cli  v1.5.0").count();
+        assert_eq!(headers_without, 4, "boot + 3 batch paints");
+    }
+
+    #[test]
+    fn main_menu_outcomes() {
+        let tmp = TempConfig::new();
+        let path = tmp.config_path();
+        let run = |replies: Vec<ScriptItem>| {
+            let mut s = config::defaults();
+            std::fs::write(&path, config::render_settings_file(&s)).expect("seed");
+            let mut rec = RecordingOut::default();
+            let mut reader = ScriptedReader::new(replies);
+            let mut download = |_s: &mut Obj, _url: &str| -> i32 { 0 };
+            let mut quiet = |_s: &mut Obj| {};
+            let w = world(&path, "1.5.0", false, false, None);
+            let mut io = Io {
+                out: &mut rec,
+                reader: &mut reader,
+            };
+            (
+                main_menu(&mut s, &mut io, &w, &mut download, &mut quiet),
+                rec.text(),
+            )
+        };
+
+        // quit exits zero and says bye
+        let (result, text) = run(vec![ScriptItem::Line("13".to_string())]);
+        assert_eq!(result.unwrap(), 0);
+        assert!(text.contains("bye. defaults saved to "));
+
+        // EOF at the main prompt is caught: a newline and exit 0
+        let (result, text) = run(vec![ScriptItem::Eof]);
+        assert_eq!(result.unwrap(), 0);
+        assert!(text.ends_with('\n'));
+
+        // Ctrl+C at the main prompt is caught the same way
+        let (result, _) = run(vec![ScriptItem::Interrupted]);
+        assert_eq!(result.unwrap(), 0);
+
+        // EOF inside a submenu propagates (python's uncaught traceback
+        // path; the port exits 1 with one stderr line in main.rs)
+        let (result, _) = run(vec![ScriptItem::Line("7".to_string()), ScriptItem::Eof]);
+        assert!(matches!(result, Err(MenuErr::Eof)));
+
+        let (result, _) = run(vec![
+            ScriptItem::Line("7".to_string()),
+            ScriptItem::Interrupted,
+        ]);
+        assert!(matches!(result, Err(MenuErr::Interrupted)));
+
+        // escape inside a submenu is GoBack: the menu repaints
+        let tmp2 = TempConfig::new();
+        let path2 = tmp2.config_path();
+        let mut s = config::defaults();
+        std::fs::write(&path2, config::render_settings_file(&s)).expect("seed");
+        let mut rec = RecordingOut::default();
+        let mut reader = ScriptedReader::new(vec![
+            ScriptItem::Line("7".to_string()),
+            ScriptItem::Escape,
+            ScriptItem::Line("13".to_string()),
+        ]);
+        let mut download = |_s: &mut Obj, _url: &str| -> i32 { 0 };
+        let mut quiet = |_s: &mut Obj| {};
+        let w = world(&path2, "1.5.0", false, false, None);
+        let mut io = Io {
+            out: &mut rec,
+            reader: &mut reader,
+        };
+        assert_eq!(
+            main_menu(&mut s, &mut io, &w, &mut download, &mut quiet).unwrap(),
+            0
+        );
+        assert_eq!(
+            rec.text().matches("yt-dlp cli  v1.5.0").count(),
+            2,
+            "GoBack repaints the menu"
+        );
+    }
+}

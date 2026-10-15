@@ -119,7 +119,9 @@ impl RecordingOut {
 
 impl Out for RecordingOut {
     fn write(&mut self, text: &str) {
-        lock(&self.inner).events.push(RecEvent::Write(text.to_string()));
+        lock(&self.inner)
+            .events
+            .push(RecEvent::Write(text.to_string()));
     }
     fn flush(&mut self) {
         lock(&self.inner).events.push(RecEvent::Flush);
@@ -506,7 +508,13 @@ impl LineSource {
                 Some(b) => b,
                 // EOF: a partial line still counts, python's input()
                 // returns it and the next read raises
-                None => return if bytes.is_empty() { None } else { Some(decode(&bytes)) },
+                None => {
+                    return if bytes.is_empty() {
+                        None
+                    } else {
+                        Some(decode(&bytes))
+                    };
+                }
             };
             match b {
                 b'\n' => return Some(decode(&bytes)),
@@ -556,10 +564,15 @@ pub fn read_esc_piped(
 
 /// One input line; returns Escape (python None) when Escape was pressed.
 /// The reader the menu uses: piped stdin takes the fallback branch, a
-/// tty takes the raw branch.
+/// tty takes the raw branch. The raw branch keeps python's stdin state
+/// across calls: the chunk buffer (`RawInput`) and the session history
+/// survive from one read to the next, exactly like python's sys.stdin
+/// BufferedReader and the module-global HISTORY.
 pub struct TtyReader {
     pub lines: LineSource,
     pub history: History,
+    #[cfg(unix)]
+    raw: RawInput,
 }
 
 impl Default for TtyReader {
@@ -573,6 +586,37 @@ impl TtyReader {
         Self {
             lines: LineSource::stdin(),
             history: History::new(),
+            #[cfg(unix)]
+            raw: RawInput::new(0),
+        }
+    }
+
+    /// The tty branch: prompt first, then the `below` block, then the
+    /// raw loop (python read_esc lines 244-314).
+    fn read_tty(
+        &mut self,
+        prompt: &str,
+        below: Option<&[String]>,
+        out: &mut dyn Out,
+    ) -> ReadOutcome {
+        if !prompt.is_empty() {
+            out.write(prompt);
+            out.flush();
+        }
+        if let Some(block) = below {
+            out.write("\n");
+            out.write(&block.join("\n"));
+            out.write("\n");
+            out.write(&format!("\x1b[{}A", block.len() + 1));
+            out.flush();
+        }
+        #[cfg(unix)]
+        {
+            read_esc_tty_unix(prompt, out, &mut self.history, &mut self.raw)
+        }
+        #[cfg(windows)]
+        {
+            read_esc_tty_windows(prompt, out, &mut self.history)
         }
     }
 }
@@ -585,39 +629,10 @@ impl Reader for TtyReader {
         out: &mut dyn Out,
     ) -> ReadOutcome {
         if stdin_is_tty() {
-            read_esc_tty(prompt, below, out, &mut self.history)
+            self.read_tty(prompt, below, out)
         } else {
             read_esc_piped(prompt, below, &mut self.lines, out)
         }
-    }
-}
-
-/// The tty branch: prompt first, then the `below` block, then the raw
-/// loop (python read_esc lines 244-314).
-pub fn read_esc_tty(
-    prompt: &str,
-    below: Option<&[String]>,
-    out: &mut dyn Out,
-    history: &mut History,
-) -> ReadOutcome {
-    if !prompt.is_empty() {
-        out.write(prompt);
-        out.flush();
-    }
-    if let Some(block) = below {
-        out.write("\n");
-        out.write(&block.join("\n"));
-        out.write("\n");
-        out.write(&format!("\x1b[{}A", block.len() + 1));
-        out.flush();
-    }
-    #[cfg(unix)]
-    {
-        read_esc_tty_unix(prompt, out, history)
-    }
-    #[cfg(windows)]
-    {
-        read_esc_tty_windows(prompt, out, history)
     }
 }
 
@@ -693,6 +708,96 @@ impl Drop for RawMode {
     }
 }
 
+/// The main read of the raw loop. python reads characters through
+/// `sys.stdin.read(1)` - a buffered text reader - and the buffering is
+/// observable: measured 2026-10-15 under a pty, a burst like ESC [ A is
+/// drained into that reader by the first read, so `_esc_more` (which
+/// reads the fd directly) sees nothing and the sequence degrades to
+/// escape plus literal "[A"; a UTF-8 character split across writes
+/// still comes back whole because the decoder is incremental and
+/// blocking; CR passes through untranslated. This reader reproduces
+/// all three behaviours, so pty transcripts match byte for byte.
+#[cfg(unix)]
+struct RawInput {
+    fd: i32,
+    pending: VecDeque<u8>,
+}
+
+#[cfg(unix)]
+impl RawInput {
+    fn new(fd: i32) -> Self {
+        Self {
+            fd,
+            pending: VecDeque::new(),
+        }
+    }
+
+    /// One text character, blocking. An invalid byte maps to U+FFFD
+    /// where python raises UnicodeDecodeError (recorded deviation;
+    /// terminals deliver valid UTF-8).
+    fn next_char(&mut self) -> Option<char> {
+        loop {
+            if self.pending.is_empty() {
+                if !self.fill() {
+                    return None;
+                }
+                continue;
+            }
+            let bytes: Vec<u8> = self.pending.iter().copied().collect();
+            match std::str::from_utf8(&bytes) {
+                Ok(text) => {
+                    let ch = text.chars().next()?;
+                    self.pending.drain(..ch.len_utf8());
+                    return Some(ch);
+                }
+                Err(e) => match e.error_len() {
+                    // an incomplete sequence: read on, exactly like the
+                    // incremental decoder (a split char still returns whole)
+                    None => {
+                        if self.fill() {
+                            continue;
+                        }
+                        self.pending.pop_front();
+                        return Some('\u{fffd}');
+                    }
+                    Some(_) => {
+                        let valid = e.valid_up_to();
+                        if valid == 0 {
+                            self.pending.pop_front();
+                            return Some('\u{fffd}');
+                        }
+                        let text = std::str::from_utf8(&bytes[..valid]).ok()?;
+                        let ch = text.chars().next()?;
+                        self.pending.drain(..ch.len_utf8());
+                        return Some(ch);
+                    }
+                },
+            }
+        }
+    }
+
+    /// A chunked raw read (python's BufferedReader size), so a burst
+    /// lands ahead of later reads.
+    fn fill(&mut self) -> bool {
+        let mut chunk = [0u8; 8192];
+        loop {
+            let n = unsafe { libc::read(self.fd, chunk.as_mut_ptr().cast(), chunk.len()) };
+            if n > 0 {
+                self.pending.extend(&chunk[..n as usize]);
+                return true;
+            }
+            if n == 0 {
+                return false;
+            }
+            let err = std::io::Error::last_os_error();
+            if err.kind() == std::io::ErrorKind::Interrupted {
+                continue;
+            }
+            return false;
+        }
+    }
+}
+
 #[cfg(unix)]
 fn byte_ready(fd: i32, timeout_ms: i32) -> bool {
     let mut p = libc::pollfd {
@@ -754,7 +859,12 @@ fn csi_final(fd: i32) -> Option<char> {
 }
 
 #[cfg(unix)]
-fn read_esc_tty_unix(prompt: &str, out: &mut dyn Out, history: &mut History) -> ReadOutcome {
+fn read_esc_tty_unix(
+    prompt: &str,
+    out: &mut dyn Out,
+    history: &mut History,
+    input: &mut RawInput,
+) -> ReadOutcome {
     let fd = 0;
     let Some(_raw) = RawMode::enter(fd) else {
         // python would raise from tcgetattr; a stdin that is a tty but
@@ -765,17 +875,17 @@ fn read_esc_tty_unix(prompt: &str, out: &mut dyn Out, history: &mut History) -> 
     loop {
         // a 0-byte read (closed pty master) is a python spin; the port
         // answers escape (recorded deviation)
-        let Some(b) = read_byte(fd) else {
+        let Some(ch) = input.next_char() else {
             return ReadOutcome::Escape;
         };
-        match b {
-            b'\r' | b'\n' => {
+        match ch {
+            '\r' | '\n' => {
                 out.write("\n");
                 out.flush();
                 ed.remember(history);
                 return ReadOutcome::Line(ed.text());
             }
-            0x1b => match esc_more(fd, 50) {
+            '\x1b' => match esc_more(fd, 50) {
                 None => {
                     out.write("\r\x1b[K");
                     out.flush();
@@ -792,10 +902,9 @@ fn read_esc_tty_unix(prompt: &str, out: &mut dyn Out, history: &mut History) -> 
                 }
                 Some(_) => {}
             },
-            0x08 | 0x7f => ed.back(out),
-            0x03 => return ReadOutcome::Interrupted,
-            b if b >= 0x20 => {
-                let ch = if b < 0x80 { char::from(b) } else { '\u{fffd}' };
+            '\x08' | '\x7f' => ed.back(out),
+            '\x03' => return ReadOutcome::Interrupted,
+            ch if ch >= ' ' => {
                 ed.add(ch, out);
             }
             _ => {}
@@ -1061,7 +1170,10 @@ impl Stage {
 
 /// The quiet amber dot stage for preflight, subtitle and ffmpeg waits.
 pub fn dot_stage(text: &str, use_color: bool, sink: SharedSink) -> Stage {
-    let frames = flat_frames(&DOTS.iter().map(|d| (*d).to_string()).collect::<Vec<_>>(), 214);
+    let frames = flat_frames(
+        &DOTS.iter().map(|d| (*d).to_string()).collect::<Vec<_>>(),
+        214,
+    );
     Stage::new(
         text,
         frames,
@@ -1141,5 +1253,268 @@ pub fn terminal_size_stdout() -> Option<(i64, i64)> {
                 i64::from(info.srWindow.Bottom) - i64::from(info.srWindow.Top) + 1,
             ))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn lines(items: &[&str]) -> Vec<String> {
+        items.iter().map(|s| (*s).to_string()).collect()
+    }
+
+    /// The python selftest's History matrix, twin by twin.
+    #[test]
+    fn history_matrix_matches_the_python_selftest() {
+        let mut h = History::new();
+        h.entries.push("https://a.example".to_string());
+        h.entries.push("https://b.example".to_string());
+        let mut out = RecordingOut::default();
+        let mut ed = LineEdit::new("> ", &h);
+        ed.add('x', &mut out);
+        ed.add('y', &mut out);
+        ed.recall(true, &h, &mut out);
+        assert_eq!(ed.text(), "https://b.example");
+        ed.recall(true, &h, &mut out);
+        assert_eq!(ed.text(), "https://a.example");
+        ed.recall(false, &h, &mut out);
+        assert_eq!(ed.text(), "https://b.example");
+        ed.recall(false, &h, &mut out);
+        assert_eq!(
+            ed.text(),
+            "xy",
+            "walking down past the newest entry brings the draft back"
+        );
+        ed.back(&mut out);
+        assert_eq!(ed.text(), "x");
+        let mut ed2 = LineEdit::new("> ", &h);
+        ed2.add('q', &mut out);
+        ed2.remember(&mut h);
+        assert_eq!(h.entries.last().unwrap(), "q");
+        let mut ed3 = LineEdit::new("> ", &h);
+        ed3.remember(&mut h);
+        assert_eq!(
+            h.entries.last().unwrap(),
+            "q",
+            "empty lines are not remembered"
+        );
+        // the echo and repaint writes
+        let text = out.text();
+        assert!(text.contains("\r\x1b[K> https://b.example"));
+        assert!(text.contains("\x08 \x08"));
+    }
+
+    #[test]
+    fn history_caps_at_100() {
+        let mut h = History::new();
+        for i in 0..100 {
+            h.remember(&format!("line{i}"));
+        }
+        assert_eq!(h.entries.len(), 100);
+        h.remember("newest");
+        assert_eq!(h.entries.len(), 100);
+        assert_eq!(h.entries[0], "line1");
+        assert_eq!(h.entries.last().unwrap(), "newest");
+    }
+
+    /// The piped contract measured against python 3.14 (universal
+    /// newlines, the lone-CR lookahead, partial-line-then-EOF).
+    #[test]
+    fn read_esc_piped_contract() {
+        let mut out = RecordingOut::default();
+        let mut src = LineSource::from_bytes(b"abc\n");
+        assert_eq!(
+            read_esc_piped("p> ", None, &mut src, &mut out),
+            ReadOutcome::Line("abc".to_string())
+        );
+        assert_eq!(out.text(), "p> ");
+
+        let mut src = LineSource::from_bytes(b"abc");
+        assert_eq!(
+            read_esc_piped("", None, &mut src, &mut out),
+            ReadOutcome::Line("abc".to_string())
+        );
+        assert_eq!(
+            read_esc_piped("", None, &mut src, &mut out),
+            ReadOutcome::Eof
+        );
+
+        let mut src = LineSource::from_bytes(b"");
+        assert_eq!(
+            read_esc_piped("", None, &mut src, &mut out),
+            ReadOutcome::Eof
+        );
+
+        let mut src = LineSource::from_bytes(b"a\rb\n");
+        assert_eq!(
+            read_esc_piped("", None, &mut src, &mut out),
+            ReadOutcome::Line("a".to_string())
+        );
+        assert_eq!(
+            read_esc_piped("", None, &mut src, &mut out),
+            ReadOutcome::Line("b".to_string())
+        );
+
+        let mut src = LineSource::from_bytes(b"a\r\nb\rc");
+        assert_eq!(
+            read_esc_piped("", None, &mut src, &mut out),
+            ReadOutcome::Line("a".to_string())
+        );
+        assert_eq!(
+            read_esc_piped("", None, &mut src, &mut out),
+            ReadOutcome::Line("b".to_string())
+        );
+        assert_eq!(
+            read_esc_piped("", None, &mut src, &mut out),
+            ReadOutcome::Line("c".to_string())
+        );
+        assert_eq!(
+            read_esc_piped("", None, &mut src, &mut out),
+            ReadOutcome::Eof
+        );
+
+        let mut src = LineSource::from_bytes(b"1\r");
+        assert_eq!(
+            read_esc_piped("", None, &mut src, &mut out),
+            ReadOutcome::Line("1".to_string())
+        );
+        assert_eq!(
+            read_esc_piped("", None, &mut src, &mut out),
+            ReadOutcome::Eof
+        );
+    }
+
+    #[test]
+    fn read_esc_piped_writes_below_before_the_prompt() {
+        let mut out = RecordingOut::default();
+        let mut src = LineSource::from_bytes(b"x\n");
+        let below = lines(&["one", "two"]);
+        assert_eq!(
+            read_esc_piped("p> ", Some(&below), &mut src, &mut out),
+            ReadOutcome::Line("x".to_string())
+        );
+        assert_eq!(
+            out.text(),
+            "one\ntwo\np> ",
+            "the block prints before the prompt when piped"
+        );
+    }
+
+    /// The room gates and the margins, from the python selftest pins.
+    #[test]
+    fn block_room_gates() {
+        let wide = "x".repeat(64);
+        let block = lines(&[wide.as_str(); 10]);
+        assert!(block_under_input(&block, true, true, Some((120, 50))));
+        assert!(block_under_input(&block, true, true, Some((66, 14))));
+        assert!(
+            !block_under_input(&block, true, true, Some((65, 14))),
+            "width + 1 < columns"
+        );
+        assert!(
+            !block_under_input(&block, true, true, Some((64, 50))),
+            "width + 1 < columns"
+        );
+        assert!(
+            !block_under_input(&block, true, true, Some((120, 12))),
+            "len + 2 < lines"
+        );
+        assert!(!block_under_input(&block, false, true, Some((120, 50))));
+        assert!(!block_under_input(&block, true, false, Some((120, 50))));
+        assert!(!block_under_input(&block, true, true, None));
+        assert!(block_under_input(
+            &lines(&["  x"]),
+            true,
+            true,
+            Some((120, 50))
+        ));
+    }
+
+    /// python measures the block in code points, not display columns.
+    #[test]
+    fn block_room_counts_code_points() {
+        let wide = lines(&["\u{4e00}".repeat(60).as_str()]);
+        // 60 code points, 120 columns; the width gate passes on len()
+        assert!(block_under_input(&wide, true, true, Some((62, 50))));
+        assert!(!block_under_input(&wide, true, true, Some((61, 50))));
+    }
+
+    /// Every stage frame is one whole write and is flushed before the
+    /// next write: the G6 "spinner versus freeze contention" measurement.
+    /// A noise writer hammers the same sink while the stage thread spins.
+    #[test]
+    fn stage_write_lock_contention_is_frame_atomic() {
+        let rec = RecordingOut::default();
+        let sink: SharedSink = Arc::new(Mutex::new(rec.clone()));
+        let text = "downloading (escape to stop)".to_string();
+        let frames = flat_frames(&lines(&["...", ">>"]), 214);
+        let freeze = flat_freeze("...", 214);
+        let mut stage = Stage::new(&text, frames, 0.001, freeze, true, Arc::clone(&sink));
+
+        let mut noise = SharedOut::from_sink(Arc::clone(&sink));
+        stage.start();
+        for _ in 0..40 {
+            noise.write("noise\n");
+            noise.flush();
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        stage.done(Some("finished"));
+        let events = rec.events();
+
+        let mut saw_frame = false;
+        for (i, event) in events.iter().enumerate() {
+            if let RecEvent::Write(write) = event {
+                if write.starts_with("\r\x1b[K") {
+                    if !write.contains("downloading") && !write.contains("finished") {
+                        panic!("frame write carried foreign text: {write:?}");
+                    }
+                    assert!(
+                        matches!(events.get(i + 1), Some(RecEvent::Flush)),
+                        "a frame was left unflushed: {write:?}"
+                    );
+                    saw_frame = true;
+                }
+            }
+        }
+        assert!(saw_frame, "the spinner thread never wrote a frame");
+        let last = events.last().expect("events");
+        assert!(
+            matches!(last, RecEvent::Flush),
+            "the final line must end flushed: {last:?}"
+        );
+        let text_out = rec.text();
+        assert!(
+            text_out.ends_with("\r\x1b[K\x1b[38;5;214m...\x1b[0m finished\n"),
+            "done writes the freeze frame, the text and a newline"
+        );
+    }
+
+    /// Off color the thread never starts and done prints the plain line.
+    #[test]
+    fn stage_without_color_writes_only_the_plain_line() {
+        let rec = RecordingOut::default();
+        let sink: SharedSink = Arc::new(Mutex::new(rec.clone()));
+        let frames = flat_frames(&lines(&["..."]), 214);
+        let freeze = flat_freeze("...", 214);
+        let mut stage = Stage::new("preflight", frames, 0.001, freeze, false, Arc::clone(&sink));
+        stage.start();
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        stage.done(None);
+        assert_eq!(rec.text(), "... preflight\n");
+        assert_eq!(rec.flush_count(), 1);
+    }
+
+    #[test]
+    fn keywatch_is_inert_without_a_tty() {
+        // the test process has no tty stdin, so the watcher must be a no-op
+        let mut watch = KeyWatch::new();
+        assert!(!watch.escape_hit());
+        drop(watch);
+    }
+
+    #[test]
+    fn vt_enable_is_harmless_off_a_console() {
+        enable_vt_output();
     }
 }
