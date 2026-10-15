@@ -1,0 +1,25 @@
+{
+  "fn": "auto_outdir",
+  "cases": [
+    {"args": [{"os_name": "posix", "user_dirs": "XDG_DESKTOP_DIR=\"$HOME/DeskX\"\n", "files": [{"path": "home/DeskX", "dir": true}], "calls": 2}], "note": "xdg desktop found; second call is a memo hit"},
+    {"args": [{"os_name": "posix", "user_dirs": "XDG_DOWNLOAD_DIR=\"$HOME/DlY\"\n", "files": [{"path": "home/DlY", "dir": true}], "calls": 2}], "note": "xdg download"},
+    {"args": [{"os_name": "posix", "user_dirs": "XDG_DESKTOP_DIR=\"$HOME/DeskX\"\nXDG_DOWNLOAD_DIR=\"$HOME/DlY\"\n", "files": [{"path": "home/DeskX", "dir": true}, {"path": "home/DlY", "dir": true}], "calls": 1}], "note": "desktop candidate first"},
+    {"args": [{"os_name": "posix", "files": [{"path": "home/Desktop", "dir": true}], "calls": 2}], "note": "no user-dirs file: home Desktop"},
+    {"args": [{"os_name": "posix", "files": [{"path": "home/Downloads", "dir": true}], "calls": 2}], "note": "home Downloads"},
+    {"args": [{"os_name": "posix", "files": [], "calls": 2}], "note": "nothing exists"},
+    {"args": [{"os_name": "posix", "user_dirs": "\n\n   XDG_DESKTOP_DIR   =   \"$HOME/DeskX\"\n", "files": [{"path": "home/DeskX", "dir": true}], "calls": 1}], "note": "leading whitespace runs across lines"},
+    {"args": [{"os_name": "posix", "user_dirs": "XDG_DOWNLOAD_DIR=\"$HOME/D\"\nXDG_DESKTOP_DIR=\"$HOME/DeskX\"\n", "files": [{"path": "home/DeskX", "dir": true}], "calls": 1}], "note": "second line matches; first candidate misses"},
+    {"args": [{"os_name": "posix", "user_dirs": "XDG_DESKTOP_DIR = $HOME/DeskX\n", "files": [{"path": "home/DeskX", "dir": true}, {"path": "home/Desktop", "dir": true}], "calls": 1}], "note": "missing quotes: no match"},
+    {"args": [{"os_name": "posix", "user_dirs": "xdg_desktop_dir=\"$HOME/DeskX\"\n", "files": [{"path": "home/DeskX", "dir": true}, {"path": "home/Desktop", "dir": true}], "calls": 1}], "note": "keys are case-sensitive"},
+    {"args": [{"os_name": "posix", "user_dirs": "XDG_DESKTOP_DIR=\"\"\n", "files": [{"path": "home/DeskX", "dir": true}, {"path": "home/Desktop", "dir": true}], "calls": 1}], "note": "empty value is falsy"},
+    {"args": [{"os_name": "posix", "user_dirs": "XDG_DESKTOP_DIR=\"$DESKVAL\"\n", "env": {"DESKVAL": "{scratch}/home/D2"}, "files": [{"path": "home/D2", "dir": true}], "calls": 1}], "note": "expandvars on the xdg value"},
+    {"args": [{"os_name": "posix", "user_dirs": "XDG_DESKTOP_DIR=\"$HOME/DeskX\"\r\n", "files": [{"path": "home/DeskX", "dir": true}], "calls": 1}], "note": "CRLF line"},
+    {"args": [{"os_name": "nt", "win": {"Desktop": "{scratch}/home/WDesk"}, "files": [{"path": "home/WDesk", "dir": true}], "calls": 2}], "note": "windows registry desktop"},
+    {"args": [{"os_name": "nt", "win": {"{374DE290-123F-4565-9164-39C4925E467B}": "{scratch}/home/WDl"}, "files": [{"path": "home/WDl", "dir": true}], "calls": 2}], "note": "windows registry downloads guid"},
+    {"args": [{"os_name": "nt", "win": {"Desktop": "%USERPROFILE%/WX"}, "files": [{"path": "home/WX", "dir": true}, {"path": "home/Desktop", "dir": true}], "calls": 1}], "note": "percent form expands on windows; literal elsewhere"},
+    {"args": [{"os_name": "nt", "win": {"Desktop": "$HOME/WY"}, "files": [{"path": "home/WY", "dir": true}], "calls": 1}], "note": "dollar form expands in both expandvars flavors"},
+    {"args": [{"os_name": "nt", "win": {"Desktop": ""}, "files": [{"path": "home/Desktop", "dir": true}], "calls": 1}], "note": "empty registry value is not a candidate"},
+    {"args": [{"os_name": "posix", "user_dirs_hex": "ff", "calls": 1}], "note": "non-UTF-8 user-dirs file is python UnicodeDecodeError"},
+    {"args": [{"os_name": "posix", "user_dirs": "XDG_DESKTOP_DIR=\"$HOME/DeskX\"\n", "files": [{"path": "home/DeskX", "dir": true}], "calls": 3}], "note": "three calls, one lookup"}
+  ]
+}

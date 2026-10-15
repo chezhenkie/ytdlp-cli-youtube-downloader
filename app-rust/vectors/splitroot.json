@@ -1,0 +1,31 @@
+{
+  "fn": "splitroot",
+  "cases": [
+    {"args": [""]},
+    {"args": ["a"], "note": "relative"},
+    {"args": ["/x"]},
+    {"args": ["//x"], "note": "posix: // is the root, windows: UNC drive"},
+    {"args": ["///x"]},
+    {"args": ["//x/y"]},
+    {"args": ["//x//y"]},
+    {"args": ["/x/y"]},
+    {"args": ["//"]},
+    {"args": ["///"]},
+    {"args": ["//x/./y"]},
+    {"args": ["/a/b/../c"]},
+    {"args": ["//?"]},
+    {"args": ["C:x"], "note": "drive relative"},
+    {"args": ["C:\\x"]},
+    {"args": ["C:\\"]},
+    {"args": ["C:"]},
+    {"args": ["\\\\server\\share\\a"]},
+    {"args": ["\\\\server\\share"]},
+    {"args": ["\\\\?\\C:\\x"]},
+    {"args": ["\\\\.\\COM1"]},
+    {"args": ["relative"]},
+    {"args": ["\\\\x"]},
+    {"args": ["\\\\"]},
+    {"args": ["\\\\\\x"]},
+    {"args": ["\\x"], "note": "single backslash"}
+  ]
+}

@@ -29,7 +29,16 @@ state:
                            save_settings (phase 3) carry their fixture in
                            the case; each side materializes it in its own
                            scratch dir and the record carries port-domain
-                           shape tokens (payloads stay shape-gated)
+                           shape tokens (payloads stay shape-gated).
+                           Phase 4 (platform_name, path_render,
+                           path_is_absolute, splitroot, expandvars, which,
+                           find_yt_dlp, find_ffmpeg_dir, probe_version,
+                           auto_outdir, resolve_outdir, show_check) carries
+                           its whole world in the case object (fixtures,
+                           env, registry answers, which answers, probe
+                           outcomes, settings values); each side
+                           materializes it in its own scratch dir and the
+                           record projects that dir as {scratch}.
 
 Interchange format: one line per case carrying exactly the bytes of
 
@@ -353,6 +362,394 @@ PY_CALL_HOOKS = {
 }
 
 
+# ----------------------------------------------------- phase 4 resolve
+#
+# Phase-4 cases carry their world (fixtures, env, registry answers, which
+# answers, probe outcomes, settings values) in the case object. Each side
+# materializes it in its own scratch dir and the record projects that dir
+# as {scratch}, so the records compare byte-equal across two different
+# filesystems.
+
+
+class _bound_world:
+    """Binds module attributes and the process environment for one
+    phase-4 hook call; everything is restored on exit."""
+
+    def __init__(self, module, attrs=None, env=None):
+        self.module = module
+        self.attrs = attrs or {}
+        self.env = env
+        self.saved_attrs = {}
+        self.saved_env = None
+
+    def __enter__(self):
+        for name, value in self.attrs.items():
+            self.saved_attrs[name] = getattr(self.module, name)
+            setattr(self.module, name, value)
+        if self.env is not None:
+            self.saved_env = dict(os.environ)
+            os.environ.clear()
+            os.environ.update(self.env)
+        return self
+
+    def __exit__(self, *exc):
+        for name, value in self.saved_attrs.items():
+            setattr(self.module, name, value)
+        if self.saved_env is not None:
+            os.environ.clear()
+            os.environ.update(self.saved_env)
+        return False
+
+
+def _case_scratch(case, prefix):
+    work = Path(tempfile.mkdtemp(prefix="ytdlp-harness-%s-" % prefix))
+    for item in case.get("files") or []:
+        target = work / item["path"]
+        if item.get("dir"):
+            target.mkdir(parents=True, exist_ok=True)
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b"x")
+        target.chmod(0o755 if item.get("exec") else 0o644)
+    return work
+
+
+def _resolve_scratch(text, work):
+    return text.replace("{scratch}", str(work))
+
+
+def _project(work, text):
+    return text.replace(str(work), "{scratch}")
+
+
+def _project_path(work, value):
+    return _project(work, str(value)) if value is not None else None
+
+
+def _fake_os(module, name):
+    return types.SimpleNamespace(name=name, path=module.os.path)
+
+
+def _hook_platform_name(module, args):
+    os_name, sys_platform = args
+    fake_sys = types.SimpleNamespace(platform=sys_platform)
+    with _bound_world(
+        module, attrs={"os": _fake_os(module, os_name), "sys": fake_sys}
+    ):
+        return module.platform_name()
+
+
+def _hook_path_render(module, args):
+    return str(module.Path(args[0]))
+
+
+def _hook_path_is_absolute(module, args):
+    return module.Path(args[0]).is_absolute()
+
+
+def _hook_splitroot(module, args):
+    return list(module.os.path.splitroot(args[0]))
+
+
+def _hook_expandvars(module, args):
+    case = args[0]
+    with _bound_world(module, env=dict(case.get("env") or {})):
+        return module.os.path.expandvars(case["text"])
+
+
+def _hook_which(module, args):
+    case = args[0]
+    work = _case_scratch(case, "which")
+    try:
+        cmd = _resolve_scratch(case["cmd"], work)
+        entries = [_resolve_scratch(e, work) for e in case["entries"]]
+        env = {}
+        if case.get("pathext") is not None:
+            env["PATHEXT"] = case["pathext"]
+        with _bound_world(module, env=env):
+            found = module.shutil.which(cmd, path=os.pathsep.join(entries))
+        return _project_path(work, found)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _which_fake(module, work, answer_map, calls):
+    def fake(name):
+        calls.append(name)
+        rel = (answer_map or {}).get(name)
+        return _resolve_scratch(rel, work) if rel else None
+
+    return fake
+
+
+def _hook_find_yt_dlp(module, args):
+    case = args[0]
+    work = _case_scratch(case, "ytdlp")
+    try:
+        calls = []
+        fake_sys = types.SimpleNamespace(platform=case["sys_platform"])
+        with _bound_world(
+            module,
+            attrs={
+                "BIN_DIR": work / "bin",
+                "os": _fake_os(module, case["os_name"]),
+                "sys": fake_sys,
+            },
+        ):
+            with _bound_world(
+                module.shutil,
+                attrs={"which": _which_fake(module, work, case.get("which"), calls)},
+            ):
+                try:
+                    found = module.find_yt_dlp(case.get("saved") or {})
+                except TypeError:
+                    return {"found": None, "shape": "type_error", "which_calls": calls}
+        return {
+            "found": _project_path(work, found),
+            "shape": None,
+            "which_calls": calls,
+        }
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _hook_find_ffmpeg_dir(module, args):
+    case = args[0]
+    work = _case_scratch(case, "ffmpeg")
+    try:
+        calls = []
+        with _bound_world(
+            module,
+            attrs={
+                "BIN_DIR": work / "bin",
+                "os": _fake_os(module, case["os_name"]),
+            },
+        ):
+            with _bound_world(
+                module.shutil,
+                attrs={"which": _which_fake(module, work, case.get("which"), calls)},
+            ):
+                try:
+                    found = module.find_ffmpeg_dir(case.get("saved") or {})
+                except TypeError:
+                    return {"found": None, "shape": "type_error", "which_calls": calls}
+        return {
+            "found": _project_path(work, found),
+            "shape": None,
+            "which_calls": calls,
+        }
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _hook_probe_version(module, args):
+    case = args[0]
+    calls = case["calls"]
+    queue = list(case["spawns"])
+    spawn_log = []
+    results = []
+
+    def fake_run(cmd, **kwargs):
+        spawn_log.append(cmd[1])
+        item = queue.pop(0)
+        if "raise" in item:
+            raise OSError(item["raise"])
+        return types.SimpleNamespace(
+            stdout=item.get("stdout", ""),
+            stderr=item.get("stderr", ""),
+            returncode=item["rc"],
+        )
+
+    module._VERSION_CACHE.clear()
+    with _bound_world(module.subprocess, attrs={"run": fake_run}):
+        for call in calls:
+            mtime = call.get("mtime")
+
+            def fake_getmtime(path, _value=mtime):
+                if _value is None:
+                    raise OSError("fake mtime missing")
+                return _value
+
+            with _bound_world(module.os.path, attrs={"getmtime": fake_getmtime}):
+                line, rc = module.probe_version(module.Path(call["binary"]))
+            results.append([line, rc])
+    return {"calls": results, "spawn_log": spawn_log, "spawns_used": len(spawn_log)}
+
+
+def _win_shell_fake(module, work, win_map, real_expandvars):
+    def fake(key):
+        value = (win_map or {}).get(key)
+        if not value:
+            return None
+        return real_expandvars(_resolve_scratch(value, work))
+
+    return fake
+
+
+def _bind_home_env(case, work):
+    env = {k: _resolve_scratch(v, work) for k, v in (case.get("env") or {}).items()}
+    home = work / "home"
+    env["HOME"] = str(home)
+    env["USERPROFILE"] = str(home)
+    return env, home
+
+
+def _seed_user_dirs(work, case, home):
+    text = case.get("user_dirs")
+    hex_text = case.get("user_dirs_hex")
+    if text is None and hex_text is None:
+        return
+    target = home / ".config" / "user-dirs.dirs"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if hex_text is not None:
+        target.write_bytes(bytes.fromhex(hex_text))
+    else:
+        target.write_bytes(text.encode("utf-8"))
+
+
+def _hook_auto_outdir(module, args):
+    case = args[0]
+    work = _case_scratch(case, "outdir")
+    try:
+        env, home = _bind_home_env(case, work)
+        _seed_user_dirs(work, case, home)
+        lookups = {"n": 0}
+        real_lookup = module._auto_outdir_lookup
+
+        def counting_lookup():
+            lookups["n"] += 1
+            return real_lookup()
+
+        module._outdir_cache.clear()
+        with _bound_world(
+            module,
+            attrs={
+                "os": _fake_os(module, case["os_name"]),
+                "_auto_outdir_lookup": counting_lookup,
+                "_win_shell_folder": _win_shell_fake(
+                    module, work, case.get("win"), module.os.path.expandvars
+                ),
+            },
+            env=env,
+        ):
+            results = []
+            n_calls = case.get("calls", 2)
+            try:
+                for _ in range(n_calls):
+                    value = module.auto_outdir()
+                    results.append(_project_path(work, value))
+            except UnicodeDecodeError:
+                return {"error": "not_utf8", "lookups": lookups["n"], "results": None}
+        return {"error": None, "lookups": lookups["n"], "results": results}
+    finally:
+        module._outdir_cache.clear()
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _hook_resolve_outdir(module, args):
+    case = args[0]
+    work = _case_scratch(case, "resolve")
+    try:
+        saved = {}
+        if "output_dir" in case:
+            saved["output_dir"] = case["output_dir"]
+        auto = case.get("auto")
+        if auto:
+            auto_value = _resolve_scratch(auto, work)
+        else:
+            auto_value = None
+        with _bound_world(
+            module,
+            attrs={
+                "ROOT": work / "root",
+                "auto_outdir": (lambda v=auto_value: v),
+            },
+        ):
+            try:
+                out = module.resolve_outdir(saved)
+            except AttributeError:
+                return {"outdir": None, "shape": "attribute_error"}
+        return {"outdir": _project_path(work, out), "shape": None}
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _hook_show_check(module, args):
+    case = args[0]
+    work = _case_scratch(case, "check")
+    try:
+        root = work / "root"
+        bin_dir = root / "bin"
+        config = work / "config" / "settings.json"
+        if case.get("config_text") is not None:
+            config.parent.mkdir(parents=True, exist_ok=True)
+            config.write_bytes(case["config_text"].encode("utf-8"))
+        env, home = _bind_home_env(case, work)
+        _seed_user_dirs(work, case, home)
+        calls = {"which": [], "probe": []}
+        fake_sys = types.SimpleNamespace(platform=case["sys_platform"])
+        module._outdir_cache.clear()
+
+        def fake_probe(binary):
+            calls["probe"].append(_project(work, str(binary)))
+            probe = case.get("probe") or {}
+            return probe.get("version", "no version output"), probe.get("rc", -1)
+
+        with _bound_world(
+            module,
+            attrs={
+                "ROOT": root,
+                "BIN_DIR": bin_dir,
+                "CONFIG_PATH": config,
+                "os": _fake_os(module, case["os_name"]),
+                "sys": fake_sys,
+                "probe_version": fake_probe,
+                "_win_shell_folder": _win_shell_fake(
+                    module, work, case.get("win"), module.os.path.expandvars
+                ),
+            },
+            env=env,
+        ):
+            with _bound_world(
+                module.shutil,
+                attrs={"which": _which_fake(module, work, case.get("which"), calls["which"])},
+            ):
+                side = io.StringIO()
+                try:
+                    with redirect_stdout(side):
+                        module.show_check(case.get("saved") or {})
+                except (TypeError, AttributeError) as e:
+                    raise InstrumentError(
+                        "show_check raised %s: %s" % (type(e).__name__, e)
+                    ) from None
+        return {
+            "stdout": _project(work, side.getvalue()),
+            "probe_calls": calls["probe"],
+            "which_calls": calls["which"],
+        }
+    finally:
+        module._outdir_cache.clear()
+        shutil.rmtree(work, ignore_errors=True)
+
+
+PY_CALL_HOOKS.update(
+    {
+        "platform_name": _hook_platform_name,
+        "path_render": _hook_path_render,
+        "path_is_absolute": _hook_path_is_absolute,
+        "splitroot": _hook_splitroot,
+        "expandvars": _hook_expandvars,
+        "which": _hook_which,
+        "find_yt_dlp": _hook_find_yt_dlp,
+        "find_ffmpeg_dir": _hook_find_ffmpeg_dir,
+        "probe_version": _hook_probe_version,
+        "auto_outdir": _hook_auto_outdir,
+        "resolve_outdir": _hook_resolve_outdir,
+        "show_check": _hook_show_check,
+    }
+)
+
+
 def capture_python(fn, vectors_path):
     require_oracle()
     doc = load_vectors(vectors_path)
@@ -365,11 +762,16 @@ def capture_python(fn, vectors_path):
         raise InstrumentError("cannot load %s" % PY_IMPL)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    func = getattr(module, fn, None)
-    if func is None or not callable(func):
-        raise InstrumentError("python implementation has no callable %r" % fn)
-    records = []
     hook = PY_CALL_HOOKS.get(fn)
+    if hook is None:
+        func = getattr(module, fn, None)
+        if func is None or not callable(func):
+            raise InstrumentError("python implementation has no callable %r" % fn)
+    else:
+        # Some phase-4 names (path_render, splitroot, expandvars, which)
+        # drive stdlib entry points instead of a module-level function.
+        func = None
+    records = []
     for i, case in enumerate(doc["cases"]):
         side = io.StringIO()
         try:

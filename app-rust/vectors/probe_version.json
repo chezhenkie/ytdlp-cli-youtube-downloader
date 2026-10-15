@@ -1,0 +1,21 @@
+{
+  "fn": "probe_version",
+  "cases": [
+    {"args": [{"calls": [{"binary": "bin/yt-dlp", "mtime": 111.5}], "spawns": [{"stdout": "2026.08.19\n", "rc": 0}]}], "note": "simple success"},
+    {"args": [{"calls": [{"binary": "bin/yt-dlp", "mtime": 111.5}, {"binary": "bin/yt-dlp", "mtime": 111.5}], "spawns": [{"stdout": "2026.08.19\n", "rc": 0}]}], "note": "memo hit: one spawn for two calls"},
+    {"args": [{"calls": [{"binary": "bin/yt-dlp", "mtime": 1.0}, {"binary": "bin/yt-dlp", "mtime": 1.0}], "spawns": [{"stdout": "A", "rc": 1}, {"stdout": "B", "rc": 2}, {"stdout": "A", "rc": 1}, {"stdout": "B", "rc": 2}]}], "note": "failures are not memoized"},
+    {"args": [{"calls": [{"binary": "bin/yt-dlp", "mtime": 1.0}, {"binary": "bin/yt-dlp", "mtime": 2.0}], "spawns": [{"stdout": "v1", "rc": 0}, {"stdout": "v2", "rc": 0}]}], "note": "mtime change respawns"},
+    {"args": [{"calls": [{"binary": "bin/yt-dlp", "mtime": null}, {"binary": "bin/yt-dlp", "mtime": null}], "spawns": [{"stdout": "v1", "rc": 0}]}], "note": "OSError mtime uses the None key and memoizes"},
+    {"args": [{"calls": [{"binary": "bin/yt-dlp", "mtime": 3.0}], "spawns": [{"stdout": "A", "rc": 5}, {"stdout": "B", "rc": 0}]}], "note": "first rc 0 non-empty wins"},
+    {"args": [{"calls": [{"binary": "bin/ffmpeg", "mtime": 3.0}], "spawns": [{"stdout": "banner", "rc": 2880147464}, {"stdout": "realver", "rc": 0}]}], "note": "large windows exit code is carried"},
+    {"args": [{"calls": [{"binary": "bin/x", "mtime": 3.0}], "spawns": [{"stdout": "", "rc": 0}, {"stdout": "", "rc": 0}]}], "note": "no output at all"},
+    {"args": [{"calls": [{"binary": "bin/ffmpeg", "mtime": 3.0}], "spawns": [{"stdout": "", "stderr": "ffmpeg version 9\n", "rc": 0}]}], "note": "stderr-only answer"},
+    {"args": [{"calls": [{"binary": "bin/x", "mtime": 3.0}], "spawns": [{"raise": "boom"}]}], "note": "exception collapses to the error line"},
+    {"args": [{"calls": [{"binary": "bin/x", "mtime": 3.0}], "spawns": [{"stdout": "\n\n2026.08.19\nextra\n", "rc": 0}]}], "note": "first line of the stripped blob"},
+    {"args": [{"calls": [{"binary": "bin/x", "mtime": 3.0}], "spawns": [{"stdout": "  2026\t\r\n", "rc": 0}]}], "note": "python strip semantics"},
+    {"args": [{"calls": [{"binary": "bin/x", "mtime": 3.0}], "spawns": [{"stdout": "", "stderr": "", "rc": 3}, {"stdout": "v2", "rc": 0}]}], "note": "empty first answer falls to the second flag"},
+    {"args": [{"calls": [{"binary": "bin/x", "mtime": 3.0}], "spawns": [{"stdout": "A1", "rc": 5}, {"stderr": "B2", "rc": 7}]}], "note": "both flags fail: last line and rc"},
+    {"args": [{"calls": [{"binary": "bin/x", "mtime": 1.0}, {"binary": "bin/x", "mtime": 2.0}, {"binary": "bin/x", "mtime": 1.0}], "spawns": [{"stdout": "v1", "rc": 0}, {"stdout": "v2", "rc": 0}]}], "note": "return to an earlier mtime hits the cache"},
+    {"args": [{"calls": [{"binary": "bin/x", "mtime": 1.0}, {"binary": "bin/x", "mtime": 1.0}], "spawns": [{"stdout": "A", "rc": 1}, {"stdout": "B", "rc": 1}, {"stdout": "V", "rc": 0}]}], "note": "failed key then success: three spawns"}
+  ]
+}

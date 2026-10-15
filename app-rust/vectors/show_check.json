@@ -1,0 +1,18 @@
+{
+  "fn": "show_check",
+  "cases": [
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {}, "files": [], "which": {}}], "note": "everything missing"},
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {}, "files": [{"path": "bin/yt-dlp", "exec": true}], "which": {}, "probe": {"version": "2026.08.19", "rc": 0}}], "note": "binary in bin, probe called"},
+    {"args": [{"os_name": "nt", "sys_platform": "win32", "saved": {}, "files": [{"path": "bin/yt-dlp.exe", "exec": true}], "which": {}, "probe": {"version": "2026.08.19", "rc": 0}}], "note": "windows binary name"},
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {}, "files": [{"path": "which/yt-dlp", "exec": true}], "which": {"yt-dlp": "{scratch}/which/yt-dlp"}, "probe": {"version": "v1", "rc": -1}}], "note": "binary via which, negative rc printed"},
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {}, "files": [{"path": "bin/ffmpeg", "dir": true}], "which": {}}], "note": "ffmpeg dir in bin"},
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {}, "files": [{"path": "which/ffmpeg", "exec": true}], "which": {"ffmpeg": "{scratch}/which/ffmpeg"}}], "note": "ffmpeg via which parent"},
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {}, "files": [{"path": "home/Desktop", "dir": true}], "which": {}}], "note": "desktop output folder"},
+    {"args": [{"os_name": "nt", "sys_platform": "win32", "saved": {}, "files": [{"path": "home/WDesk", "dir": true}], "which": {}, "win": {"Desktop": "{scratch}/home/WDesk"}}], "note": "registry desktop output folder"},
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {"output_dir": "{scratch}/out"}, "files": [], "which": {}}], "note": "saved output folder"},
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {}, "files": [], "which": {}, "config_text": "{}\n"}], "note": "settings file exists"},
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {"yt_dlp_path": "{scratch}/saved/yt-dlp"}, "files": [{"path": "saved/yt-dlp", "exec": true}], "which": {}, "probe": {"version": "saved-bin", "rc": 0}}], "note": "saved binary path wins"},
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {}, "files": [{"path": "home/DeskX", "dir": true}], "which": {}, "user_dirs": "XDG_DESKTOP_DIR=\"$HOME/DeskX\"\n"}], "note": "xdg desktop output folder"},
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {}, "files": [{"path": "bin/yt-dlp", "exec": true}, {"path": "which/ffmpeg", "exec": true}], "which": {"ffmpeg": "{scratch}/which/ffmpeg"}, "probe": {"version": "banner", "rc": 2880147464}}], "note": "bin binary + which ffmpeg + large rc"}
+  ]
+}

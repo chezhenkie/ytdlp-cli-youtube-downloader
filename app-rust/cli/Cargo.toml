@@ -13,3 +13,12 @@ path = "src/lib.rs"
 [[bin]]
 name = "ytdlp"
 path = "src/main.rs"
+
+# The capability table in the specsheet (section 4): std has no
+# registry and no access(2), so these two FFI crates are the phase-4
+# drawn entries from the minimal vetted crate set.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Registry"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

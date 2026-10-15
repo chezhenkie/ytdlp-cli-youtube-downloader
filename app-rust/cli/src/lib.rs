@@ -9,6 +9,8 @@
 pub mod args;
 pub mod config;
 pub mod exec;
+pub mod pytext;
+pub mod resolve;
 pub mod rng;
 pub mod settings_json;
 pub mod sha256;

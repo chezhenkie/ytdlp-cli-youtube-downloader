@@ -1,0 +1,21 @@
+{
+  "fn": "find_yt_dlp",
+  "cases": [
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {"yt_dlp_path": "{scratch}/saved/yt-dlp"}, "files": [{"path": "saved/yt-dlp", "exec": true}, {"path": "bin/yt-dlp", "exec": true}], "which": {}}], "note": "saved wins over bin"},
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {"yt_dlp_path": "{scratch}/saved/missing"}, "files": [{"path": "bin/yt-dlp", "exec": true}], "which": {}}], "note": "saved missing file falls to bin"},
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {}, "files": [{"path": "which/yt-dlp", "exec": true}], "which": {"yt-dlp": "{scratch}/which/yt-dlp"}}], "note": "bin missing falls to which"},
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {}, "files": [{"path": "which/yt-dlp.exe", "exec": true}], "which": {"yt-dlp.exe": "{scratch}/which/yt-dlp.exe"}}], "note": "which exe fallback spelling"},
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {}, "files": [], "which": {}}], "note": "nothing found"},
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {"yt_dlp_path": ""}, "files": [{"path": "bin/yt-dlp", "exec": true}], "which": {}}], "note": "empty saved path is falsy"},
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {"yt_dlp_path": "{scratch}/saved"}, "files": [{"path": "saved", "dir": true}, {"path": "bin/yt-dlp", "exec": true}], "which": {}}], "note": "saved directory is not a file"},
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {"yt_dlp_path": 5}, "files": [], "which": {}}], "note": "truthy non-string is python Path() TypeError"},
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {"yt_dlp_path": true}, "files": [], "which": {}}], "note": "bool is truthy and not a string"},
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {"yt_dlp_path": 0}, "files": [{"path": "bin/yt-dlp", "exec": true}], "which": {}}], "note": "falsy junk is skipped"},
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {"yt_dlp_path": "relative-name"}, "files": [{"path": "bin/yt-dlp", "exec": true}], "which": {}}], "note": "relative candidate misses the cwd"},
+    {"args": [{"os_name": "nt", "sys_platform": "win32", "saved": {}, "files": [{"path": "bin/yt-dlp.exe", "exec": true}], "which": {}}], "note": "windows platform binary name"},
+    {"args": [{"os_name": "posix", "sys_platform": "darwin", "saved": {}, "files": [{"path": "bin/yt-dlp", "exec": true}], "which": {}}], "note": "macos binary name"},
+    {"args": [{"os_name": "posix", "sys_platform": "freebsd13", "saved": {}, "files": [{"path": "bin/yt-dlp", "exec": true}], "which": {}}], "note": "unknown platform falls back to the plain name"},
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {}, "files": [{"path": "bin/yt-dlp", "exec": true}], "which": {"yt-dlp": "{scratch}/which/yt-dlp"}}], "note": "which answer that is not a file is skipped"},
+    {"args": [{"os_name": "posix", "sys_platform": "linux", "saved": {"yt_dlp_path": "safe\u0000nul"}, "files": [{"path": "bin/yt-dlp", "exec": true}], "which": {}}], "note": "embedded NUL: is_file is False, no raise"}
+  ]
+}

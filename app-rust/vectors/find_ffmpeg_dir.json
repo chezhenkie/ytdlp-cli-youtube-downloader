@@ -1,0 +1,18 @@
+{
+  "fn": "find_ffmpeg_dir",
+  "cases": [
+    {"args": [{"os_name": "posix", "saved": {"ffmpeg_path": "{scratch}/ff"}, "files": [{"path": "ff", "dir": true}], "which": {}}], "note": "saved directory used directly"},
+    {"args": [{"os_name": "posix", "saved": {"ffmpeg_path": "{scratch}/ff/ffmpeg.exe"}, "files": [{"path": "ff/ffmpeg.exe", "exec": true}], "which": {}}], "note": "saved file falls back to its parent"},
+    {"args": [{"os_name": "posix", "saved": {"ffmpeg_path": "{scratch}/ff/nope"}, "files": [{"path": "ff", "dir": true}], "which": {}}], "note": "missing path with an existing parent"},
+    {"args": [{"os_name": "posix", "saved": {"ffmpeg_path": "{scratch}/no/thing"}, "files": [], "which": {}}], "note": "missing parent falls through"},
+    {"args": [{"os_name": "posix", "saved": {"ffmpeg_path": "ffmpeg.exe"}, "files": [], "which": {}}], "note": "relative name: parent is the cwd dot"},
+    {"args": [{"os_name": "posix", "saved": {}, "files": [{"path": "bin/ffmpeg", "exec": true}], "which": {}}], "note": "bin file, posix name"},
+    {"args": [{"os_name": "nt", "saved": {}, "files": [{"path": "bin/ffmpeg.exe", "exec": true}], "which": {}}], "note": "bin file, windows name"},
+    {"args": [{"os_name": "nt", "saved": {}, "files": [{"path": "bin/ffmpeg", "dir": true}], "which": {}}], "note": "bin dir named ffmpeg (no extension) hits on both os"},
+    {"args": [{"os_name": "posix", "saved": {}, "files": [{"path": "which/ffmpeg", "exec": true}], "which": {"ffmpeg": "{scratch}/which/ffmpeg"}}], "note": "which fallback returns the parent"},
+    {"args": [{"os_name": "posix", "saved": {}, "files": [], "which": {}}], "note": "nothing found"},
+    {"args": [{"os_name": "posix", "saved": {"ffmpeg_path": 7}, "files": [], "which": {}}], "note": "truthy non-string is python Path() TypeError"},
+    {"args": [{"os_name": "posix", "saved": {"ffmpeg_path": ""}, "files": [{"path": "bin/ffmpeg", "exec": true}], "which": {}}], "note": "empty saved path is falsy"},
+    {"args": [{"os_name": "nt", "saved": {"ffmpeg_path": "{scratch}/ff"}, "files": [{"path": "ff", "dir": true}], "which": {}}], "note": "windows saved directory"}
+  ]
+}

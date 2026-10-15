@@ -1,0 +1,21 @@
+{
+  "fn": "which",
+  "cases": [
+    {"args": [{"cmd": "yt-dlp", "entries": ["bin"], "files": [{"path": "bin/yt-dlp", "exec": true}]}], "note": "posix name without extension"},
+    {"args": [{"cmd": "yt-dlp", "entries": ["bin"], "files": [{"path": "bin/yt-dlp.exe", "exec": true}]}], "note": "windows pathext spellings; posix looks for the bare name"},
+    {"args": [{"cmd": "yt-dlp.exe", "entries": ["bin"], "files": [{"path": "bin/yt-dlp.exe", "exec": true}]}], "note": "direct match requires a pathext extension on windows"},
+    {"args": [{"cmd": "ffmpeg", "entries": ["bin"], "files": [{"path": "bin/ffmpeg", "exec": false}]}], "note": "posix exec bit missing"},
+    {"args": [{"cmd": "node", "entries": ["bin"], "files": [{"path": "bin/node", "dir": true}]}], "note": "a directory never hits"},
+    {"args": [{"cmd": "yt-dlp", "entries": ["empty", "bin"], "files": [{"path": "empty", "dir": true}, {"path": "bin/yt-dlp", "exec": true}]}]},
+    {"args": [{"cmd": "yt-dlp", "entries": ["bin/"], "files": [{"path": "bin/yt-dlp", "exec": true}]}], "note": "trailing separator entry"},
+    {"args": [{"cmd": "nope", "entries": ["bin"], "files": [{"path": "bin/yt-dlp", "exec": true}]}]},
+    {"args": [{"cmd": "yt-dlp", "entries": [], "files": []}], "note": "empty PATH string returns None"},
+    {"args": [{"cmd": "tool", "entries": ["bin"], "pathext": ".EXE", "files": [{"path": "bin/tool.exe", "exec": true}]}], "note": "custom PATHEXT"},
+    {"args": [{"cmd": "tool", "entries": ["bin"], "pathext": ".;.EXE", "files": [{"path": "bin/tool.exe", "exec": true}]}], "note": "dot entry rstrips to empty and matches everything"},
+    {"args": [{"cmd": "yt-dlp", "entries": ["bin"], "pathext": "EXE.", "files": [{"path": "bin/yt-dlp.exe", "exec": true}]}], "note": "trailing dot rstripped; no leading dot left, so the candidate misses"},
+    {"args": [{"cmd": "{scratch}/bin/yt-dlp", "entries": [], "files": [{"path": "bin/yt-dlp", "exec": true}]}], "note": "dir part bypasses PATH"},
+    {"args": [{"cmd": "{scratch}/bin/yt-dlp.exe", "entries": [], "files": [{"path": "bin/yt-dlp.exe", "exec": true}]}]},
+    {"args": [{"cmd": "yt-dlp", "entries": ["a", "b"], "files": [{"path": "a", "dir": true}, {"path": "b", "dir": true}, {"path": "b/yt-dlp", "exec": true}]}], "note": "second entry wins"},
+    {"args": [{"cmd": "yt-dlp", "entries": ["bin", "bin"], "files": [{"path": "bin/yt-dlp", "exec": true}]}], "note": "duplicate entry"}
+  ]
+}

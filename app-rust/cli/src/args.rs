@@ -6,14 +6,7 @@
 //! (`shutil.which`), the port takes it as a parameter so the pure layer
 //! stays pure; the impure lookup lands in its own layer.
 
-/// The url substring pattern `https?://\S+`, found leftmost, as in the
-/// python `URL_RE`. Python's `\S` is the unicode space set, which carries
-/// four extra controls (`\x1c`-`\x1f`) beyond the Unicode White_Space
-/// property rust's `char::is_whitespace` reports; `py_space` adds them
-/// back so the match boundaries cannot drift.
-fn py_space(c: char) -> bool {
-    c.is_whitespace() || matches!(c, '\x1c'..='\x1f')
-}
+use crate::pytext::py_space;
 
 /// First http(s) url in `text`, punctuation-trimmed; None when there is
 /// none. Python: `URL_RE.search(text or "")` then `rstrip(".,;:!?)]\"'")`.

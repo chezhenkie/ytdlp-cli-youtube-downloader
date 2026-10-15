@@ -9,13 +9,18 @@
 //!
 //! Functions whose python source reads process or module state take that
 //! state as a trailing arg; tools/harness.py binds it on the python side
-//! (PY_CALL_HOOKS).
+//! (PY_CALL_HOOKS). Phase-4 cases carry their fixtures in the case
+//! object; each side materializes them in its own scratch dir and
+//! projects that dir as `{scratch}` in the record.
 //!
 //! pick_spinner has no arm on purpose: it returns a random draw, so a
 //! byte comparison is impossible; its twins live in cli/src/term.rs.
 
+use std::collections::BTreeMap;
+
 use crate::json::Json;
 use ytdlp_cli::config::{Obj, Value};
+use ytdlp_cli::resolve::{self, ShapeKind};
 use ytdlp_cli::{args, config, exec, term, ui, update};
 
 pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
@@ -247,6 +252,356 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                 ("file".to_string(), file),
                 ("file_after_hex".to_string(), file_hex),
                 ("skipped".to_string(), skipped),
+            ]))
+        }
+        // Phase 4, resolution and diagnostics: cases carry their world
+        // (fixtures, injected env/registry/which/probe state); each side
+        // materializes it in a private scratch dir and projects that dir
+        // as {scratch} in the record.
+        "platform_name" => {
+            let os_name = arg_str(args, 0)?;
+            let sys_platform = arg_str(args, 1)?;
+            Ok(Json::Str(resolve::platform_name(os_name, sys_platform)))
+        }
+        "path_render" => Ok(Json::Str(resolve::path_render(arg_str(args, 0)?))),
+        "path_is_absolute" => Ok(Json::Bool(resolve::path_is_absolute(arg_str(args, 0)?))),
+        "splitroot" => {
+            let (drv, root, tail) = resolve::splitroot(arg_str(args, 0)?);
+            Ok(Json::Arr(vec![
+                Json::Str(drv),
+                Json::Str(root),
+                Json::Str(tail),
+            ]))
+        }
+        "expandvars" => {
+            let case = arg(args, 0, "expandvars case")?;
+            let text = field_str(case, "text")?;
+            let env = env_map_from_json(case, None)?;
+            Ok(Json::Str(resolve::expandvars(&text, &env)))
+        }
+        "which" => {
+            let case = arg(args, 0, "which case")?;
+            let dir = TempCaseDir::new("which")?;
+            materialize_files(&dir, obj_field(case, "files"))?;
+            let cmd = resolve_scratch(&field_str(case, "cmd")?, &dir);
+            let entries = entries_str(case, &dir)?;
+            let pathext = field_opt_str(case, "pathext")?.map(str::to_string);
+            let found = resolve::which(&cmd, Some(&entries), pathext.as_deref());
+            Ok(match found {
+                Some(p) => Json::Str(project(&dir, &p)),
+                None => Json::Null,
+            })
+        }
+        "find_yt_dlp" => {
+            let case = arg(args, 0, "find_yt_dlp case")?;
+            let dir = TempCaseDir::new("ytdlp")?;
+            materialize_files(&dir, obj_field(case, "files"))?;
+            let saved = settings_from_case(case)?;
+            let os_name = field_str(case, "os_name")?;
+            let sys_platform = field_str(case, "sys_platform")?;
+            let platform = resolve::platform_name(&os_name, &sys_platform);
+            let bin_dir = resolve_scratch("{scratch}/bin", &dir);
+            let mut which_calls: Vec<String> = Vec::new();
+            let result = {
+                let mut which = map_which_closure(&dir, obj_field(case, "which"), &mut which_calls);
+                resolve::find_yt_dlp(&saved, &bin_dir, &platform, &mut which)
+            };
+            let (found, shape) = shape_record(result.map(|p| p.map(|s| project(&dir, &s))));
+            Ok(Json::Obj(vec![
+                ("found".to_string(), found),
+                (
+                    "shape".to_string(),
+                    shape
+                        .map(|s| Json::Str(s.to_string()))
+                        .unwrap_or(Json::Null),
+                ),
+                ("which_calls".to_string(), str_arr(which_calls)),
+            ]))
+        }
+        "find_ffmpeg_dir" => {
+            let case = arg(args, 0, "find_ffmpeg_dir case")?;
+            let dir = TempCaseDir::new("ffmpeg")?;
+            materialize_files(&dir, obj_field(case, "files"))?;
+            let saved = settings_from_case(case)?;
+            let is_windows = field_str(case, "os_name")? == "nt";
+            let bin_dir = resolve_scratch("{scratch}/bin", &dir);
+            let mut which_calls: Vec<String> = Vec::new();
+            let result = {
+                let mut which = map_which_closure(&dir, obj_field(case, "which"), &mut which_calls);
+                resolve::find_ffmpeg_dir(&saved, &bin_dir, is_windows, &mut which)
+            };
+            let (found, shape) = shape_record(result.map(|p| p.map(|s| project(&dir, &s))));
+            Ok(Json::Obj(vec![
+                ("found".to_string(), found),
+                (
+                    "shape".to_string(),
+                    shape
+                        .map(|s| Json::Str(s.to_string()))
+                        .unwrap_or(Json::Null),
+                ),
+                ("which_calls".to_string(), str_arr(which_calls)),
+            ]))
+        }
+        "probe_version" => {
+            let case = arg(args, 0, "probe_version case")?;
+            let calls = match obj_field(case, "calls") {
+                Some(Json::Arr(items)) => items,
+                _ => return Err("case needs a calls array".to_string()),
+            };
+            let prompts: Vec<Json> = match obj_field(case, "spawns") {
+                Some(Json::Arr(items)) => items.clone(),
+                _ => return Err("case needs a spawns array".to_string()),
+            };
+            let mut spawn_log: Vec<String> = Vec::new();
+            let mut queue = prompts.into_iter();
+            let mut cache = resolve::VersionCache::default();
+            let mut results: Vec<Json> = Vec::new();
+            for call in calls {
+                let binary = field_str(call, "binary")?;
+                let mtime = match obj_field(call, "mtime") {
+                    None | Some(Json::Null) => None,
+                    Some(Json::Float(x)) => Some(*x),
+                    Some(Json::Int(n)) => Some(*n as f64),
+                    Some(other) => {
+                        return Err(format!("mtime must be a number or null: {other:?}"));
+                    }
+                };
+                let mut spawn =
+                    |_binary: &str, flag: &str| -> Result<resolve::SpawnOutcome, String> {
+                        spawn_log.push(flag.to_string());
+                        match queue.next() {
+                            Some(item) => match obj_field(&item, "raise") {
+                                Some(Json::Str(msg)) => Err(msg.clone()),
+                                _ => Ok(resolve::SpawnOutcome {
+                                    stdout: field_str(&item, "stdout").unwrap_or_default(),
+                                    stderr: field_str(&item, "stderr").unwrap_or_default(),
+                                    rc: obj_field(&item, "rc")
+                                        .and_then(|v| match v {
+                                            Json::Int(n) => Some(*n),
+                                            _ => None,
+                                        })
+                                        .unwrap_or(0),
+                                }),
+                            },
+                            None => Err("spawn queue exhausted".to_string()),
+                        }
+                    };
+                let (line, rc) = resolve::probe_version(&binary, mtime, &mut cache, &mut spawn);
+                results.push(Json::Arr(vec![Json::Str(line), Json::Int(rc)]));
+            }
+            let used = spawn_log.len();
+            Ok(Json::Obj(vec![
+                ("calls".to_string(), Json::Arr(results)),
+                ("spawn_log".to_string(), str_arr(spawn_log)),
+                ("spawns_used".to_string(), Json::Int(used as i64)),
+            ]))
+        }
+        "auto_outdir" => {
+            let case = arg(args, 0, "auto_outdir case")?;
+            let dir = TempCaseDir::new("outdir")?;
+            materialize_files(&dir, obj_field(case, "files"))?;
+            let home = resolve_scratch("{scratch}/home", &dir);
+            if let Some(text) = field_opt_str(case, "user_dirs")? {
+                let target = resolve::py_path_join(&home, ".config/user-dirs.dirs");
+                if let Some(parent) = std::path::Path::new(&target).parent() {
+                    std::fs::create_dir_all(parent).map_err(|e| format!("scratch setup: {e}"))?;
+                }
+                std::fs::write(&target, text.as_bytes())
+                    .map_err(|e| format!("scratch seed: {e}"))?;
+            }
+            if let Some(hex) = field_opt_str(case, "user_dirs_hex")? {
+                let target = resolve::py_path_join(&home, ".config/user-dirs.dirs");
+                if let Some(parent) = std::path::Path::new(&target).parent() {
+                    std::fs::create_dir_all(parent).map_err(|e| format!("scratch setup: {e}"))?;
+                }
+                std::fs::write(&target, hex_decode(hex)?)
+                    .map_err(|e| format!("scratch seed: {e}"))?;
+            }
+            let mut env = env_map_from_json(case, Some(&dir))?;
+            env.insert("HOME".to_string(), home.clone());
+            env.insert("USERPROFILE".to_string(), home.clone());
+            let is_windows = field_str(case, "os_name")? == "nt";
+            let win = obj_field(case, "win");
+            let win_value = |key: &str| -> Result<Option<String>, String> {
+                match win.and_then(|w| obj_field(w, key)) {
+                    None | Some(Json::Null) => Ok(None),
+                    Some(Json::Str(s)) => {
+                        let resolved = resolve_scratch(s, &dir);
+                        Ok(if resolved.is_empty() {
+                            None
+                        } else {
+                            Some(resolved)
+                        })
+                    }
+                    Some(other) => Err(format!("win.{key} must be a string or null: {other:?}")),
+                }
+            };
+            let win_desktop = win_value("Desktop")?;
+            let win_downloads = win_value("{374DE290-123F-4565-9164-39C4925E467B}")?;
+            let n_calls = match obj_field(case, "calls") {
+                Some(Json::Int(n)) => *n,
+                _ => 2,
+            };
+            let mut cache = resolve::OutdirCache::default();
+            let mut lookups: i64 = 0;
+            let mut results: Vec<Json> = Vec::new();
+            let mut error: Option<&'static str> = None;
+            for _ in 0..n_calls {
+                let outcome = cache.get(|| {
+                    lookups += 1;
+                    resolve::auto_outdir_lookup(
+                        is_windows,
+                        win_desktop.as_deref(),
+                        win_downloads.as_deref(),
+                        &home,
+                        &env,
+                    )
+                });
+                match outcome {
+                    Ok(Some(path)) => results.push(Json::Str(project(&dir, &path))),
+                    Ok(None) => results.push(Json::Null),
+                    Err(shape) => {
+                        error = Some(shape.token());
+                        break;
+                    }
+                }
+            }
+            Ok(Json::Obj(vec![
+                (
+                    "error".to_string(),
+                    error
+                        .map(|s| Json::Str(s.to_string()))
+                        .unwrap_or(Json::Null),
+                ),
+                ("lookups".to_string(), Json::Int(lookups)),
+                (
+                    "results".to_string(),
+                    if error.is_some() {
+                        Json::Null
+                    } else {
+                        Json::Arr(results)
+                    },
+                ),
+            ]))
+        }
+        "resolve_outdir" => {
+            let case = arg(args, 0, "resolve_outdir case")?;
+            let dir = TempCaseDir::new("resolve")?;
+            let mut saved: Obj = Vec::new();
+            if let Some(v) = obj_field(case, "output_dir") {
+                saved.push(("output_dir".to_string(), json_to_value(v)?));
+            }
+            let root = resolve_scratch("{scratch}/root", &dir);
+            let auto = field_opt_str(case, "auto")?.map(|rel| resolve_scratch(rel, &dir));
+            let result = resolve::resolve_outdir(&saved, auto.as_deref(), &root);
+            let (outdir, shape) = match result {
+                Ok(s) => (Json::Str(project(&dir, &s)), None),
+                Err(shape) => (Json::Null, Some(shape)),
+            };
+            Ok(Json::Obj(vec![
+                ("outdir".to_string(), outdir),
+                (
+                    "shape".to_string(),
+                    shape
+                        .map(|s| Json::Str(s.token().to_string()))
+                        .unwrap_or(Json::Null),
+                ),
+            ]))
+        }
+        "show_check" => {
+            let case = arg(args, 0, "show_check case")?;
+            let dir = TempCaseDir::new("check")?;
+            materialize_files(&dir, obj_field(case, "files"))?;
+            let root = resolve_scratch("{scratch}/root", &dir);
+            let bin_dir = resolve::py_path_join(&root, "bin");
+            let config_path = resolve_scratch("{scratch}/config/settings.json", &dir);
+            let config_exists = if let Some(text) = field_opt_str(case, "config_text")? {
+                if let Some(parent) = std::path::Path::new(&config_path).parent() {
+                    std::fs::create_dir_all(parent).map_err(|e| format!("scratch setup: {e}"))?;
+                }
+                std::fs::write(&config_path, text.as_bytes())
+                    .map_err(|e| format!("scratch seed: {e}"))?;
+                true
+            } else {
+                false
+            };
+            let home = resolve_scratch("{scratch}/home", &dir);
+            if let Some(text) = field_opt_str(case, "user_dirs")? {
+                let target = resolve::py_path_join(&home, ".config/user-dirs.dirs");
+                if let Some(parent) = std::path::Path::new(&target).parent() {
+                    std::fs::create_dir_all(parent).map_err(|e| format!("scratch setup: {e}"))?;
+                }
+                std::fs::write(&target, text.as_bytes())
+                    .map_err(|e| format!("scratch seed: {e}"))?;
+            }
+            let mut env = env_map_from_json(case, Some(&dir))?;
+            env.insert("HOME".to_string(), home.clone());
+            env.insert("USERPROFILE".to_string(), home.clone());
+            let os_name = field_str(case, "os_name")?;
+            let sys_platform = field_str(case, "sys_platform")?;
+            let platform = resolve::platform_name(&os_name, &sys_platform);
+            let is_windows = os_name == "nt";
+            let win = obj_field(case, "win");
+            let win_value = |key: &str| -> Result<Option<String>, String> {
+                match win.and_then(|w| obj_field(w, key)) {
+                    None | Some(Json::Null) => Ok(None),
+                    Some(Json::Str(s)) => {
+                        let resolved = resolve_scratch(s, &dir);
+                        Ok(if resolved.is_empty() {
+                            None
+                        } else {
+                            Some(resolved)
+                        })
+                    }
+                    Some(other) => Err(format!("win.{key} must be a string or null: {other:?}")),
+                }
+            };
+            let win_desktop = win_value("Desktop")?;
+            let win_downloads = win_value("{374DE290-123F-4565-9164-39C4925E467B}")?;
+            let saved = settings_from_case(case)?;
+            let world = resolve::CheckWorld {
+                platform: &platform,
+                root: &root,
+                bin_dir: &bin_dir,
+                config_path: &config_path,
+                config_exists,
+                saved: &saved,
+                is_windows,
+                home: &home,
+                env: &env,
+                win_desktop: win_desktop.as_deref(),
+                win_downloads: win_downloads.as_deref(),
+            };
+            let mut which_calls: Vec<String> = Vec::new();
+            let probe_case = obj_field(case, "probe").cloned();
+            let mut probe_calls: Vec<String> = Vec::new();
+            let lines = {
+                let mut which = map_which_closure(&dir, obj_field(case, "which"), &mut which_calls);
+                let mut probe = |binary: &str| -> (String, i64) {
+                    probe_calls.push(project(&dir, binary));
+                    match &probe_case {
+                        Some(p) => (
+                            field_str(p, "version").unwrap_or_default(),
+                            obj_field(p, "rc")
+                                .and_then(|v| match v {
+                                    Json::Int(n) => Some(*n),
+                                    _ => None,
+                                })
+                                .unwrap_or(0),
+                        ),
+                        None => ("no version output".to_string(), -1),
+                    }
+                };
+                resolve::show_check(&world, &mut which, &mut probe).map_err(|e| {
+                    format!("show_check shape {}: python would raise here", e.token())
+                })?
+            };
+            let mut text = lines.join("\n");
+            text.push('\n');
+            Ok(Json::Obj(vec![
+                ("probe_calls".to_string(), str_arr(probe_calls)),
+                ("stdout".to_string(), Json::Str(project(&dir, &text))),
+                ("which_calls".to_string(), str_arr(which_calls)),
             ]))
         }
         _ => Err(format!("unknown function: {name}")),
@@ -500,5 +855,126 @@ impl TempCaseDir {
 impl Drop for TempCaseDir {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.path);
+    }
+}
+
+// ------------------------------------------------- phase 4 helpers
+
+/// Replace the `{scratch}` token with this side's scratch dir.
+fn resolve_scratch(text: &str, dir: &TempCaseDir) -> String {
+    text.replace("{scratch}", &dir.path.to_string_lossy())
+}
+
+/// Replace this side's scratch dir with the `{scratch}` token.
+fn project(dir: &TempCaseDir, text: &str) -> String {
+    let needle = dir.path.to_string_lossy().to_string();
+    text.replace(&needle, "{scratch}")
+}
+
+/// Create the case's fixture files in the scratch dir: directories,
+/// content files, and posix exec bits (windows ignores `exec`).
+fn materialize_files(dir: &TempCaseDir, files: Option<&Json>) -> Result<(), String> {
+    let items = match files {
+        None | Some(Json::Null) => return Ok(()),
+        Some(Json::Arr(items)) => items,
+        Some(other) => return Err(format!("files must be an array: {other:?}")),
+    };
+    for item in items {
+        let rel = field_str(item, "path")?;
+        let target = dir.path.join(&rel);
+        if field_opt_bool(item, "dir")?.unwrap_or(false) {
+            std::fs::create_dir_all(&target).map_err(|e| format!("scratch mkdir {rel}: {e}"))?;
+            continue;
+        }
+        if let Some(parent) = target.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| format!("scratch mkdir {rel}: {e}"))?;
+        }
+        std::fs::write(&target, b"x").map_err(|e| format!("scratch write {rel}: {e}"))?;
+        let exec = field_opt_bool(item, "exec")?.unwrap_or(false);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = if exec { 0o755 } else { 0o644 };
+            std::fs::set_permissions(&target, std::fs::Permissions::from_mode(mode))
+                .map_err(|e| format!("scratch chmod {rel}: {e}"))?;
+        }
+        #[cfg(not(unix))]
+        let _ = exec;
+    }
+    Ok(())
+}
+
+/// The case's `saved` object as the settings value model.
+fn settings_from_case(case: &Json) -> Result<Obj, String> {
+    match obj_field(case, "saved") {
+        None | Some(Json::Null) => Ok(Vec::new()),
+        Some(Json::Obj(fields)) => fields
+            .iter()
+            .map(|(k, v)| Ok((k.clone(), json_to_value(v)?)))
+            .collect(),
+        Some(other) => Err(format!("saved must be an object or null: {other:?}")),
+    }
+}
+
+/// The case's `env` object, `{scratch}`-resolved when a dir is given.
+fn env_map_from_json(case: &Json, dir: Option<&TempCaseDir>) -> Result<resolve::EnvMap, String> {
+    let mut map = BTreeMap::new();
+    match obj_field(case, "env") {
+        None | Some(Json::Null) => {}
+        Some(Json::Obj(fields)) => {
+            for (k, v) in fields {
+                let Json::Str(s) = v else {
+                    return Err(format!("env values must be strings, {k} is {v:?}"));
+                };
+                let value = match dir {
+                    Some(d) => resolve_scratch(s, d),
+                    None => s.clone(),
+                };
+                map.insert(k.clone(), value);
+            }
+        }
+        Some(other) => return Err(format!("env must be an object: {other:?}")),
+    }
+    Ok(map)
+}
+
+/// `os.pathsep`-joined, `{scratch}`-resolved PATH entries.
+fn entries_str(case: &Json, dir: &TempCaseDir) -> Result<String, String> {
+    let sep = if cfg!(windows) { ";" } else { ":" };
+    let items = match obj_field(case, "entries") {
+        Some(Json::Arr(items)) => items,
+        _ => return Err("case needs an entries array".to_string()),
+    };
+    let mut parts: Vec<String> = Vec::with_capacity(items.len());
+    for item in items {
+        let Json::Str(s) = item else {
+            return Err(format!("entries must be strings, got {item:?}"));
+        };
+        parts.push(resolve_scratch(s, dir));
+    }
+    Ok(parts.join(sep))
+}
+
+/// A fake `shutil.which` driven by the case's answer map; records calls.
+fn map_which_closure<'a>(
+    dir: &'a TempCaseDir,
+    map: Option<&'a Json>,
+    calls: &'a mut Vec<String>,
+) -> impl FnMut(&str) -> Option<String> + 'a {
+    move |name: &str| {
+        calls.push(name.to_string());
+        match map.and_then(|m| obj_field(m, name)) {
+            Some(Json::Str(rel)) => Some(resolve_scratch(rel, dir)),
+            _ => None,
+        }
+    }
+}
+
+/// Split a function result into the record pair (value, shape token).
+fn shape_record(result: Result<Option<String>, ShapeKind>) -> (Json, Option<&'static str>) {
+    match result {
+        Ok(Some(p)) => (Json::Str(p), None),
+        Ok(None) => (Json::Null, None),
+        Err(s) => (Json::Null, Some(s.token())),
     }
 }

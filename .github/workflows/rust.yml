@@ -70,6 +70,48 @@ jobs:
       - name: east-asian width table matches the pinned oracle
         run: python app-rust/tools/gen_width_table.py --check
 
+  check-parity:
+    name: check parity ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+      - name: build the cli (release)
+        working-directory: app-rust
+        run: cargo build --release -p ytdlp-cli
+      - name: byte-compare --check, python vs native (G4)
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=app-rust/target/release/ytdlp
+          native=app-python/ytdlp-native
+          if [ "${RUNNER_OS}" = "Windows" ]; then
+            src=app-rust/target/release/ytdlp.exe
+            native=app-python/ytdlp-native.exe
+          fi
+          # the binary sits beside a config/bin tree so both implementations
+          # resolve the same root from their own rules (specsheet IF-1)
+          cp "$src" "$native"
+          python app-python/src/ytdlp.py --check > py-check.txt
+          "./$native" --check > rs-check.txt
+          rm -f "$native"
+          echo "--- python ---"
+          cat py-check.txt
+          echo "--- native ---"
+          cat rs-check.txt
+          diff -u py-check.txt rs-check.txt
+          echo "G4 PASS on ${RUNNER_OS}: --check outputs byte-identical"
+
   windows-build:
     name: windows release and PE import assertions
     runs-on: windows-latest
