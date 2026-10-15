@@ -8,7 +8,7 @@
 //! respawn logic:
 //!
 //!   FAKE_YTDLP_MODE   ok (default) | fail | probe-fail | sleep | slow
-//!                     | sub-ok | sub-miss | sub-429
+//!                     | sub-ok | sub-miss | sub-429 | update-fail
 //!   FAKE_YTDLP_SUB_MODE  the mode for a `--skip-download` invocation,
 //!                     default sub-ok
 //!   FAKE_YTDLP_ARGV   file to append the invocation record to: one
@@ -19,14 +19,21 @@
 //!   FAKE_YTDLP_NAME   the produced file name, default video.mp4
 //!   FAKE_YTDLP_SIZE   bytes written for the final file, default 32768
 //!   FAKE_YTDLP_SLEEP  seconds `sleep` mode stays alive, default 60
+//!   FAKE_YTDLP_VERSION  the version `--version` answers after a `-U`,
+//!                     default 2026.10.01
+//!   FAKE_YTDLP_UPDATED  marker file a `-U` writes and `--version` reads,
+//!                     so one process does not inherit another's update
 //!
 //! It answers `--version`/`-version` like yt-dlp (rc 0, the pinned
 //! string), reads `-P home:` out of its own argv exactly like the real
 //! yt-dlp would, keeps intermediates in `<outdir>/.ytdlp-tmp`, and its
 //! stdout shapes are the ones the wrapper scrapes ([download] lines,
-//! `Writing video subtitles to:`). `fail` and `sub-429` write stderr
-//! lines in yt-dlp's wording; everything is deterministic, ASCII and
-//! flushed per line.
+//! `Writing video subtitles to:`). `-U` is the self-update the updaters
+//! run: it prints yt-dlp's own wording, answers rc 0, and from then on
+//! `--version` reports the newer version - so a whole update round can
+//! be played offline (`update-fail` is the rc-nonzero variant). `fail`
+//! and `sub-429` write stderr lines in yt-dlp's wording; everything is
+//! deterministic, ASCII and flushed per line.
 
 use std::env;
 use std::fs::{self, OpenOptions};
@@ -49,13 +56,51 @@ fn main() -> ExitCode {
     }
     record_argv(&mode, &args);
 
+    // `-U` is yt-dlp's own self-update; the stand-in cannot fetch, so it
+    // reports the version it is running and flips its own version line
+    // for the probe that follows. The wording is yt-dlp's.
+    if args.len() == 1 && args[0] == "-U" {
+        println!("Latest version: {}", updated_version());
+        flush_stdout();
+        if mode == "update-fail" {
+            eprintln!("ERROR: unable to download the latest release");
+            return ExitCode::from(1);
+        }
+        if let Ok(path) = env::var("FAKE_YTDLP_UPDATED") {
+            let _ = fs::write(&path, updated_version());
+        }
+        // a real -U replaces the binary in place, so the mtime the
+        // wrapper's probe memo keys on changes; the stand-in does the
+        // same (rename over the running image is legal, writing into it
+        // is not), so the post-update probe is a real spawn and not a
+        // cache hit
+        if let Ok(exe) = env::current_exe() {
+            let staged = exe.with_extension("self-update");
+            let _ = fs::copy(&exe, &staged);
+            let _ = fs::rename(&staged, &exe);
+        }
+        println!(
+            "yt-dlp is up to date ({VERSION_LINE} -> {})",
+            updated_version()
+        );
+        flush_stdout();
+        return ExitCode::SUCCESS;
+    }
+
     // the preflight probe answers before any mode logic
     if args.len() == 1 && (args[0] == "--version" || args[0] == "-version") {
         if mode == "probe-fail" {
             eprintln!("fake probe banner: this build will not answer");
             return ExitCode::from(1);
         }
-        println!("{VERSION_LINE}");
+        println!(
+            "{}",
+            if updated() {
+                updated_version()
+            } else {
+                VERSION_LINE.to_string()
+            }
+        );
         return ExitCode::SUCCESS;
     }
 
@@ -140,6 +185,21 @@ fn main() -> ExitCode {
             write_file(&outdir.join(&name), size);
             ExitCode::SUCCESS
         }
+    }
+}
+
+/// Whether a `-U` already ran in this stand-in's lifetime, and the
+/// version the probe answers afterwards.
+fn updated_version() -> String {
+    env::var("FAKE_YTDLP_VERSION").unwrap_or_else(|_| "2026.10.01".to_string())
+}
+
+/// The update marker is a file beside the invocation record: a fresh
+/// process must not inherit the newer version from a previous round.
+fn updated() -> bool {
+    match env::var("FAKE_YTDLP_UPDATED") {
+        Ok(path) => Path::new(&path).exists(),
+        Err(_) => false,
     }
 }
 
