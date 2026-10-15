@@ -277,13 +277,21 @@ fn self_path() -> String {
     }
 }
 
-/// One updater run: `auto_update_check(s, force)` with the production
-/// world. The fresh agent and memo per call match `probe_closure`'s
+/// One updater run with the production world. `mode` is python's own
+/// split: `Check` is `auto_update_check(s, force)` (the menu start and
+/// `--update`'s cli half), `All` is `update_all(s)` (`--update` and menu
+/// item 11). The fresh agent and memo per call match `probe_closure`'s
 /// note; an agent is a config clone plus a connection pool, and both
 /// updater paths are one-shot.
+#[derive(Clone, Copy, PartialEq)]
+enum UpdMode {
+    Check,
+    All,
+}
+
 fn updater_run(
     s: &mut Obj,
-    force: bool,
+    mode: UpdMode,
     world: UpdWorld,
     io: &mut menu::Io,
 ) -> Result<bool, UpdErr> {
@@ -337,7 +345,10 @@ fn updater_run(
         out: io.out,
         reader: io.reader,
     };
-    update::auto_update_check(s, force, &mut ctx)
+    match mode {
+        UpdMode::Check => update::auto_update_check(s, true, &mut ctx),
+        UpdMode::All => update::update_all(s, &mut ctx),
+    }
 }
 
 /// The updater's world, owned so both menu closures can build one.
@@ -382,7 +393,7 @@ fn run_update(
         reader: &mut reader,
     };
     let world = UpdWorld::new(root, is_windows, use_color, shared);
-    match updater_run(settings, true, world, &mut io) {
+    match updater_run(settings, UpdMode::All, world, &mut io) {
         Ok(true) => ExitCode::SUCCESS,
         Ok(false) => ExitCode::from(1),
         Err(UpdErr::Eof) => exit_one("input ended inside the update prompt"),
@@ -459,17 +470,21 @@ fn run_menu(
     // the forced forms and run no check of their own.
     let updater = UpdWorld::new(root, is_windows, use_color, &shared);
     let mut update =
-        |s: &mut Obj, io: &mut menu::Io| match updater_run(s, true, updater.clone(), io) {
+        |s: &mut Obj, io: &mut menu::Io| match updater_run(s, UpdMode::All, updater.clone(), io) {
             Ok(_) => Ok(()),
             Err(UpdErr::Eof) => Err(MenuErr::Eof),
             Err(UpdErr::Interrupted) => Err(MenuErr::Interrupted),
         };
-    let mut quiet_check =
-        |s: &mut Obj, io: &mut menu::Io| match updater_run(s, false, updater.clone(), io) {
-            Ok(_) => Ok(()),
-            Err(UpdErr::Eof) => Err(MenuErr::Eof),
-            Err(UpdErr::Interrupted) => Err(MenuErr::Interrupted),
-        };
+    let mut quiet_check = |s: &mut Obj, io: &mut menu::Io| match updater_run(
+        s,
+        UpdMode::Check,
+        updater.clone(),
+        io,
+    ) {
+        Ok(_) => Ok(()),
+        Err(UpdErr::Eof) => Err(MenuErr::Eof),
+        Err(UpdErr::Interrupted) => Err(MenuErr::Interrupted),
+    };
 
     match menu::main_menu(
         &mut settings,

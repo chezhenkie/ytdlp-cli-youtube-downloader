@@ -472,4 +472,38 @@ mod tests {
             std::fs::remove_dir_all(&dir).unwrap();
         });
     }
+
+    /// G8 evidence for audit F3's ceiling, measured rather than asserted:
+    /// the non-forced check must give up in about six seconds when the
+    /// network is black-holed, because it runs on the main thread before
+    /// the first keystroke is read. `10.255.255.1` is RFC1918 and
+    /// unroutable, so the connect hangs until the ceiling fires.
+    ///
+    /// Ignored by default: it needs a real six-second hang and a network
+    /// that drops (not refuses) the address, which CI has no business
+    /// spending. Run it by hand:
+    ///
+    ///     cargo test -p ytdlp-cli --lib -- --ignored timeout_ceiling
+    ///
+    /// Measured 2026-10-15 on the WSL dev box: 6.01 s, `timeout: global`.
+    /// CPython's `urlopen(timeout=6)` against the same address measured
+    /// 6.01 s (`URLError`) the same day, so the value - not the mechanism
+    /// - is the parity.
+    #[test]
+    #[ignore = "needs a six-second hang against an unroutable address"]
+    fn timeout_ceiling_is_six_seconds_against_a_black_holed_host() {
+        env_test(|| {
+            let mut http = UreqHttp::new();
+            let start = std::time::Instant::now();
+            let err = http
+                .text("http://10.255.255.1:9/x", CHECK_TIMEOUT)
+                .expect_err("an unroutable address must not answer");
+            let elapsed = start.elapsed().as_secs_f64();
+            println!("elapsed {elapsed:.2} s, error {err}");
+            assert!(
+                (CHECK_TIMEOUT as f64 - 1.0..=CHECK_TIMEOUT as f64 + 3.0).contains(&elapsed),
+                "the 6 s ceiling fired in {elapsed:.2} s"
+            );
+        });
+    }
 }
