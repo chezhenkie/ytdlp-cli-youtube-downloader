@@ -96,13 +96,20 @@ import argparse
 import importlib.util
 import io
 import json
+import lzma
 import os
+import re
 import shutil
+import stat
 import subprocess
 import sys
+import tarfile
 import tempfile
 import time
 import types
+import urllib.error
+import urllib.request
+import zipfile
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
@@ -1557,6 +1564,547 @@ PY_CALL_HOOKS.update(
         "clean_partials": _hook_clean_partials,
         "run_download": _hook_run_download,
         "cli_args": _hook_cli_args,
+    }
+)
+
+
+# ------------------------------------ phase 8: network and updaters
+#
+# The network never dials: `urlopen` is replaced by a scripted response, so
+# http_text / http_file / expected_sha / install_ffmpeg / the updater arms
+# run offline on both sides. Lines that interpolate an exception's text are
+# pinned because the *fake* raises with the same text the seam returns; the
+# real transports word their failures differently, which the port notes
+# record as shape-gated.
+#
+# Archive fixtures are built by each side from a member list rather than
+# carried as bytes in the vector: the case stays readable and both sides
+# prove they read the same archive shape.
+
+import lzma  # noqa: E402
+import re  # noqa: E402
+import stat  # noqa: E402
+import tarfile  # noqa: E402
+import zipfile  # noqa: E402
+
+FALLBACK_PROBE = ("", -1)
+
+
+def _file_hex(path):
+    try:
+        return path.read_bytes().hex()
+    except (OSError, ValueError):
+        return None
+
+
+def _mode_of(path):
+    """The file mode on posix, null elsewhere: python's os.stat and rust's
+    PermissionsExt report different things on windows, so the record does
+    not ask there."""
+    if os.name == "nt":
+        return None
+    try:
+        return oct(stat.S_IMODE(path.stat().st_mode))
+    except OSError:
+        return None
+
+
+def _listing(folder):
+    """`[{"name", "dir", "hex", "mode"}]` sorted, so a case can assert what a
+    run left on disk."""
+    out = []
+    if not folder.is_dir():
+        return out
+    for item in sorted(folder.iterdir(), key=lambda p: p.name):
+        out.append(
+            {
+                "name": item.name,
+                "dir": item.is_dir(),
+                "hex": None if item.is_dir() else _file_hex(item),
+                "mode": None if item.is_dir() else _mode_of(item),
+            }
+        )
+    return out
+
+
+def _project_rand(text):
+    """`tempfile.mkdtemp` and the port's mkdtemp both hide a suffix behind
+    the same `.ff-` prefix - a random one and a clock-derived one - so the
+    record pins the shape, not the name."""
+    return re.sub(r"\.ff-[^/\\]*", ".ff-<rand>", text)
+
+
+def _project_install(text, work):
+    return _project_rand(_project(work, text))
+
+
+# the archive-fault payload is exception text, so it is shape-gated like
+# every other one: the line shape is the pin, the wording is each
+# library's own
+UNREADABLE = "  the downloaded archive was unreadable: "
+UNREADABLE_TOKEN = UNREADABLE + "{archive-error}\n"
+
+
+def _project_product(text, module):
+    """The two lines the native port spells differently by design: the
+    product version and the update source (FR-13). Both become tokens, so
+    the arm pins the line shapes and the spec pins the values."""
+    return text.replace(
+        "this is v%s" % module.VERSION, "this is v{version}"
+    ).replace(module.CLI_UPDATE_URL, "{update-url}")
+
+
+def _project_unreadable(text):
+    # the whole line is replaced: the payload is each library's own wording
+    return re.sub(re.escape(UNREADABLE) + r"[^\n]*", UNREADABLE_TOKEN.rstrip("\n"), text)
+
+
+def _body_bytes(case):
+    """The body a case carries: `chunks` (hex strings) or `text`."""
+    if case.get("chunks") is not None:
+        return b"".join(bytes.fromhex(chunk) for chunk in case["chunks"])
+    return (case.get("text") or "").encode("utf-8")
+
+
+class _fake_response:
+    """What urlopen hands back: read(n), geturl(), headers, and a context
+    manager - the shape http_text and http_file use."""
+
+    def __init__(self, case, url):
+        self._body = _body_bytes(case)
+        self._pos = 0
+        self._reads = 0
+        self._final = case.get("final_url") or url
+        self._error = case.get("error")
+        self._error_after = case.get("error_after_reads")
+        if "content_length" in case:
+            length = case["content_length"]
+            self.headers = {} if length is None else {"Content-Length": str(length)}
+        else:
+            self.headers = {"Content-Length": str(len(self._body))}
+
+    def read(self, size=-1):
+        self._reads += 1
+        if self._error and (self._error_after is None or self._reads > self._error_after):
+            raise OSError(self._error)
+        if size is None or size < 0:
+            chunk = self._body[self._pos :]
+        else:
+            chunk = self._body[self._pos : self._pos + size]
+        self._pos += len(chunk)
+        return chunk
+
+    def geturl(self):
+        return self._final
+
+    def close(self):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def _fake_urlopen(kind, case, log):
+    def urlopen(req, timeout=None, **kwargs):
+        url = getattr(req, "full_url", req)
+        headers = {k.lower(): v for k, v in (getattr(req, "headers", None) or {}).items()}
+        log.append(
+            {
+                "kind": kind,
+                "url": url,
+                "timeout": timeout,
+                "user_agent": headers.get("user-agent"),
+            }
+        )
+        if case.get("open_error"):
+            raise OSError(case["open_error"])
+        return _fake_response(case, url)
+
+    return urlopen
+
+
+def _bound_urlopen(module, kind, case, log):
+    return _bound_world(module.urllib.request, attrs={"urlopen": _fake_urlopen(kind, case, log)})
+
+
+class _stage_shim:
+    """What http_file writes its progress into: python sets `stage.live`
+    and the arm records the last text, exactly like the run_download arm
+    records its stage."""
+
+    def __init__(self):
+        self.live = None
+
+
+def _hook_http_text(module, args):
+    case = args[0]
+    log = []
+    with _bound_urlopen(module, "text", case, log):
+        try:
+            text = module.http_text(case["url"], int(case.get("timeout", 60)))
+            out = {"ok": True, "text": text, "error": None}
+        except Exception as exc:
+            out = {"ok": False, "text": None, "error": str(exc)}
+    out["calls"] = log
+    return out
+
+
+def _hook_http_file(module, args):
+    case = args[0]
+    work = _case_scratch(case, "httpfile")
+    try:
+        dest = Path(_resolve_scratch(case["dest"], work))
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        stage = _stage_shim() if case.get("stage") else None
+        log = []
+        with _bound_urlopen(module, "file", case, log):
+            try:
+                got, final, total = module.http_file(
+                    case["url"], dest, stage, int(case.get("timeout", module.DL_TIMEOUT))
+                )
+                error = None
+            except Exception as exc:
+                got = final = total = None
+                error = str(exc)
+        part = dest.with_name(dest.name + ".part")
+        return {
+            "ok": error is None,
+            "error": error,
+            "got": got,
+            "final": final,
+            "total": total,
+            "live": None if stage is None else stage.live,
+            "dest": _project(work, str(dest)),
+            "dest_hex": _file_hex(dest),
+            "part_exists": part.exists(),
+            "part_hex": _file_hex(part),
+            "calls": log,
+        }
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _hook_sha256_file(module, args):
+    case = args[0]
+    work = _case_scratch(case, "sha")
+    try:
+        path = Path(_resolve_scratch(case["path"], work))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if case.get("missing"):
+            return {"ok": False, "digest": None}
+        path.write_bytes(_body_bytes(case))
+        return {"ok": True, "digest": module.sha256_file(path)}
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _hook_expected_sha(module, args):
+    case = args[0]
+    side = io.StringIO()
+    log = []
+    with _bound_urlopen(module, "text", case, log), redirect_stdout(side):
+        digest = module.expected_sha(case["url"], case["sha_url"], case["asset"])
+    return {"digest": digest, "stdout": side.getvalue(), "calls": log}
+
+
+def _build_archive(work, spec):
+    """Materialise one archive from the case's member list. Each side
+    builds its own bytes from the same shape; the record never carries the
+    archive itself."""
+    path = Path(_resolve_scratch(spec["path"], work))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    members = [
+        (member[0], (member[1] if len(member) > 1 else "").encode("utf-8"))
+        for member in spec["members"]
+    ]
+    if spec.get("how") == "zip":
+        with zipfile.ZipFile(str(path), "w", zipfile.ZIP_DEFLATED) as zf:
+            for name, body in members:
+                zf.writestr(name, body)
+    else:
+        raw = io.BytesIO()
+        with tarfile.open(fileobj=raw, mode="w") as tf:
+            for name, body in members:
+                info = tarfile.TarInfo(name)
+                info.size = len(body)
+                tf.addfile(info, io.BytesIO(body))
+        with lzma.open(str(path), "wb") as fh:
+            fh.write(raw.getvalue())
+    if spec.get("truncate"):
+        data = path.read_bytes()
+        path.write_bytes(data[: max(1, int(len(data) * float(spec["truncate"])))])
+    return str(path)
+
+
+def _hook_extract_member(module, args):
+    case = args[0]
+    work = _case_scratch(case, "archive")
+    try:
+        blob = _build_archive(work, case["archive"])
+        outdir = Path(_resolve_scratch(case["outdir"], work))
+        outdir.mkdir(parents=True, exist_ok=True)
+        side = io.StringIO()
+        with redirect_stdout(side):
+            result = module.extract_member(blob, case["how"], case["binname"], outdir)
+        return {
+            "result": _project_install(str(result), work) if result is not None else None,
+            "stdout": _project_unreadable(side.getvalue()),
+            "listing": _listing(outdir),
+        }
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+class _fake_probe:
+    """`probe_version(script)`: one (version, rc) per call, and the paths
+    each call saw, in order."""
+
+    def __init__(self, queue, log):
+        self.queue = list(queue)
+        self.log = log
+
+    def __call__(self, path):
+        self.log.append(str(path))
+        if not self.queue:
+            return FALLBACK_PROBE
+        return tuple(self.queue.pop(0))
+
+
+def _hook_install_ffmpeg(module, args):
+    case = args[0]
+    work = _case_scratch(case, "ffmpeg")
+    try:
+        bin_dir = Path(_resolve_scratch(case.get("bin_dir", "{scratch}/bin"), work))
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        blob = _build_archive(work, case["archive"])
+        digest = module.sha256_file(blob)
+        asset = Path(blob).name
+        log = []
+        side = io.StringIO()
+        probe_log = []
+        probe = _fake_probe(case.get("probes") or [], probe_log)
+        sleeps = []
+        saved = {
+            "platform_name": module.platform_name,
+            "BIN_DIR": module.BIN_DIR,
+            "http_file": module.http_file,
+            "http_text": module.http_text,
+            "probe_version": module.probe_version,
+        }
+        module.platform_name = lambda: case["platform"]
+        module.BIN_DIR = bin_dir
+        module.probe_version = probe
+
+        def fake_http_text(url, timeout=60):
+            log.append({"kind": "text", "url": url, "timeout": timeout, "user_agent": None})
+            if case.get("sha_error"):
+                raise OSError(case["sha_error"])
+            return "%s  %s\n" % (digest, asset)
+
+        def fake_http_file(url, dest, stage=None, timeout=module.DL_TIMEOUT):
+            log.append({"kind": "file", "url": url, "timeout": timeout, "user_agent": None})
+            if stage is not None:
+                stage.live = "downloading ffmpeg - 0.0 / 0.0 MB"
+            if case.get("download_error"):
+                raise OSError(case["download_error"])
+            shutil.copyfile(blob, str(dest))
+            size = os.path.getsize(blob)
+            return (size, url, size)
+
+        module.http_text = fake_http_text
+        module.http_file = fake_http_file
+        try:
+            with _bound_world(
+                module.time, attrs={"sleep": lambda secs: sleeps.append(secs)}
+            ), redirect_stdout(side):
+                result = module.install_ffmpeg(_stage_shim() if case.get("stage") else None)
+        finally:
+            for name, value in saved.items():
+                setattr(module, name, value)
+        return {
+            "result": _project_install(str(result), work) if result is not None else None,
+            "stdout": _project_unreadable(_project_rand(side.getvalue())),
+            "probes": [_project_install(path, work) for path in probe_log],
+            # the protocol carries no bare floats, so python's float()
+            # spelling is the value
+            "sleeps": [repr(secs) for secs in sleeps],
+            "listing": _listing(bin_dir),
+            "calls": log,
+        }
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _scripted_call(case, calls, argv):
+    calls.append(list(argv))
+    if case.get("call_interrupt"):
+        raise KeyboardInterrupt()
+    queue = list(case.get("call_rcs") or [])
+    return queue.pop(0) if queue else 0
+
+
+def _hook_update_yt_dlp(module, args):
+    case = args[0]
+    work = _case_scratch(case, "upd")
+    try:
+        settings = json.loads(json.dumps(case.get("settings") or {}))
+        target = None
+        if case.get("binary"):
+            target = Path(_resolve_scratch(case["binary"], work))
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(b"yt-dlp")
+        probe_log = []
+        probe = _fake_probe(case.get("probes") or [], probe_log)
+        calls = []
+        side = io.StringIO()
+        saved = {
+            "find_yt_dlp": module.find_yt_dlp,
+            "probe_version": module.probe_version,
+        }
+        module.find_yt_dlp = lambda s, *a, **k: target
+        module.probe_version = probe
+        try:
+            with _bound_world(
+                module.subprocess, attrs={"call": lambda argv, **kw: _scripted_call(case, calls, argv)}
+            ), redirect_stdout(side):
+                result = module.update_yt_dlp(settings)
+        finally:
+            for name, value in saved.items():
+                setattr(module, name, value)
+        return {
+            "result": result,
+            "stdout": _project(work, side.getvalue()),
+            "probes": [_project_install(path, work) for path in probe_log],
+            "calls": [
+                [_project(work, part) for part in argv] for argv in calls
+            ],
+        }
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+class _updater_clock:
+    """`time.time()` answers the case's stamp, so the 86400 s throttle is
+    testable and no wall clock enters the record."""
+
+    def __init__(self, case):
+        self.now = float(case.get("now", 0.0))
+
+    def time(self):
+        return self.now
+
+    def sleep(self, _secs):
+        pass
+
+
+def _hook_auto_update_check(module, args):
+    return _hook_updater(module, args, mode="check")
+
+
+def _hook_update_all(module, args):
+    return _hook_updater(module, args, mode="all")
+
+
+def _hook_updater(module, args, mode):
+    """The updater arms. They stop before the install on both sides: the
+    gates, the notice, the prompt and the stamps are python's, and the
+    native install path past the prompt is covered by the cli crate's own
+    tests (the native contract is a recorded deviation)."""
+    case = args[0]
+    work = _case_scratch(case, "upd")
+    try:
+        settings = json.loads(json.dumps(case.get("settings") or {}))
+        reader = _scripted_reader(case.get("replies") or [])
+        fetches = []
+        installs = []
+        probe_log = []
+        side = io.StringIO()
+        target = Path(_resolve_scratch(case.get("self_path", "{scratch}/ytdlp"), work))
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if not case.get("self_missing"):
+            target.write_bytes(b"the running image")
+
+        def fake_fetch(url=None, timeout=60):
+            fetches.append({"timeout": timeout})
+            if case.get("fetch_error"):
+                raise OSError(case["fetch_error"])
+            return (case.get("version"), case.get("raw") or "")
+
+        def fake_install(raw, target_path=None):
+            installs.append({"raw": raw, "target": _project(work, str(target_path or target))})
+            if case.get("install_error"):
+                return (False, case["install_error"])
+            return (True, str(target_path or target))
+
+        saved = {
+            "fetch_cli": module.fetch_cli,
+            "install_cli": module.install_cli,
+            "read_esc": module.read_esc,
+            "can_ask": module.can_ask,
+            "time": module.time,
+        }
+        if mode == "all":
+            saved["find_yt_dlp"] = module.find_yt_dlp
+            saved["probe_version"] = module.probe_version
+            calls = []
+            module.find_yt_dlp = lambda s, *a, **k: (
+                Path(_resolve_scratch(case["binary"], work)) if case.get("binary") else None
+            )
+            module.probe_version = _fake_probe(case.get("probes") or [], probe_log)
+        module.fetch_cli = fake_fetch
+        module.install_cli = fake_install
+        module.read_esc = reader
+        module.can_ask = lambda: bool(case.get("can_ask", True))
+        module.time = _updater_clock(case)
+        try:
+            with redirect_stdout(side):
+                try:
+                    if mode == "all":
+                        with _bound_world(
+                            module.subprocess,
+                            attrs={
+                                "call": lambda argv, **kw: _scripted_call(case, calls, argv)
+                            },
+                        ):
+                            result = module.update_all(settings)
+                    else:
+                        result = module.auto_update_check(settings, bool(case.get("force")))
+                    error = None
+                except EOFError:
+                    result, error = None, "eof"
+                except KeyboardInterrupt:
+                    result, error = None, "interrupted"
+        finally:
+            for name, value in saved.items():
+                setattr(module, name, value)
+        return {
+            "result": result,
+            "error": error,
+            "stdout": _project(work, _project_product(side.getvalue(), module)),
+            "fetches": fetches,
+            "installs": installs,
+            "probes": [_project_install(path, work) for path in probe_log],
+            "prompts": [_project(work, prompt) for prompt in reader.prompts],
+            "settings_after": _project_value(work, settings),
+        }
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+PY_CALL_HOOKS.update(
+    {
+        "http_text": _hook_http_text,
+        "http_file": _hook_http_file,
+        "sha256_file": _hook_sha256_file,
+        "expected_sha": _hook_expected_sha,
+        "extract_member": _hook_extract_member,
+        "install_ffmpeg": _hook_install_ffmpeg,
+        "update_yt_dlp": _hook_update_yt_dlp,
+        "auto_update_check": _hook_auto_update_check,
+        "update_all": _hook_update_all,
     }
 )
 

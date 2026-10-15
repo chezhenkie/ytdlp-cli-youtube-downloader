@@ -505,7 +505,10 @@ dependencies = [
 name = "ytdlp-harness"
 version = "2.0.0"
 dependencies = [
+ "lzma-rust2",
+ "tar",
  "ytdlp-cli",
+ "zip",
 ]
 
 [[package]]

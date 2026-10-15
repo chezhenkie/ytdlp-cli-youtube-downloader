@@ -1,0 +1,187 @@
+{
+  "fn": "extract_member",
+  "cases": [
+    {
+      "args": [
+        {
+          "how": "zip",
+          "binname": "ffmpeg.exe",
+          "outdir": "{scratch}/out",
+          "archive": {
+            "path": "{scratch}/a.zip",
+            "how": "zip",
+            "members": [
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/other.exe",
+                "other"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/ffmpeg.exe",
+                "the windows binary"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/doc.txt",
+                "doc"
+              ]
+            ]
+          }
+        }
+      ],
+      "note": "the nested binary is lifted, the rest is not"
+    },
+    {
+      "args": [
+        {
+          "how": "tar.xz",
+          "binname": "ffmpeg",
+          "outdir": "{scratch}/out",
+          "archive": {
+            "path": "{scratch}/a.tar.xz",
+            "how": "tar.xz",
+            "members": [
+              [
+                "ffmpeg-n9.0/bin/ffprobe",
+                "probe"
+              ],
+              [
+                "ffmpeg-n9.0/bin/ffmpeg",
+                "the linux binary"
+              ]
+            ]
+          }
+        }
+      ],
+      "note": "the same shape in a tar.xz"
+    },
+    {
+      "args": [
+        {
+          "how": "zip",
+          "binname": "ffmpeg",
+          "outdir": "{scratch}/out",
+          "archive": {
+            "path": "{scratch}/a.zip",
+            "how": "zip",
+            "members": [
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/other.exe",
+                "other"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/ffmpeg.exe",
+                "the windows binary"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/doc.txt",
+                "doc"
+              ]
+            ]
+          }
+        }
+      ],
+      "note": "the member is not in there"
+    },
+    {
+      "args": [
+        {
+          "how": "zip",
+          "binname": "ffmpeg.exe",
+          "outdir": "{scratch}/out",
+          "archive": {
+            "path": "{scratch}/a.zip",
+            "how": "zip",
+            "members": [
+              [
+                "bin/dir/ffmpeg.exe/",
+                "not a file"
+              ]
+            ]
+          }
+        }
+      ],
+      "note": "a directory entry with the same name does not count"
+    },
+    {
+      "args": [
+        {
+          "how": "zip",
+          "binname": "ffmpeg.exe",
+          "outdir": "{scratch}/out",
+          "archive": {
+            "path": "{scratch}/a.zip",
+            "how": "zip",
+            "members": [
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/other.exe",
+                "other"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/ffmpeg.exe",
+                "the windows binary"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/doc.txt",
+                "doc"
+              ]
+            ],
+            "truncate": 0.5
+          }
+        }
+      ],
+      "note": "truncated: unreadable, and nothing written"
+    },
+    {
+      "args": [
+        {
+          "how": "tar.xz",
+          "binname": "ffmpeg",
+          "outdir": "{scratch}/out",
+          "archive": {
+            "path": "{scratch}/a.tar.xz",
+            "how": "tar.xz",
+            "members": [
+              [
+                "ffmpeg-n9.0/bin/ffprobe",
+                "probe"
+              ],
+              [
+                "ffmpeg-n9.0/bin/ffmpeg",
+                "the linux binary"
+              ]
+            ],
+            "truncate": 0.4
+          }
+        }
+      ],
+      "note": "truncated tar.xz: unreadable, nothing written"
+    },
+    {
+      "args": [
+        {
+          "how": "rar",
+          "binname": "ffmpeg",
+          "outdir": "{scratch}/out",
+          "archive": {
+            "path": "{scratch}/a.zip",
+            "how": "zip",
+            "members": [
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/other.exe",
+                "other"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/ffmpeg.exe",
+                "the windows binary"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/doc.txt",
+                "doc"
+              ]
+            ]
+          }
+        }
+      ],
+      "note": "an unknown shape is quietly None"
+    }
+  ]
+}

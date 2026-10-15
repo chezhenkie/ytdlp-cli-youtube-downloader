@@ -354,6 +354,13 @@ pub fn interrupt_pending() -> bool {
     INTERRUPT_SEEN.load(Ordering::SeqCst)
 }
 
+/// Set or clear the Ctrl+C flag without a real signal: the differential
+/// harness scripts a Ctrl+C during the updater's `-U` child, and there
+/// is no console to press one on.
+pub fn set_interrupt(seen: bool) {
+    INTERRUPT_SEEN.store(seen, Ordering::SeqCst);
+}
+
 #[cfg(unix)]
 extern "C" fn sigint_handler(_sig: libc::c_int) {
     INTERRUPT_SEEN.store(true, Ordering::SeqCst);
@@ -776,9 +783,7 @@ fn verify_and_install(
         print_out(&ctx.sink, &format!("  could not install into bin/: {e}"));
         return None;
     }
-    if !is_windows
-        && let Err(e) = pyfs::chmod_755(&target)
-    {
+    if !is_windows && let Err(e) = pyfs::chmod_755(&target) {
         print_out(
             &ctx.sink,
             &format!("  could not set the mode of {target}: {e}"),

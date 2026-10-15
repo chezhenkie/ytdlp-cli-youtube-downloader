@@ -17,12 +17,16 @@
 //! byte comparison is impossible; its twins live in cli/src/term.rs.
 
 use crate::json::Json;
+use std::cell::RefCell;
+use std::rc::Rc;
 use ytdlp_cli::cli_args;
 use ytdlp_cli::config::{Obj, Value};
 use ytdlp_cli::menu::{self, MenuErr};
 use ytdlp_cli::resolve::{self, ShapeKind};
+
+use ytdlp_cli::net::HttpRt;
 use ytdlp_cli::tty::{self, ScriptItem};
-use ytdlp_cli::{args, config, exec, term, ui, update};
+use ytdlp_cli::{archive, args, config, exec, net, sha256, term, ui, update};
 
 pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
     match name {
@@ -994,9 +998,8 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
             // main_menu, not the network, so both stay inert closures
             // unless a case scripts them (see the update arms)
             let mut update = |_s: &mut Obj, _io: &mut menu::Io| -> Result<(), MenuErr> { Ok(()) };
-            let mut quiet_check = |_s: &mut Obj, _io: &mut menu::Io| -> Result<(), MenuErr> {
-                Ok(())
-            };
+            let mut quiet_check =
+                |_s: &mut Obj, _io: &mut menu::Io| -> Result<(), MenuErr> { Ok(()) };
             let (outcome, exit) = {
                 let mut io = menu::Io {
                     out: &mut rec,
@@ -1004,14 +1007,7 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                 };
                 if name == "act" {
                     let choice = field_str(case, "choice")?;
-                    match menu::act(
-                        &choice,
-                        &mut s,
-                        &mut io,
-                        &world,
-                        &mut download,
-                        &mut update,
-                    ) {
+                    match menu::act(&choice, &mut s, &mut io, &world, &mut download, &mut update) {
                         Ok(menu::ActOutcome::Repaint(true)) => {
                             ("repaint_true".to_string(), Json::Null)
                         }
@@ -1053,6 +1049,419 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                 (
                     "prompts".to_string(),
                     str_arr(reader.prompts.iter().map(|p| project(&dir, p)).collect()),
+                ),
+            ]))
+        }
+        // ------------------------------------ phase 8: network, updaters
+        //
+        // Every arm runs offline: the network is a scripted seam, the
+        // archives are built here from the case's member list (so a vector
+        // carries no bytes and both sides read the same shape), and the
+        // records project the scratch dir, the temp-dir suffix, the product
+        // version and the update source - the two lines the native port is
+        // documented to spell differently (FR-13).
+        "http_text" | "http_file" => {
+            let case = arg(args, 0, "network case")?;
+            let dir = TempCaseDir::new("http")?;
+            let url = field_str(case, "url")?;
+            let mut http = HttpScript::from_case(case, "url")?;
+            if name == "http_text" {
+                let timeout = case_int_or(case, "timeout", net::FORCED_TIMEOUT as i64)?;
+                let (ok, text, error) = match http.text(&url, timeout as u64) {
+                    Ok(text) => (true, Json::Str(text), Json::Null),
+                    Err(e) => (false, Json::Null, Json::Str(project(&dir, &e))),
+                };
+                return Ok(Json::Obj(vec![
+                    ("ok".to_string(), Json::Bool(ok)),
+                    ("text".to_string(), text),
+                    ("error".to_string(), error),
+                    ("calls".to_string(), http.call_log()),
+                ]));
+            }
+            let dest = resolve_scratch(&field_str(case, "dest")?, &dir);
+            mkdir_parent(&dest)?;
+            let with_stage = field_opt_bool(case, "stage")?.unwrap_or(false);
+            let timeout = case_int_or(case, "timeout", net::DL_TIMEOUT as i64)?;
+            let mut live: Option<String> = None;
+            let result = if with_stage {
+                let mut report = |text: &str| live = Some(text.to_string());
+                http.file(&url, &dest, timeout as u64, Some(&mut report))
+            } else {
+                http.file(&url, &dest, timeout as u64, None)
+            };
+            let part = format!("{dest}.part");
+            let (ok, got, final_url, total, error) = match result {
+                Ok(out) => (
+                    true,
+                    Json::Int(out.bytes),
+                    Json::Str(project(&dir, &out.final_url)),
+                    Json::Int(out.content_length),
+                    Json::Null,
+                ),
+                Err(e) => (
+                    false,
+                    Json::Null,
+                    Json::Null,
+                    Json::Null,
+                    Json::Str(project(&dir, &e)),
+                ),
+            };
+            Ok(Json::Obj(vec![
+                ("ok".to_string(), Json::Bool(ok)),
+                ("error".to_string(), error),
+                ("got".to_string(), got),
+                ("final".to_string(), final_url),
+                ("total".to_string(), total),
+                (
+                    "live".to_string(),
+                    str_or_null(live.map(|t| project(&dir, &t))),
+                ),
+                ("dest".to_string(), Json::Str(project(&dir, &dest))),
+                ("dest_hex".to_string(), file_hex(&dest)),
+                (
+                    "part_exists".to_string(),
+                    Json::Bool(std::path::Path::new(&part).exists()),
+                ),
+                ("part_hex".to_string(), file_hex(&part)),
+                ("calls".to_string(), http.call_log()),
+            ]))
+        }
+        "sha256_file" => {
+            let case = arg(args, 0, "sha256_file case")?;
+            let dir = TempCaseDir::new("sha")?;
+            let path = resolve_scratch(&field_str(case, "path")?, &dir);
+            if field_opt_bool(case, "missing")?.unwrap_or(false) {
+                return Ok(Json::Obj(vec![
+                    ("ok".to_string(), Json::Bool(false)),
+                    ("digest".to_string(), Json::Null),
+                ]));
+            }
+            mkdir_parent(&path)?;
+            std::fs::write(&path, body_bytes(case)?).map_err(|e| format!("scratch write: {e}"))?;
+            let digest = sha256::sha256_file(&path).map_err(|e| format!("sha256_file: {e}"))?;
+            Ok(Json::Obj(vec![
+                ("ok".to_string(), Json::Bool(true)),
+                ("digest".to_string(), Json::Str(digest)),
+            ]))
+        }
+        "expected_sha" => {
+            let case = arg(args, 0, "expected_sha case")?;
+            let rec = tty::RecordingOut::default();
+            let sink = tty::SharedOut::new(rec.clone()).sink();
+            let mut http = HttpScript::from_case(case, "sha_url")?;
+            let digest = update::expected_sha(
+                &field_str(case, "url")?,
+                &field_str(case, "sha_url")?,
+                &field_str(case, "asset")?,
+                &mut http,
+                &sink,
+            );
+            Ok(Json::Obj(vec![
+                ("digest".to_string(), str_or_null(digest)),
+                ("stdout".to_string(), Json::Str(rec.text())),
+                ("calls".to_string(), http.call_log()),
+            ]))
+        }
+        "extract_member" => {
+            let case = arg(args, 0, "extract_member case")?;
+            let dir = TempCaseDir::new("archive")?;
+            let how = field_str(case, "how")?;
+            let binname = field_str(case, "binname")?;
+            let blob = build_archive(
+                &dir,
+                obj_field(case, "archive").ok_or("case needs an archive")?,
+            )?;
+            let outdir = resolve_scratch(&field_str(case, "outdir")?, &dir);
+            std::fs::create_dir_all(&outdir).map_err(|e| format!("scratch mkdir: {e}"))?;
+            let rec = tty::RecordingOut::default();
+            let sink = tty::SharedOut::new(rec.clone()).sink();
+            let result = archive::extract_member(&blob, &how, &binname, &outdir, &sink);
+            let listed = listing(&outdir, &dir);
+            Ok(Json::Obj(vec![
+                (
+                    "result".to_string(),
+                    str_or_null(result.map(|path| project_install(&dir, &path))),
+                ),
+                (
+                    "stdout".to_string(),
+                    Json::Str(project_unreadable(&rec.text())),
+                ),
+                ("listing".to_string(), listed),
+            ]))
+        }
+        "install_ffmpeg" => {
+            let case = arg(args, 0, "install_ffmpeg case")?;
+            let dir = TempCaseDir::new("ffmpeg")?;
+            let platform = field_str(case, "platform")?;
+            let bin_dir = resolve_scratch(
+                field_opt_str(case, "bin_dir")?.unwrap_or("{scratch}/bin"),
+                &dir,
+            );
+            std::fs::create_dir_all(&bin_dir).map_err(|e| format!("scratch mkdir: {e}"))?;
+            let blob = build_archive(
+                &dir,
+                obj_field(case, "archive").ok_or("case needs an archive")?,
+            )?;
+            let digest = sha256::sha256_file(&blob).map_err(|e| format!("sha256_file: {e}"))?;
+            // the scripted provider: its checksum file and its archive
+            let mut http = HttpScript::new();
+            http.sends_agent = false;
+            if let Some(source) = exec::ffmpeg_source(&platform) {
+                let asset = source.url.rsplit('/').next().unwrap_or("").to_string();
+                http.add_text(source.sha_url, &format!("{digest}  {asset}\n"));
+                http.add_file(source.url, std::fs::read(&blob).unwrap_or_default());
+                if let Some(err) = field_opt_str(case, "sha_error")? {
+                    http.text_error = Some(err.to_string());
+                }
+                if let Some(err) = field_opt_str(case, "download_error")? {
+                    http.file_error = Some(err.to_string());
+                    http.error_after = None;
+                }
+            }
+            let probes = probe_queue(case)?;
+            let probed: Rc<RefCell<Vec<String>>> = Rc::new(RefCell::new(Vec::new()));
+            let queue = Rc::new(RefCell::new(probes));
+            let mut probe = arm_probe(probed.clone(), queue);
+            let slept: Rc<RefCell<Vec<f64>>> = Rc::new(RefCell::new(Vec::new()));
+            let mut sleep = arm_sleep(slept.clone());
+            let rec = tty::RecordingOut::default();
+            let sink = tty::SharedOut::new(rec.clone()).sink();
+            let mut out_rec = rec.clone();
+            let mut reader = tty::ScriptedReader::new(Vec::new());
+            let root = dir.path.to_string_lossy().into_owned();
+            // python's `if os.name != "nt"` is the host, not the platform
+            // the case installs for
+            let is_windows = cfg!(windows);
+            let mut which = |_: &str| None;
+            let mut ctx = exec::DownloadCtx {
+                root: &root,
+                is_windows,
+                use_color: false,
+                stdin_tty: true,
+                sink,
+                out: &mut out_rec,
+                reader: &mut reader,
+                auto: None,
+                http: &mut http,
+                probe: &mut probe,
+                which: &mut which,
+                sleep: &mut sleep,
+            };
+            let result = exec::install_ffmpeg(None, &platform, &bin_dir, is_windows, &mut ctx);
+            let listed = listing(&bin_dir, &dir);
+            let calls = http.call_log();
+            Ok(Json::Obj(vec![
+                (
+                    "result".to_string(),
+                    str_or_null(result.map(|path| project_install(&dir, &path))),
+                ),
+                (
+                    "stdout".to_string(),
+                    Json::Str(project_unreadable(&project_install(
+                        &dir,
+                        &project_product(&rec.text()),
+                    ))),
+                ),
+                (
+                    "probes".to_string(),
+                    str_arr(
+                        probed
+                            .borrow()
+                            .iter()
+                            .map(|path| project_install(&dir, path))
+                            .collect(),
+                    ),
+                ),
+                (
+                    "sleeps".to_string(),
+                    str_arr(
+                        slept
+                            .borrow()
+                            .iter()
+                            .map(|secs| format!("{secs:.1}"))
+                            .collect(),
+                    ),
+                ),
+                ("listing".to_string(), listed),
+                ("calls".to_string(), calls),
+            ]))
+        }
+        "update_yt_dlp" => {
+            let case = arg(args, 0, "update_yt_dlp case")?;
+            let dir = TempCaseDir::new("upd")?;
+            let s = settings_from_case(case)?;
+            exec::set_interrupt(false);
+            let binary = seed_binary(case, &dir)?;
+            let probes = probe_queue(case)?;
+            let probed: Rc<RefCell<Vec<String>>> = Rc::new(RefCell::new(Vec::new()));
+            let queue = Rc::new(RefCell::new(probes));
+            let mut probe = arm_probe(probed.clone(), queue);
+            let calls: Rc<RefCell<Vec<Vec<String>>>> = Rc::new(RefCell::new(Vec::new()));
+            let mut call = arm_call(calls.clone(), case)?;
+            let rec = tty::RecordingOut::default();
+            let sink = tty::SharedOut::new(rec.clone()).sink();
+            let mut out_rec = rec.clone();
+            let mut reader = tty::ScriptedReader::new(Vec::new());
+            let answer = binary.clone();
+            let mut which = move |_: &str| answer.clone();
+            let mut http = HttpScript::new();
+            let platform = ARM_PLATFORM.to_string();
+            let root = dir.path.to_string_lossy().into_owned();
+            let mut selftest = |_: &str| -1;
+            let mut clock = || 0.0;
+            let self_path = format!("{root}/ytdlp");
+            std::fs::write(&self_path, b"the running image")
+                .map_err(|e| format!("scratch write: {e}"))?;
+            let mut ctx = updater_ctx(
+                &root,
+                &platform,
+                &self_path,
+                true,
+                sink,
+                &mut http,
+                &mut probe,
+                &mut selftest,
+                &mut call,
+                &mut which,
+                &mut clock,
+                &mut out_rec,
+                &mut reader,
+            );
+            let result = update::update_yt_dlp(&s, &mut ctx);
+            Ok(Json::Obj(vec![
+                ("result".to_string(), Json::Bool(result)),
+                ("stdout".to_string(), Json::Str(project(&dir, &rec.text()))),
+                (
+                    "probes".to_string(),
+                    str_arr(
+                        probed
+                            .borrow()
+                            .iter()
+                            .map(|path| project_install(&dir, path))
+                            .collect(),
+                    ),
+                ),
+                (
+                    "calls".to_string(),
+                    Json::Arr(
+                        calls
+                            .borrow()
+                            .iter()
+                            .map(|argv| {
+                                str_arr(
+                                    argv.iter()
+                                        .map(|part| project_install(&dir, part))
+                                        .collect(),
+                                )
+                            })
+                            .collect(),
+                    ),
+                ),
+            ]))
+        }
+        "auto_update_check" | "update_all" => {
+            let case = arg(args, 0, "updater case")?;
+            let dir = TempCaseDir::new("upd")?;
+            let mut s = obj_from_field(case, "settings")?;
+            exec::set_interrupt(false);
+            let binary = seed_binary(case, &dir)?;
+            let probes = probe_queue(case)?;
+            let probed: Rc<RefCell<Vec<String>>> = Rc::new(RefCell::new(Vec::new()));
+            let queue = Rc::new(RefCell::new(probes));
+            let mut probe = arm_probe(probed.clone(), queue);
+            let calls: Rc<RefCell<Vec<Vec<String>>>> = Rc::new(RefCell::new(Vec::new()));
+            let mut call = arm_call(calls.clone(), case)?;
+            let mut reader = scripted_reader(case)?;
+            let fetches: Rc<RefCell<Vec<i64>>> = Rc::new(RefCell::new(Vec::new()));
+            let version = field_opt_str(case, "version")?.map(|v| v.to_string());
+            let fetch_error = field_opt_str(case, "fetch_error")?.map(|v| v.to_string());
+            let mut http = HttpScript::new();
+            let fetch_log = Rc::clone(&fetches);
+            http.answer = Some(Rc::new(move |_url: &str, timeout: u64| {
+                fetch_log.borrow_mut().push(timeout as i64);
+                match &fetch_error {
+                    Some(e) => Err(e.clone()),
+                    None => Ok(release_answer(version.as_deref())),
+                }
+            }));
+            let rec = tty::RecordingOut::default();
+            let sink = tty::SharedOut::new(rec.clone()).sink();
+            let mut out_rec = rec.clone();
+            let platform = ARM_PLATFORM.to_string();
+            let root = dir.path.to_string_lossy().into_owned();
+            let self_path = format!("{root}/ytdlp");
+            std::fs::write(&self_path, b"the running image")
+                .map_err(|e| format!("scratch write: {e}"))?;
+            let answer = binary.clone();
+            let mut which = move |_: &str| answer.clone();
+            let mut selftest = |_: &str| -1;
+            let can_ask = field_opt_bool(case, "can_ask")?.unwrap_or(true);
+            let now = case_f64_or(case, "now", 0.0)?;
+            let mut clock = move || now;
+            let mut ctx = updater_ctx(
+                &root,
+                &platform,
+                &self_path,
+                can_ask,
+                sink,
+                &mut http,
+                &mut probe,
+                &mut selftest,
+                &mut call,
+                &mut which,
+                &mut clock,
+                &mut out_rec,
+                &mut reader,
+            );
+            let (result, error) = if name == "update_all" {
+                match update::update_all(&mut s, &mut ctx) {
+                    Ok(moved) => (Json::Bool(moved), Json::Null),
+                    Err(e) => (Json::Null, Json::Str(upd_err_token(&e))),
+                }
+            } else {
+                let force = field_opt_bool(case, "force")?.unwrap_or(false);
+                match update::auto_update_check(&mut s, force, &mut ctx) {
+                    Ok(moved) => (Json::Bool(moved), Json::Null),
+                    Err(e) => (Json::Null, Json::Str(upd_err_token(&e))),
+                }
+            };
+            Ok(Json::Obj(vec![
+                ("result".to_string(), result),
+                ("error".to_string(), error),
+                (
+                    "stdout".to_string(),
+                    Json::Str(project(&dir, &project_product(&rec.text()))),
+                ),
+                (
+                    "fetches".to_string(),
+                    Json::Arr(
+                        fetches
+                            .borrow()
+                            .iter()
+                            .map(|timeout| {
+                                Json::Obj(vec![("timeout".to_string(), Json::Int(*timeout))])
+                            })
+                            .collect(),
+                    ),
+                ),
+                ("installs".to_string(), Json::Arr(Vec::new())),
+                (
+                    "probes".to_string(),
+                    str_arr(
+                        probed
+                            .borrow()
+                            .iter()
+                            .map(|path| project_install(&dir, path))
+                            .collect(),
+                    ),
+                ),
+                (
+                    "prompts".to_string(),
+                    str_arr(reader.prompts.iter().map(|p| project(&dir, p)).collect()),
+                ),
+                (
+                    "settings_after".to_string(),
+                    value_to_json(&Value::Obj(project_obj(&dir, &s)))?,
                 ),
             ]))
         }
@@ -1554,6 +1963,596 @@ impl TempCaseDir {
 impl Drop for TempCaseDir {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.path);
+    }
+}
+
+// ------------------------------------------------- phase 8 helpers
+//
+// The scripted network, the archive builder and the small projections the
+// network and updater arms share. Nothing here dials: an answer that is not
+// scripted is an error, exactly like the python hooks.
+
+// the platform and arch the updater arms run as; both sides resolve the
+// same bare-binary asset name from them
+const ARM_PLATFORM: &str = "linux";
+const ARM_ARCH: &str = "x86_64";
+
+/// The scripted answer for a text call: `(url, timeout) -> body`.
+type AnswerHook = Rc<dyn Fn(&str, u64) -> Result<String, String>>;
+
+/// A scripted `HttpRt`. `answer` wins over the per-url tables, so one arm
+/// can drive the releases API while another drives a provider.
+struct HttpScript {
+    texts: Vec<(String, String)>,
+    files: Vec<(String, Vec<u8>)>,
+    /// fails before any byte is read (urlopen itself raised)
+    open_error: Option<String>,
+    /// the text call fails with this text
+    text_error: Option<String>,
+    /// the file call fails with this text, after `error_after` reads
+    file_error: Option<String>,
+    error_after: Option<usize>,
+    /// false when the answer comes from a replaced helper rather than a
+    /// real request, so no User-Agent was ever sent
+    sends_agent: bool,
+    content_length: Option<i64>,
+    final_url: Option<String>,
+    /// `Some` answers every text call from the closure, whatever the url
+    answer: Option<AnswerHook>,
+    calls: Vec<Json>,
+}
+
+impl HttpScript {
+    fn new() -> Self {
+        Self {
+            texts: Vec::new(),
+            files: Vec::new(),
+            open_error: None,
+            text_error: None,
+            file_error: None,
+            error_after: None,
+            sends_agent: true,
+            content_length: None,
+            final_url: None,
+            answer: None,
+            calls: Vec::new(),
+        }
+    }
+
+    fn add_text(&mut self, url: &str, body: &str) -> &mut Self {
+        self.texts.push((url.to_string(), body.to_string()));
+        self
+    }
+
+    fn add_file(&mut self, url: &str, body: Vec<u8>) -> &mut Self {
+        self.files.push((url.to_string(), body));
+        self
+    }
+
+    /// The http_text / http_file / expected_sha arms: one answer keyed on
+    /// `key` (the url the call under test reads), and the failure shapes
+    /// both sides print.
+    fn from_case(case: &Json, key: &str) -> Result<Self, String> {
+        let url = field_str(case, key)?;
+        let mut script = Self::new();
+        let body = body_bytes(case)?;
+        if let Some(err) = field_opt_str(case, "open_error")? {
+            script.open_error = Some(err.to_string());
+        }
+        if let Some(err) = field_opt_str(case, "error")? {
+            script.text_error = Some(err.to_string());
+            script.file_error = Some(err.to_string());
+        }
+        script.error_after = match obj_field(case, "error_after_reads") {
+            Some(Json::Int(n)) => Some(*n as usize),
+            _ => None,
+        };
+        script.content_length = match obj_field(case, "content_length") {
+            // absent: the fake publishes the real length, like a real answer
+            None => Some(body.len() as i64),
+            // null: no header at all, so python's total stays 0
+            Some(Json::Null) => None,
+            Some(Json::Int(n)) => Some(*n),
+            Some(other) => return Err(format!("content_length must be int or null: {other:?}")),
+        };
+        script.final_url = field_opt_str(case, "final_url")?.map(|v| v.to_string());
+        let text = String::from_utf8_lossy(&body).into_owned();
+        script.add_text(&url, &text);
+        script.add_file(&url, body);
+        Ok(script)
+    }
+
+    fn call_log(&self) -> Json {
+        Json::Arr(self.calls.clone())
+    }
+
+    fn record(&mut self, kind: &str, url: &str, timeout: u64) {
+        self.calls.push(Json::Obj(vec![
+            ("kind".to_string(), Json::Str(kind.to_string())),
+            ("url".to_string(), Json::Str(url.to_string())),
+            ("timeout".to_string(), Json::Int(timeout as i64)),
+            (
+                "user_agent".to_string(),
+                if self.sends_agent {
+                    Json::Str(net::USER_AGENT.to_string())
+                } else {
+                    Json::Null
+                },
+            ),
+        ]));
+    }
+}
+
+impl net::HttpRt for HttpScript {
+    fn text(&mut self, url: &str, timeout: u64) -> Result<String, String> {
+        self.record("text", url, timeout);
+        if let Some(answer) = &self.answer {
+            return answer(url, timeout);
+        }
+        if let Some(err) = self.open_error.clone().or_else(|| self.text_error.clone()) {
+            return Err(err);
+        }
+        self.texts
+            .iter()
+            .find(|(key, _)| key == url)
+            .map(|(_, body)| body.clone())
+            .ok_or_else(|| format!("no scripted text for {url}"))
+    }
+
+    fn file(
+        &mut self,
+        url: &str,
+        dest: &str,
+        timeout: u64,
+        mut live: Option<&mut dyn FnMut(&str)>,
+    ) -> Result<net::FileOutcome, String> {
+        self.record("file", url, timeout);
+        if let Some(err) = &self.open_error {
+            return Err(err.clone());
+        }
+        let body = self
+            .files
+            .iter()
+            .find(|(key, _)| key == url)
+            .map(|(_, body)| body.clone())
+            .ok_or_else(|| format!("no scripted file for {url}"))?;
+        // python's staging and its read loop: the .part sibling, then
+        // 64 KiB reads until the body runs out. the scripted failure
+        // fires on a read number, so a mid-stream case lands the same
+        // partial .part python leaves behind.
+        let part = format!("{dest}.part");
+        let mut written: i64 = 0;
+        {
+            let mut fh = std::fs::File::create(&part).map_err(|e| e.to_string())?;
+            let mut cursor = 0usize;
+            let mut reads = 0usize;
+            loop {
+                if self.file_error.is_some() && self.error_after.is_none_or(|after| reads >= after)
+                {
+                    return Err(self.file_error.clone().unwrap_or_default());
+                }
+                let end = (cursor + (1 << 16)).min(body.len());
+                if end == cursor {
+                    break;
+                }
+                std::io::Write::write_all(&mut fh, &body[cursor..end])
+                    .map_err(|e| e.to_string())?;
+                written += (end - cursor) as i64;
+                cursor = end;
+                reads += 1;
+                if let Some(report) = live.as_deref_mut()
+                    && let Some(total) = self.content_length
+                    && total > 0
+                {
+                    report(&format!(
+                        "downloading ffmpeg - {:.1} / {:.1} MB",
+                        written as f64 / 1048576.0,
+                        total as f64 / 1048576.0
+                    ));
+                }
+            }
+        }
+        std::fs::rename(&part, dest).map_err(|e| e.to_string())?;
+        Ok(net::FileOutcome {
+            bytes: written,
+            final_url: self.final_url.clone().unwrap_or_else(|| url.to_string()),
+            // python keeps 0 when the answer published no length
+            content_length: self.content_length.unwrap_or(0),
+        })
+    }
+}
+
+/// The releases-API answer the updater arms script: the newest tag with a
+/// bare-binary asset and its digest, so both sides reach the same gates.
+fn release_answer(version: Option<&str>) -> String {
+    let asset = update::release_asset(ARM_PLATFORM, ARM_ARCH).unwrap_or("");
+    let digest = "0".repeat(64);
+    let tag = match version {
+        Some(v) => format!("\"tag_name\": \"v{v}\", "),
+        // python's fetch_cli answers None when the published file carries
+        // no version line, which is a missing key, not an empty string
+        None => String::new(),
+    };
+    format!(
+        "{{{tag}\"assets\": [{{\"name\": \"{asset}\", \
+         \"browser_download_url\": \"https://example.invalid/{asset}\", \
+         \"digest\": \"sha256:{digest}\"}}]}}"
+    )
+}
+
+/// `tempfile.mkdtemp` and the port's mkdtemp both hide a suffix behind
+/// `.ff-`; the record pins the shape, not the name.
+fn project_rand(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find(".ff-") {
+        out.push_str(&rest[..at]);
+        out.push_str(".ff-<rand>");
+        let tail = &rest[at + 4..];
+        let end = tail.find(['/', '\\']).unwrap_or(tail.len());
+        rest = &tail[end..];
+    }
+    out.push_str(rest);
+    out
+}
+
+fn project_install(dir: &TempCaseDir, text: &str) -> String {
+    project_rand(&project(dir, text))
+}
+
+/// The archive-fault payload is exception text, so it is shape-gated like
+/// every other one: the line shape is the pin, the wording is each
+/// library's own.
+fn project_unreadable(text: &str) -> String {
+    // the whole line goes: the payload is each library's own wording
+    let prefix = "  the downloaded archive was unreadable: ";
+    let token = "  the downloaded archive was unreadable: {archive-error}";
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find(prefix) {
+        out.push_str(&rest[..at]);
+        out.push_str(token);
+        let tail = &rest[at + prefix.len()..];
+        let end = tail.find('\n').unwrap_or(tail.len());
+        rest = &tail[end..];
+    }
+    out.push_str(rest);
+    out
+}
+
+/// The two lines the native port spells differently by design: the product
+/// version and the update source (FR-13). Both are projected to tokens, so
+/// the arm pins the line shapes and the spec pins the values.
+fn project_product(text: &str) -> String {
+    text.replace(
+        &format!("this is v{}", ytdlp_cli::VERSION),
+        "this is v{version}",
+    )
+    .replace(ytdlp_cli::VERSION, "{version}")
+    .replace(update::RELEASES_PAGE, "{update-url}")
+}
+
+fn upd_err_token(err: &update::UpdErr) -> String {
+    match err {
+        update::UpdErr::Eof => "eof".to_string(),
+        update::UpdErr::Interrupted => "interrupted".to_string(),
+    }
+}
+
+/// `probes`: one `[version, rc]` per call, in order.
+fn probe_queue(case: &Json) -> Result<std::collections::VecDeque<(String, i64)>, String> {
+    let items = match obj_field(case, "probes") {
+        None | Some(Json::Null) => return Ok(std::collections::VecDeque::new()),
+        Some(Json::Arr(items)) => items,
+        Some(other) => return Err(format!("probes must be an array: {other:?}")),
+    };
+    let mut queue = std::collections::VecDeque::new();
+    for item in items {
+        let Json::Arr(pair) = item else {
+            return Err("each probe is [version, rc]".to_string());
+        };
+        if pair.len() != 2 {
+            return Err("each probe is [version, rc]".to_string());
+        }
+        queue.push_back((str_or_empty(&pair[0]), json_int(&pair[1], "probe rc")?));
+    }
+    Ok(queue)
+}
+
+fn str_or_empty(value: &Json) -> String {
+    match value {
+        Json::Str(text) => text.clone(),
+        Json::Null => String::new(),
+        other => {
+            let mut out = Vec::new();
+            crate::json::write_canonical(other, &mut out);
+            String::from_utf8_lossy(&out).into_owned()
+        }
+    }
+}
+
+fn arm_probe(
+    log: Rc<RefCell<Vec<String>>>,
+    queue: Rc<RefCell<std::collections::VecDeque<(String, i64)>>>,
+) -> impl FnMut(&str) -> (String, i64) {
+    move |binary: &str| {
+        log.borrow_mut().push(binary.to_string());
+        queue
+            .borrow_mut()
+            .pop_front()
+            .unwrap_or_else(|| (String::new(), -1))
+    }
+}
+
+/// The retry waits, recorded as the floats python's repr would spell.
+fn arm_sleep(slept: Rc<RefCell<Vec<f64>>>) -> impl FnMut(f64) {
+    move |secs: f64| slept.borrow_mut().push(secs)
+}
+
+/// `subprocess.call([binary, "-U"])`: the argv is logged, the rc comes
+/// from the case's queue.
+fn arm_call(
+    calls: Rc<RefCell<Vec<Vec<String>>>>,
+    case: &Json,
+) -> Result<impl FnMut(&str, &[String]) -> i64, String> {
+    let rcs = RefCell::new(std::collections::VecDeque::from(case_int_list(
+        case, "call_rcs",
+    )?));
+    let interrupt = field_opt_bool(case, "call_interrupt")?.unwrap_or(false);
+    Ok(move |binary: &str, args: &[String]| {
+        let mut argv = vec![binary.to_string()];
+        argv.extend(args.iter().cloned());
+        calls.borrow_mut().push(argv);
+        if interrupt {
+            // python raises KeyboardInterrupt here; the port reads its
+            // own flag after the call
+            exec::set_interrupt(true);
+        }
+        let mut queue = rcs.borrow_mut();
+        if queue.is_empty() {
+            0
+        } else {
+            queue.remove(0).unwrap_or(0)
+        }
+    })
+}
+
+fn case_int_list(case: &Json, key: &str) -> Result<Vec<i64>, String> {
+    match obj_field(case, key) {
+        None | Some(Json::Null) => Ok(Vec::new()),
+        Some(Json::Arr(items)) => items.iter().map(|item| json_int(item, key)).collect(),
+        Some(other) => Err(format!("{key} must be an array: {other:?}")),
+    }
+}
+
+fn case_int_or(case: &Json, key: &str, fallback: i64) -> Result<i64, String> {
+    match obj_field(case, key) {
+        None | Some(Json::Null) => Ok(fallback),
+        Some(value) => json_int(value, key),
+    }
+}
+
+fn case_f64_or(case: &Json, key: &str, fallback: f64) -> Result<f64, String> {
+    match obj_field(case, key) {
+        None | Some(Json::Null) => Ok(fallback),
+        Some(Json::Int(n)) => Ok(*n as f64),
+        Some(Json::Float(x)) => Ok(*x),
+        Some(other) => Err(format!("{key} must be a number: {other:?}")),
+    }
+}
+
+/// The case's binary fixture, written so `find_yt_dlp` can resolve it.
+fn seed_binary(case: &Json, dir: &TempCaseDir) -> Result<Option<String>, String> {
+    let Some(rel) = field_opt_str(case, "binary")? else {
+        return Ok(None);
+    };
+    let path = resolve_scratch(rel, dir);
+    mkdir_parent(&path)?;
+    std::fs::write(&path, b"yt-dlp").map_err(|e| format!("scratch write: {e}"))?;
+    Ok(Some(path))
+}
+
+fn mkdir_parent(path: &str) -> Result<(), String> {
+    if let Some(parent) = std::path::Path::new(path).parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("scratch mkdir: {e}"))?;
+    }
+    Ok(())
+}
+
+/// The body a case carries: `chunks` (hex strings) or `text`.
+fn body_bytes(case: &Json) -> Result<Vec<u8>, String> {
+    if let Some(Json::Arr(chunks)) = obj_field(case, "chunks") {
+        let mut out = Vec::new();
+        for chunk in chunks {
+            out.extend_from_slice(&hex_decode(&str_or_empty(chunk))?);
+        }
+        return Ok(out);
+    }
+    Ok(field_opt_str(case, "text")?
+        .unwrap_or("")
+        .as_bytes()
+        .to_vec())
+}
+
+fn file_hex(path: &str) -> Json {
+    match std::fs::read(path) {
+        Ok(bytes) => Json::Str(hex_encode(&bytes)),
+        Err(_) => Json::Null,
+    }
+}
+
+/// `[{"name", "dir", "hex", "mode"}]` sorted, so a case can assert what a
+/// run left on disk. The mode is posix-only: python's os.stat and rust's
+/// PermissionsExt report different things on windows, so the record does
+/// not ask there.
+fn listing(folder: &str, dir: &TempCaseDir) -> Json {
+    let mut names: Vec<(String, bool)> = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(folder) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let is_dir = entry.path().is_dir();
+            names.push((name, is_dir));
+        }
+    }
+    names.sort();
+    Json::Arr(
+        names
+            .into_iter()
+            .map(|(name, is_dir)| {
+                let path = resolve_scratch(&format!("{folder}/{name}"), dir);
+                Json::Obj(vec![
+                    ("name".to_string(), Json::Str(name)),
+                    ("dir".to_string(), Json::Bool(is_dir)),
+                    (
+                        "hex".to_string(),
+                        if is_dir { Json::Null } else { file_hex(&path) },
+                    ),
+                    (
+                        "mode".to_string(),
+                        if is_dir { Json::Null } else { file_mode(&path) },
+                    ),
+                ])
+            })
+            .collect(),
+    )
+}
+
+fn file_mode(path: &str) -> Json {
+    if cfg!(windows) {
+        return Json::Null;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        match std::fs::metadata(path) {
+            Ok(meta) => Json::Str(format!("{:#o}", meta.permissions().mode() & 0o7777)),
+            Err(_) => Json::Null,
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        Json::Null
+    }
+}
+
+/// Materialise one archive from the case's member list. Each side builds
+/// its own bytes from the same shape; the record never carries the archive.
+fn build_archive(dir: &TempCaseDir, spec: &Json) -> Result<String, String> {
+    let rel = field_str(spec, "path")?;
+    let path = resolve_scratch(&rel, dir);
+    mkdir_parent(&path)?;
+    let members = match obj_field(spec, "members") {
+        Some(Json::Arr(items)) => items,
+        _ => return Err("archive members must be an array".to_string()),
+    };
+    let how = field_opt_str(spec, "how")?.unwrap_or("zip");
+    let pairs: Vec<(String, Vec<u8>)> = members
+        .iter()
+        .map(|item| {
+            let Json::Arr(fields) = item else {
+                return Err("each archive member is [name, text]".to_string());
+            };
+            let name = str_or_empty(fields.first().unwrap_or(&Json::Null));
+            let body = fields
+                .get(1)
+                .map(|v| str_or_empty(v).into_bytes())
+                .unwrap_or_default();
+            Ok((name, body))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    if how == "zip" {
+        use zip::write::SimpleFileOptions;
+        use zip::{CompressionMethod, ZipWriter};
+        let mut buf = std::io::Cursor::new(Vec::new());
+        {
+            let options =
+                SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+            let mut writer = ZipWriter::new(&mut buf);
+            for (name, body) in &pairs {
+                writer.start_file(name.as_str(), options).map_err(zip_err)?;
+                std::io::Write::write_all(&mut writer, body).map_err(io_err)?;
+            }
+            writer.finish().map_err(zip_err)?;
+        }
+        std::fs::write(&path, buf.into_inner()).map_err(|e| format!("archive write: {e}"))?;
+    } else {
+        let mut raw = Vec::new();
+        {
+            let mut builder = tar::Builder::new(&mut raw);
+            for (name, body) in &pairs {
+                let mut header = tar::Header::new_gnu();
+                header.set_size(body.len() as u64);
+                header.set_mode(0o755);
+                header.set_cksum();
+                builder
+                    .append_data(&mut header, name.as_str(), body.as_slice())
+                    .map_err(tar_err)?;
+            }
+            builder.finish().map_err(tar_err)?;
+        }
+        let mut out = Vec::new();
+        let mut enc = lzma_rust2::XzWriter::new(&mut out, lzma_rust2::XzOptions::with_preset(1))
+            .map_err(tar_err)?;
+        std::io::Write::write_all(&mut enc, &raw).map_err(tar_err)?;
+        enc.finish().map_err(tar_err)?;
+        std::fs::write(&path, out).map_err(|e| format!("archive write: {e}"))?;
+    }
+    if let Some(keep) = field_opt_f64(spec, "truncate")? {
+        let data = std::fs::read(&path).map_err(|e| format!("archive read: {e}"))?;
+        let cut = ((data.len() as f64) * keep).max(1.0) as usize;
+        std::fs::write(&path, &data[..cut.min(data.len())])
+            .map_err(|e| format!("archive truncate: {e}"))?;
+    }
+    Ok(path)
+}
+
+fn zip_err(e: zip::result::ZipError) -> String {
+    format!("archive: {e}")
+}
+
+fn io_err(e: std::io::Error) -> String {
+    format!("archive: {e}")
+}
+
+fn tar_err(e: std::io::Error) -> String {
+    format!("archive: {e}")
+}
+
+/// The updater context for one arm, with every seam a local.
+#[allow(clippy::too_many_arguments)]
+fn updater_ctx<'a>(
+    root: &'a str,
+    platform: &'a str,
+    self_path: &'a str,
+    stdin_tty: bool,
+    sink: tty::SharedSink,
+    http: &'a mut HttpScript,
+    probe: &'a mut dyn FnMut(&str) -> (String, i64),
+    selftest: &'a mut dyn FnMut(&str) -> i64,
+    call: &'a mut dyn FnMut(&str, &[String]) -> i64,
+    which: &'a mut dyn FnMut(&str) -> Option<String>,
+    now: &'a mut dyn FnMut() -> f64,
+    out: &'a mut tty::RecordingOut,
+    reader: &'a mut tty::ScriptedReader,
+) -> update::UpdateCtx<'a> {
+    update::UpdateCtx {
+        platform,
+        arch: ARM_ARCH,
+        self_path,
+        root,
+        is_windows: false,
+        use_color: false,
+        stdin_tty,
+        sink,
+        http,
+        probe,
+        selftest,
+        call,
+        now,
+        which,
+        out,
+        reader,
     }
 }
 

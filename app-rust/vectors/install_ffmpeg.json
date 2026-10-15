@@ -1,0 +1,365 @@
+{
+  "fn": "install_ffmpeg",
+  "cases": [
+    {
+      "args": [
+        {
+          "platform": "windows",
+          "archive": {
+            "path": "{scratch}/archive",
+            "how": "zip",
+            "members": [
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/other.exe",
+                "other"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/ffmpeg.exe",
+                "the windows binary"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/doc.txt",
+                "doc"
+              ]
+            ]
+          },
+          "probes": [
+            [
+              "ffmpeg version 9.0.2",
+              0
+            ]
+          ]
+        }
+      ],
+      "note": "digest, verify, extract, probe, install"
+    },
+    {
+      "args": [
+        {
+          "platform": "windows",
+          "archive": {
+            "path": "{scratch}/archive",
+            "how": "zip",
+            "members": [
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/other.exe",
+                "other"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/ffmpeg.exe",
+                "the windows binary"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/doc.txt",
+                "doc"
+              ]
+            ]
+          },
+          "probes": [
+            [
+              "ffmpeg version 9.0.2",
+              0
+            ]
+          ],
+          "stage": true
+        }
+      ],
+      "note": "the same with a stage line"
+    },
+    {
+      "args": [
+        {
+          "platform": "windows",
+          "archive": {
+            "path": "{scratch}/archive",
+            "how": "zip",
+            "members": [
+              [
+                "ffmpeg-n9.0/bin/ffprobe",
+                "probe"
+              ],
+              [
+                "ffmpeg-n9.0/bin/ffmpeg",
+                "the linux binary"
+              ]
+            ]
+          },
+          "probes": [
+            [
+              "ffmpeg version 9.0.2",
+              0
+            ]
+          ]
+        }
+      ],
+      "note": "the archive holds another build: no member"
+    },
+    {
+      "args": [
+        {
+          "platform": "windows",
+          "archive": {
+            "path": "{scratch}/archive",
+            "how": "zip",
+            "members": [
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/other.exe",
+                "other"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/ffmpeg.exe",
+                "the windows binary"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/doc.txt",
+                "doc"
+              ]
+            ],
+            "truncate": 0.5
+          },
+          "probes": [
+            [
+              "ffmpeg version 9.0.2",
+              0
+            ]
+          ]
+        }
+      ],
+      "note": "a truncated archive with its own digest passes the gate, then fails to unpack"
+    },
+    {
+      "args": [
+        {
+          "platform": "windows",
+          "archive": {
+            "path": "{scratch}/archive",
+            "how": "zip",
+            "members": [
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/other.exe",
+                "other"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/ffmpeg.exe",
+                "the windows binary"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/doc.txt",
+                "doc"
+              ]
+            ]
+          },
+          "probes": [
+            [
+              "ffmpeg version 9.0.2",
+              0
+            ]
+          ],
+          "sha_error": "404 not found"
+        }
+      ],
+      "note": "an unreadable published digest stops before any download"
+    },
+    {
+      "args": [
+        {
+          "platform": "windows",
+          "archive": {
+            "path": "{scratch}/archive",
+            "how": "zip",
+            "members": [
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/other.exe",
+                "other"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/ffmpeg.exe",
+                "the windows binary"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/doc.txt",
+                "doc"
+              ]
+            ]
+          },
+          "probes": [
+            [
+              "ffmpeg version 9.0.2",
+              0
+            ]
+          ],
+          "download_error": "connection reset"
+        }
+      ],
+      "note": "a failed download installs nothing"
+    },
+    {
+      "args": [
+        {
+          "platform": "windows",
+          "archive": {
+            "path": "{scratch}/archive",
+            "how": "zip",
+            "members": [
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/other.exe",
+                "other"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/ffmpeg.exe",
+                "the windows binary"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/doc.txt",
+                "doc"
+              ]
+            ]
+          },
+          "probes": [
+            [
+              "",
+              127
+            ],
+            [
+              "",
+              127
+            ],
+            [
+              "",
+              127
+            ]
+          ]
+        }
+      ],
+      "note": "an unrunnable build is probed three times and installed nowhere"
+    },
+    {
+      "args": [
+        {
+          "platform": "windows",
+          "archive": {
+            "path": "{scratch}/archive",
+            "how": "zip",
+            "members": [
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/other.exe",
+                "other"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/ffmpeg.exe",
+                "the windows binary"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/doc.txt",
+                "doc"
+              ]
+            ]
+          },
+          "probes": [
+            [
+              "",
+              1
+            ],
+            [
+              "ffmpeg version 9.0.2",
+              0
+            ]
+          ]
+        }
+      ],
+      "note": "a transient failure is retried once"
+    },
+    {
+      "args": [
+        {
+          "platform": "windows",
+          "archive": {
+            "path": "{scratch}/archive",
+            "how": "zip",
+            "members": [
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/other.exe",
+                "other"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/ffmpeg.exe",
+                "the windows binary"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/doc.txt",
+                "doc"
+              ]
+            ]
+          },
+          "probes": [
+            [
+              "",
+              0
+            ]
+          ]
+        }
+      ],
+      "note": "rc 0 with an empty version is not a pass"
+    },
+    {
+      "args": [
+        {
+          "platform": "macos",
+          "archive": {
+            "path": "{scratch}/archive",
+            "how": "zip",
+            "members": [
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/other.exe",
+                "other"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/bin/ffmpeg.exe",
+                "the windows binary"
+              ],
+              [
+                "ffmpeg-9.0.2-essentials_build/doc.txt",
+                "doc"
+              ]
+            ]
+          },
+          "probes": [
+            [
+              "ffmpeg version 9.0.2",
+              0
+            ]
+          ]
+        }
+      ],
+      "note": "no published build for macos"
+    },
+    {
+      "args": [
+        {
+          "platform": "linux",
+          "archive": {
+            "path": "{scratch}/archive",
+            "how": "tar.xz",
+            "members": [
+              [
+                "ffmpeg-n9.0/bin/ffprobe",
+                "probe"
+              ],
+              [
+                "ffmpeg-n9.0/bin/ffmpeg",
+                "the linux binary"
+              ]
+            ]
+          },
+          "probes": [
+            [
+              "ffmpeg version 9.0.2",
+              0
+            ]
+          ]
+        }
+      ],
+      "note": "the linux tar.xz source installs the same way"
+    }
+  ]
+}
