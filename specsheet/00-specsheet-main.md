@@ -1,4 +1,4 @@
-# specsheet - yt-dlp cli (ytdlp-youtube-proj)
+# 00-specsheet-main.md - yt-dlp cli (ytdlp-youtube-proj)
 
 ## Header
 
@@ -7,7 +7,7 @@
 - Owner: chezhenkie (all components, interfaces and open questions).
 - Stakeholders: chezhenkie (user, engineer, tester, reviewer); consumers of the public repo and the release bundles; yt-dlp and ffmpeg upstreams as read-only dependencies.
 - Approvers: chezhenkie approves every gate.
-- Status: implemented. This spec documents the shipped v1.4 line (2026-10-13, remote https://github.com/chezhenkie/ytdlp-cli-youtube-downloader), the v1.4.1 rebuild cut, the v1.4.2 release (2026-10-14) and the v1.5.0 definitive-python release (2026-10-14). Approved by the owner on 2026-10-14. Amended 2026-10-14 for the planned port to a native binary (`app-rust/`): sections 3 NFR-1, 4, 5 IF-1/IF-7/IF-8, 2 FR-13, 10 and 13 now describe both implementations. The Python implementation remains shipped, supported and authoritative until cutover; every amendment is additive and changes no requirement of the shipped product. Amended again 2026-10-14 for the download work folder: yt-dlp writes its per-chunk fragment and part files into a work folder inside the output folder, so the user's folder only ever shows finished files (FR-7, FR-8, FR-11); owner decision, shipped in v1.5.0. Restructured 2026-10-15 into the specsheet/ folder: this README is the main document and sections 1-14 are numbered part files.
+- Status: implemented. This spec documents the shipped v1.4 line (2026-10-13, remote https://github.com/chezhenkie/ytdlp-cli-youtube-downloader), the v1.4.1 rebuild cut, the v1.4.2 release (2026-10-14) and the v1.5.0 definitive-python release (2026-10-14). Approved by the owner on 2026-10-14. Amended 2026-10-14 for the planned port to a native binary (`app-rust/`): sections 3 NFR-1, 4, 5 IF-1/IF-7/IF-8, 2 FR-13, 10 and 13 now describe both implementations. The Python implementation remains shipped, supported and authoritative until cutover; every amendment is additive and changes no requirement of the shipped product. Amended again 2026-10-14 for the download work folder: yt-dlp writes its per-chunk fragment and part files into a work folder inside the output folder, so the user's folder only ever shows finished files (FR-7, FR-8, FR-11); owner decision, shipped in v1.5.0. Restructured 2026-10-15 into the specsheet/ folder: this file is the main document and sections 1-14 are numbered part files.
 - Related documents: README.md (published usage), CHANGELOG.md (history with hashes), THIRD-PARTY-NOTICES.md (bundle licensing), LICENSE (MIT), .github/workflows/selftest.yml (CI), RUST-PORT-PLAN.md (phases and gates for the native port).
 
 ## Short description
@@ -16,7 +16,7 @@ A desktop CLI that wraps standalone yt-dlp: open it, paste a url, press enter, a
 
 ## Table of contents
 
-Parts are numbered to match their spec section numbers, so citations such as "section 4", "FR-8" or "NFR-1" keep resolving across code, changelog and plan.
+This file is 00-specsheet-main.md; parts 01-14 are numbered to match their spec section numbers, so citations such as "section 4", "FR-8" or "NFR-1" keep resolving across code, changelog and plan.
 
 | part | describes |
 |---|---|
