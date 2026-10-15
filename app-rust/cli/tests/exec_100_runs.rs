@@ -47,11 +47,19 @@ fn process_alive(pid: u32) -> bool {
     }
     #[cfg(windows)]
     {
+        // A recycled pid is not a lingering child: the run loop only
+        // returns after try_wait observed the exit, so a bare pid that
+        // is alive later must be a different process (the OS recycles
+        // pids; CI run 38767929250 flagged one such pid). Require the
+        // stand-in's image name in the tasklist match too.
         let out = Command::new("tasklist")
             .args(["/FI", &format!("PID eq {pid}"), "/NH"])
             .output();
         match out {
-            Ok(out) => String::from_utf8_lossy(&out.stdout).contains(&pid.to_string()),
+            Ok(out) => {
+                let text = String::from_utf8_lossy(&out.stdout).to_lowercase();
+                text.contains(&pid.to_string()) && text.contains("fake-ytdlp")
+            }
             Err(_) => false,
         }
     }
