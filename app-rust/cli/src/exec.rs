@@ -1307,7 +1307,7 @@ mod tests {
             calls[1]
         );
         assert!(calls[1].ends_with(" 1800"), "{}", calls[1]);
-        assert!(calls[1].contains("/.ff-"), "{}", calls[1]);
+        assert!(calls[1].contains(".ff-"), "{}", calls[1]);
         // the temp directory is gone and only the binary landed
         assert_eq!(w.bin_listing(), vec!["ffmpeg".to_string()]);
         assert_eq!(
@@ -1525,11 +1525,28 @@ mod tests {
 
     #[test]
     fn offer_ffmpeg_declines_without_a_word() {
-        let mut w = InstallWorld::new("offer-no", "linux");
+        let host = resolve::host_platform();
+        let mut w = InstallWorld::new("offer-no", &host);
         w.reader = ScriptedReader::new(vec![ScriptItem::Line(String::new())]);
         assert_eq!(w.offer("audio only", true), None);
         assert!(w.http.calls().is_empty(), "declined: no contact at all");
         let printed = w.printed();
+        if ffmpeg_source(&host).is_none() {
+            // macos: the offer never reaches a question
+            assert_eq!(
+                printed,
+                vec![
+                    "".to_string(),
+                    "  ffmpeg is not installed".to_string(),
+                    "  without it the audio is saved as-is, no mp3/opus/wav conversion"
+                        .to_string(),
+                    "  no published download for macos - install it with your package manager instead".to_string(),
+                ],
+                "{printed:?}"
+            );
+            std::fs::remove_dir_all(&w.dir).unwrap();
+            return;
+        }
         assert_eq!(
             printed[2],
             "  without it the audio is saved as-is, no mp3/opus/wav conversion"
