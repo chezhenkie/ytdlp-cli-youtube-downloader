@@ -20,7 +20,7 @@ fn main() -> ExitCode {
     match run() {
         Ok(code) => code,
         Err(msg) => {
-            eprintln!("ytdlp: {msg}");
+            tty::write_stderr(&format!("ytdlp: {msg}\n"));
             ExitCode::from(1)
         }
     }
@@ -42,7 +42,7 @@ fn run() -> Result<ExitCode, String> {
             return Ok(ExitCode::SUCCESS);
         }
         Outcome::Error(text) => {
-            eprint!("{text}");
+            tty::write_stderr(&text);
             return Ok(ExitCode::from(2));
         }
         Outcome::Parsed(invocation) => invocation,
@@ -61,14 +61,14 @@ fn run() -> Result<ExitCode, String> {
         return run_check(&settings, &root, is_windows);
     }
     if invocation.selftest {
-        eprintln!(
+        tty::write_stderr(
             "ytdlp: the port's checks run as cargo tests; a runtime --selftest lands in \
-             native port phase 9"
+             native port phase 9\n",
         );
         return Ok(ExitCode::from(2));
     }
     if invocation.update {
-        eprintln!("ytdlp: the updaters land in native port phase 8");
+        tty::write_stderr("ytdlp: the updaters land in native port phase 8\n");
         return Ok(ExitCode::from(2));
     }
     if let Some(url) = &invocation.url
@@ -307,7 +307,7 @@ fn run_menu(
 /// The `auto_outdir` memo answer for the quick path (the menu path keeps
 /// its own OutdirCache).
 fn exit_one(message: &str) -> ExitCode {
-    eprintln!("ytdlp: {message}");
+    tty::write_stderr(&format!("ytdlp: {message}\n"));
     ExitCode::from(1)
 }
 

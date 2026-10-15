@@ -234,6 +234,27 @@ impl Out for StdoutOut {
     }
 }
 
+/// `sys.stderr` text-mode output: python's handle translates `\n` to
+/// `os.linesep` on write, so a redirected stderr on windows captures
+/// CRLF (the session differ pins the argparse error case byte for
+/// byte). Every native stderr message goes through this helper.
+pub fn write_stderr(text: &str) {
+    let mut err = std::io::stderr().lock();
+    let body = stderr_text(text, cfg!(windows));
+    let _ = err.write_all(body.as_bytes());
+    let _ = err.flush();
+}
+
+/// The newline translation alone, flag-injectable so the windows
+/// spelling is pinned on every os.
+pub fn stderr_text(text: &str, windows: bool) -> String {
+    if windows {
+        text.replace('\n', "\r\n")
+    } else {
+        text.to_string()
+    }
+}
+
 #[cfg(windows)]
 fn windows_stdout_is_console() -> bool {
     use windows_sys::Win32::System::Console::{GetConsoleMode, GetStdHandle, STD_OUTPUT_HANDLE};
@@ -1301,6 +1322,17 @@ mod tests {
 
     fn lines(items: &[&str]) -> Vec<String> {
         items.iter().map(|s| (*s).to_string()).collect()
+    }
+
+    /// Python's TextIOWrapper (newline=None) writes os.linesep: CRLF on
+    /// windows, LF on posix. Every native stderr text goes through this
+    /// translation (the windows differential run of the argparse error
+    /// case caught the raw-LF spelling).
+    #[test]
+    fn stderr_text_translates_newlines_like_python() {
+        assert_eq!(stderr_text("a\nb\n", true), "a\r\nb\r\n");
+        assert_eq!(stderr_text("a\nb\n", false), "a\nb\n");
+        assert_eq!(stderr_text("plain", true), "plain");
     }
 
     /// The python selftest's History matrix, twin by twin.

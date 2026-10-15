@@ -104,8 +104,11 @@ pub fn drop_temp_dir(saved: &Obj, auto: Option<&str>, root: &str) {
 }
 
 /// `newest_since(folder, since, slack)`: newest file with an mtime at or
-/// just after `since`, as a path; `None` when the folder is unreadable
-/// or holds no candidate. Ties keep the first file read (python's glob
+/// just after `since`, as a path rendered like python's `str(Path(...))`
+/// (the value is only ever printed, and pathlib normalizes separators -
+/// the raw read_dir spelling can be mixed on windows, caught by the
+/// windows differential run). `None` when the folder is unreadable or
+/// holds no candidate. Ties keep the first file read (python's glob
 /// order; fixtures keep mtimes distinct).
 pub fn newest_since(folder: &str, since: f64, slack: f64) -> Option<String> {
     let entries = std::fs::read_dir(folder).ok()?;
@@ -123,7 +126,7 @@ pub fn newest_since(folder: &str, since: f64, slack: f64) -> Option<String> {
             best = Some((mtime, text));
         }
     }
-    best.map(|(_, path)| path)
+    best.map(|(_, path)| resolve::path_render(&path))
 }
 
 /// One `*.part*` match (python `folder.glob("*.part*")`; fnmatch is
@@ -674,10 +677,10 @@ pub fn offer_ffmpeg(s: &Obj, kind: &str, ctx: &mut DownloadCtx) -> Option<String
 /// a traceback and exits 1; the port prints one typed stderr line
 /// (recorded deviation) and returns 1.
 fn shape_abort(shape: ShapeKind) -> i32 {
-    eprintln!(
-        "ytdlp: settings value refused with python shape {}",
+    tty::write_stderr(&format!(
+        "ytdlp: settings value refused with python shape {}\n",
         shape.token()
-    );
+    ));
     1
 }
 
