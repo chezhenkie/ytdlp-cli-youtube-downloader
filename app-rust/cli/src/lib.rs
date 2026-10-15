@@ -6,18 +6,23 @@
 //! specsheet NFR-4). Layer names follow specsheet section 4: term,
 //! config, resolve, args, exec, update, ui.
 
+pub mod archive;
 pub mod args;
 pub mod cli_args;
 pub mod config;
 pub mod exec;
 pub mod menu;
+pub mod net;
 pub mod printable_table;
+pub mod pyfs;
 pub mod pytext;
 pub mod resolve;
 pub mod rng;
 pub mod settings_json;
 pub mod sha256;
 pub mod term;
+#[cfg(test)]
+pub mod testfake;
 pub mod tty;
 pub mod ui;
 pub mod update;

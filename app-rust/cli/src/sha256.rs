@@ -97,6 +97,26 @@ pub fn sha256_hex(data: &[u8]) -> String {
     hex(&h.finalize())
 }
 
+/// `sha256_file(path)`: the digest of one file, streamed in 64 KiB
+/// blocks so a 200 MB download never sits in memory. Python reads
+/// 1 MiB at a time; the block size is invisible in the result and this
+/// module's buffer is already 64-byte sized, so the port keeps the
+/// smaller read.
+pub fn sha256_file(path: &str) -> std::io::Result<String> {
+    use std::io::Read;
+    let mut fh = std::fs::File::open(path)?;
+    let mut h = Sha256::new();
+    let mut buf = vec![0u8; 1 << 16];
+    loop {
+        let read = fh.read(&mut buf)?;
+        if read == 0 {
+            break;
+        }
+        h.update(&buf[..read]);
+    }
+    Ok(hex(&h.finalize()))
+}
+
 /// One-shot convenience: hash one buffer into 64 lowercase hex characters.
 fn hex(digest: &[u8; 32]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
@@ -232,5 +252,29 @@ mod tests {
             }
             assert_eq!(hex(&h.finalize()), sha256_hex(&data), "chunk {chunk}");
         }
+    }
+
+    #[test]
+    fn sha256_file_equals_the_buffer_digest() {
+        // over the 64 KiB read boundary and past the padding block
+        for len in [0usize, 1, 55, 64, 65, 65536, 131_073] {
+            let path =
+                std::env::temp_dir().join(format!("ytdlp-sha-file-{}-{len}", std::process::id()));
+            let data: Vec<u8> = (0..len).map(|i| (i % 253) as u8).collect();
+            std::fs::write(&path, &data).unwrap();
+            assert_eq!(
+                sha256_file(&path.to_string_lossy()).unwrap(),
+                sha256_hex(&data),
+                "len {len}"
+            );
+            std::fs::remove_file(&path).unwrap();
+        }
+    }
+
+    #[test]
+    fn sha256_file_reports_a_missing_file() {
+        let path =
+            std::env::temp_dir().join(format!("ytdlp-sha-missing-{}.bin", std::process::id()));
+        assert!(sha256_file(&path.to_string_lossy()).is_err());
     }
 }

@@ -40,6 +40,8 @@ jobs:
       - name: cross-check windows-msvc and linux-musl (ubuntu only)
         if: runner.os == 'Linux'
         run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
           rustup target add --toolchain 1.98.0 x86_64-pc-windows-msvc x86_64-unknown-linux-musl
           cargo check --workspace --target x86_64-pc-windows-msvc
           cargo check --workspace --target x86_64-unknown-linux-musl
@@ -216,6 +218,10 @@ jobs:
         with:
           toolchain: 1.98.0
           targets: x86_64-unknown-linux-musl
+      - name: musl C toolchain (ring compiles C for the target)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
       - name: release build, gnu
         run: cargo build --release -p ytdlp-cli
       - name: release build, musl

@@ -378,6 +378,7 @@ pub fn act(
     io: &mut Io,
     world: &World,
     download: &mut dyn FnMut(&mut Obj, &str, &mut Io) -> i32,
+    update: &mut dyn FnMut(&mut Obj, &mut Io) -> Result<(), MenuErr>,
 ) -> Result<ActOutcome, MenuErr> {
     let is_audio_only = matches!(config::get(s, "type"), Some(Value::Str(t)) if t == "audio only");
     let repaint = match choice {
@@ -610,13 +611,14 @@ pub fn act(
             true
         }
         "11" => {
-            // the updaters arrive with phase 8; until then a typed
-            // refusal (the phase-4 wires-only discipline)
-            print_line(
-                io,
-                "  updaters are not wired in this build yet (native port phase 8)",
-            );
-            tty::hold(io.out, io.reader);
+            // the updaters run here (phase 8): both halves behind
+            // update_all, then python's "press enter to go back" hold
+            update(s, io)?;
+            match read(io, "  press enter to go back: ", None) {
+                ReadOutcome::Line(_) | ReadOutcome::Escape => {}
+                ReadOutcome::Eof => return Err(MenuErr::Eof),
+                ReadOutcome::Interrupted => return Err(MenuErr::Interrupted),
+            }
             true
         }
         "12" => {
@@ -651,42 +653,18 @@ pub fn act(
 
 // ------------------------------------------------------------- main loop
 
-/// The phase-6 startup auto-check: python's gates and throttle with the
-/// fetch unwired until phase 8 - a due check is skipped silently, with
-/// no network contact and no stamp (recorded in the phase-6 port notes;
-/// FR-13's trigger rule - menu start only, tty only, once a day - is
-/// already enforced here).
-pub fn auto_update_check_startup(s: &mut Obj) {
-    if !config::get(s, "auto_update").is_some_and(config::py_truthy) {
-        return;
-    }
-    if !tty::stdin_is_tty() {
-        return;
-    }
-    let last = match config::get(s, "auto_update_last_check") {
-        Some(Value::Int(n)) => *n as f64,
-        Some(Value::Float(f)) => *f,
-        _ => 0.0,
-    };
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs_f64())
-        .unwrap_or(0.0);
-    if now - last >= 86400.0 {
-        // phase 8: one GET, the version compare and the install prompt
-    }
-}
-
 /// `main_menu`: the loop the whole interactive product runs in.
 /// `download` is the phase-7 downloader (a typed refusal until then);
-/// `quiet_check` is the startup auto-update check (phase 8; the phase-6
-/// implementation keeps its gates and skips the fetch).
+/// `update` is the phase-8 updater pair item 11 runs; `quiet_check` is
+/// the startup auto-update check - python's `auto_update_check(s)` at
+/// the one call site FR-13 pins, which now really fetches.
 pub fn main_menu(
     s: &mut Obj,
     io: &mut Io,
     world: &World,
     download: &mut dyn FnMut(&mut Obj, &str, &mut Io) -> i32,
-    quiet_check: &mut dyn FnMut(&mut Obj),
+    update: &mut dyn FnMut(&mut Obj, &mut Io) -> Result<(), MenuErr>,
+    quiet_check: &mut dyn FnMut(&mut Obj, &mut Io) -> Result<(), MenuErr>,
 ) -> Result<i32, MenuErr> {
     tty::enable_vt_output();
     let mut dirty = true;
@@ -710,7 +688,7 @@ pub fn main_menu(
         if !started {
             // after the first paint, so the notice is not wiped by the clear
             started = true;
-            quiet_check(s);
+            quiet_check(s, io)?;
             save(s, world)?;
         }
         match read(io, "> ", None) {
@@ -750,7 +728,7 @@ pub fn main_menu(
                     save(s, world)?;
                     continue;
                 }
-                let repaint = match act(&choice, s, io, world, download) {
+                let repaint = match act(&choice, s, io, world, download, update) {
                     Ok(ActOutcome::Repaint(repaint)) => repaint,
                     Ok(ActOutcome::Exit) => return Ok(0),
                     Err(MenuErr::GoBack) => true,
@@ -839,13 +817,14 @@ mod tests {
         let mut rec = RecordingOut::default();
         let mut reader = ScriptedReader::new(replies);
         let mut download = |_s: &mut Obj, _url: &str, _io: &mut Io| -> i32 { 0 };
+        let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };
         let w = world(&path, "1.5.0", false, false, None);
         let outcome = {
             let mut io = Io {
                 out: &mut rec,
                 reader: &mut reader,
             };
-            act(choice, settings, &mut io, &w, &mut download)
+            act(choice, settings, &mut io, &w, &mut download, &mut update)
         };
         assert!(
             outcome.is_ok(),
@@ -970,13 +949,14 @@ mod tests {
         let mut rec = RecordingOut::default();
         let mut reader = ScriptedReader::new(vec![ScriptItem::Line(String::new())]);
         let mut download = |_s: &mut Obj, _url: &str, _io: &mut Io| -> i32 { 0 };
+        let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };
         let w = world(&path, "1.5.0", false, false, None);
         {
             let mut io = Io {
                 out: &mut rec,
                 reader: &mut reader,
             };
-            let outcome = act("12", &mut s, &mut io, &w, &mut download).unwrap();
+            let outcome = act("12", &mut s, &mut io, &w, &mut download, &mut update).unwrap();
             assert!(matches!(outcome, ActOutcome::Repaint(true)));
         }
         assert_eq!(config::get(&s, "auto_update"), Some(&Value::Bool(false)));
@@ -990,13 +970,14 @@ mod tests {
         ]);
         let mut s = config::defaults();
         std::fs::write(&path, config::render_settings_file(&s)).expect("seed");
-        let mut quiet = |_s: &mut Obj| {};
+        let mut quiet = |_s: &mut Obj, _io: &mut Io| Ok(());
         {
             let mut io = Io {
                 out: &mut rec,
                 reader: &mut reader,
             };
-            let code = main_menu(&mut s, &mut io, &w, &mut download, &mut quiet).unwrap();
+            let code =
+                main_menu(&mut s, &mut io, &w, &mut download, &mut update, &mut quiet).unwrap();
             assert_eq!(code, 0);
         }
         assert!(
@@ -1057,13 +1038,14 @@ mod tests {
             ScriptItem::Line(String::new()),
         ]);
         let mut download = |_s: &mut Obj, _url: &str, _io: &mut Io| -> i32 { 0 };
+        let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };
         let w = world(&path, "1.5.0", true, true, Some((120, 50)));
         {
             let mut io = Io {
                 out: &mut rec,
                 reader: &mut reader,
             };
-            let outcome = act("7", &mut s, &mut io, &w, &mut download).unwrap();
+            let outcome = act("7", &mut s, &mut io, &w, &mut download, &mut update).unwrap();
             assert!(matches!(outcome, ActOutcome::Repaint(true)));
         }
         let plain = ui::sub_lang_lines(WIDTH);
@@ -1101,14 +1083,16 @@ mod tests {
             let mut rec = RecordingOut::default();
             let mut reader = ScriptedReader::new(replies);
             let mut download = |_s: &mut Obj, _url: &str, _io: &mut Io| -> i32 { 0 };
-            let mut quiet = |_s: &mut Obj| {};
+            let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };
+            let mut quiet = |_s: &mut Obj, _io: &mut Io| Ok(());
             let w = world(&path, "1.5.0", false, false, None);
             {
                 let mut io = Io {
                     out: &mut rec,
                     reader: &mut reader,
                 };
-                let code = main_menu(&mut s, &mut io, &w, &mut download, &mut quiet).unwrap();
+                let code =
+                    main_menu(&mut s, &mut io, &w, &mut download, &mut update, &mut quiet).unwrap();
                 assert_eq!(code, 0);
             }
             rec.text()
@@ -1147,14 +1131,15 @@ mod tests {
             let mut rec = RecordingOut::default();
             let mut reader = ScriptedReader::new(replies);
             let mut download = |_s: &mut Obj, _url: &str, _io: &mut Io| -> i32 { 0 };
-            let mut quiet = |_s: &mut Obj| {};
+            let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };
+            let mut quiet = |_s: &mut Obj, _io: &mut Io| Ok(());
             let w = world(&path, "1.5.0", false, false, None);
             let mut io = Io {
                 out: &mut rec,
                 reader: &mut reader,
             };
             (
-                main_menu(&mut s, &mut io, &w, &mut download, &mut quiet),
+                main_menu(&mut s, &mut io, &w, &mut download, &mut update, &mut quiet),
                 rec.text(),
             )
         };
@@ -1196,14 +1181,15 @@ mod tests {
             ScriptItem::Line("13".to_string()),
         ]);
         let mut download = |_s: &mut Obj, _url: &str, _io: &mut Io| -> i32 { 0 };
-        let mut quiet = |_s: &mut Obj| {};
+        let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };
+        let mut quiet = |_s: &mut Obj, _io: &mut Io| Ok(());
         let w = world(&path2, "1.5.0", false, false, None);
         let mut io = Io {
             out: &mut rec,
             reader: &mut reader,
         };
         assert_eq!(
-            main_menu(&mut s, &mut io, &w, &mut download, &mut quiet).unwrap(),
+            main_menu(&mut s, &mut io, &w, &mut download, &mut update, &mut quiet).unwrap(),
             0
         );
         assert_eq!(

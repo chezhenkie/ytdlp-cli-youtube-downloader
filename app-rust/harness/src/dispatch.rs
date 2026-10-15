@@ -990,7 +990,13 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
             let mut rec = tty::RecordingOut::default();
             let mut reader = scripted_reader(case)?;
             let mut download = |_s: &mut Obj, _url: &str, _io: &mut menu::Io| -> i32 { 0 };
-            let mut quiet_check = |_s: &mut Obj| {};
+            // the phase-8 updater pair: the harness drives act and
+            // main_menu, not the network, so both stay inert closures
+            // unless a case scripts them (see the update arms)
+            let mut update = |_s: &mut Obj, _io: &mut menu::Io| -> Result<(), MenuErr> { Ok(()) };
+            let mut quiet_check = |_s: &mut Obj, _io: &mut menu::Io| -> Result<(), MenuErr> {
+                Ok(())
+            };
             let (outcome, exit) = {
                 let mut io = menu::Io {
                     out: &mut rec,
@@ -998,7 +1004,14 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                 };
                 if name == "act" {
                     let choice = field_str(case, "choice")?;
-                    match menu::act(&choice, &mut s, &mut io, &world, &mut download) {
+                    match menu::act(
+                        &choice,
+                        &mut s,
+                        &mut io,
+                        &world,
+                        &mut download,
+                        &mut update,
+                    ) {
                         Ok(menu::ActOutcome::Repaint(true)) => {
                             ("repaint_true".to_string(), Json::Null)
                         }
@@ -1012,8 +1025,14 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                         Err(other) => return Err(format!("act error {other:?}")),
                     }
                 } else {
-                    match menu::main_menu(&mut s, &mut io, &world, &mut download, &mut quiet_check)
-                    {
+                    match menu::main_menu(
+                        &mut s,
+                        &mut io,
+                        &world,
+                        &mut download,
+                        &mut update,
+                        &mut quiet_check,
+                    ) {
                         Ok(code) => ("return".to_string(), Json::Int(code as i64)),
                         Err(MenuErr::Eof) => ("eof".to_string(), Json::Null),
                         Err(MenuErr::Interrupted) => ("interrupted".to_string(), Json::Null),

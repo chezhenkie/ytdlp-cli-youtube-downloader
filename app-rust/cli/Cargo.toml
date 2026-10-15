@@ -19,15 +19,40 @@ path = "src/main.rs"
 # are the drawn entries from the minimal vetted crate set. Phase 6 adds
 # the console features: VT enable, screen buffer info, the folder
 # dialog and CoTaskMemFree.
+# Phase 8 (specsheet section 4, phase-8 port notes): the network and
+# archive layers. ureq's defaults are rustls + ring + webpki-roots, so
+# certificate verification never reads the host trust store; the windows
+# build adds the HKCU Internet Settings fallback so proxy resolution
+# matches python's getproxies() (IF-7). zip and tar come with default
+# features off so only decode paths are compiled, and both decompress
+# through pure-rust crates (miniz_oxide, lzma-rust2) - no C toolchain.
+[dependencies]
+ureq = "3.4.2"
+zip = { version = "7.2.0", default-features = false, features = [
+    "deflate-flate2",
+] }
+tar = { version = "0.4.46", default-features = false }
+lzma-rust2 = { version = "0.15.8", default-features = false, features = [
+    "std",
+    "xz",
+] }
+
+# The archive tests build their own fixtures, which needs the xz
+# encoder; only `cargo test` sees this, the shipping build decodes.
+[dev-dependencies]
+lzma-rust2 = { version = "0.15.8", features = ["encoder"] }
+
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
+    "Win32_Storage_FileSystem",
     "Win32_System_Com",
     "Win32_System_Console",
     "Win32_System_Registry",
     "Win32_UI_Shell",
     "Win32_UI_Shell_Common",
 ] }
+ureq = { version = "3.4.2", features = ["win-system-proxy"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

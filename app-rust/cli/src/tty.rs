@@ -291,6 +291,15 @@ fn write_console_w(text: &str) {
 /// thread) can share one terminal with whole-write atomicity.
 pub type SharedSink = Arc<Mutex<dyn Out + Send>>;
 
+/// python's `print(text)` onto a shared sink: the text, its newline and
+/// a flush, under one lock.
+pub fn emit_line(sink: &SharedSink, text: &str) {
+    let mut out = lock(sink);
+    out.write(text);
+    out.write("\n");
+    out.flush();
+}
+
 #[derive(Clone)]
 pub struct SharedOut {
     sink: SharedSink,
