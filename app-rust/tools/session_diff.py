@@ -134,15 +134,14 @@ def normalize(data, tree):
     # settings.json, so both spellings project. The python side derives
     # its root through Path.resolve(), which can differ from the
     # mkdtemp spelling (macOS /var -> /private/var, windows canonical
-    # case), so the resolved form projects too.
-    forms = [str(tree)]
+    # case), so the resolved form projects too - longest form first,
+    # because the raw path is a suffix of the resolved one on macOS.
+    forms = {str(tree)}
     try:
-        resolved = str(Path(str(tree)).resolve())
+        forms.add(str(Path(str(tree)).resolve()))
     except OSError:
-        resolved = None
-    if resolved and resolved != forms[0]:
-        forms.append(resolved)
-    for form in forms:
+        pass
+    for form in sorted(forms, key=len, reverse=True):
         escaped = json.dumps(form).encode("utf-8")[1:-1]
         data = data.replace(escaped, b"{root}")
         data = data.replace(form.encode("utf-8"), b"{root}")
@@ -371,6 +370,26 @@ def drain(master, data, quiet, deadline):
         last = time.monotonic()
 
 
+def wait_for(master, data, needle, deadline):
+    """Read until `needle` shows up in the transcript (CI raced this
+    once: a burst written before the child entered raw mode is echoed in
+    canonical mode and then discarded by setraw's TCSAFLUSH, and the
+    child waits forever)."""
+    while needle not in data:
+        if time.monotonic() >= deadline:
+            raise InstrumentError("never saw %r in the transcript" % needle)
+        ready, _, _ = select.select([master], [], [], 0.1)
+        if not ready:
+            continue
+        try:
+            chunk = os.read(master, 65536)
+        except OSError:
+            raise InstrumentError("pty closed before %r appeared" % needle) from None
+        if not chunk:
+            raise InstrumentError("pty closed before %r appeared" % needle)
+        data.extend(chunk)
+
+
 def run_pty_case(case, work, rust_bin, cols=80, rows=24):
     results = []
     for kind, extra_env in (("py", {"PYTHONIOENCODING": "utf-8"}), ("rs", {})):
@@ -396,9 +415,15 @@ def run_pty_case(case, work, rust_bin, cols=80, rows=24):
         os.close(slave)
         data = bytearray()
         try:
+            # wait for the main prompt first: the child must be in
+            # read_esc (raw mode) before a burst can survive
+            wait_for(master, data, b"> ", time.monotonic() + 20.0)
             for burst in case["bursts"]:
                 deadline = time.monotonic() + 8.0
                 drain(master, data, 0.25, deadline)
+                # the child prints its prompt before it switches the
+                # terminal to raw; give that switch a margin
+                time.sleep(0.15)
                 os.write(master, burst)
             deadline = time.monotonic() + 20.0
             while proc.poll() is None and time.monotonic() < deadline:
