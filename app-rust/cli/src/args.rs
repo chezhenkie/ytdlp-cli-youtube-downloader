@@ -153,8 +153,9 @@ pub fn parse_lang_input(raw: Option<&str>) -> (Vec<String>, Vec<String>, Vec<Str
 // ------------------------------------------------- argv construction
 
 /// The shipped filename template (`DEFAULTS["filename_template"]`); a
-/// rust test pins it against `config::defaults()` so the two cannot drift.
-const TEMPLATE_DEFAULT: &str = "%(title)s";
+/// rust test pins it against `config::defaults()` so the two cannot
+/// drift. `menu` reuses it for the template preset list.
+pub(crate) const TEMPLATE_DEFAULT: &str = "%(title)s";
 
 /// Python `ABS_RE = re.compile(r"^([A-Za-z]:[\\/]|[\\/])")` (L317): a
 /// drive-absolute or rooted template suppresses both `-P` entries. A
@@ -227,8 +228,9 @@ fn height_clause(s: &Obj) -> Result<String, ShapeKind> {
 /// ints pass, strings go through python's `int()` (a non-numeric string
 /// is the ValueError shape). Bool and float shapes are refused rather
 /// than mirrored - a loaded settings object always carries the coerced
-/// int (recorded in the phase-5 port notes).
-fn playlist_max_items(s: &Obj) -> Result<i64, ShapeKind> {
+/// int (recorded in the phase-5 port notes). `menu_items` reuses this
+/// for the playlist row.
+pub(crate) fn playlist_max_items(s: &Obj) -> Result<i64, ShapeKind> {
     let Some(v) = config::get(s, "playlist_max_items") else {
         return Ok(0);
     };

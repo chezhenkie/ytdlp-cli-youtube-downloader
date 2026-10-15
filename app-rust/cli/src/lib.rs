@@ -9,6 +9,7 @@
 pub mod args;
 pub mod config;
 pub mod exec;
+pub mod menu;
 pub mod printable_table;
 pub mod pytext;
 pub mod resolve;
@@ -16,6 +17,7 @@ pub mod rng;
 pub mod settings_json;
 pub mod sha256;
 pub mod term;
+pub mod tty;
 pub mod ui;
 pub mod update;
 pub mod width_table;

@@ -1,0 +1,1145 @@
+//! Terminal layer, tty-bound half (specsheet section 4, phase-6 port
+//! notes): the two seams every interactive side effect goes through
+//! (`Out`, `Reader`), their production implementations over stdout and
+//! stdin, `read_esc` with the piped and the raw branches, `LineEdit` and
+//! the session history, `KeyWatch`, `Stage`, `block_under_input`,
+//! terminal size, VT enable and `hold`.
+//!
+//! The python oracle writes to `sys.stdout` and reads through
+//! `msvcrt`/`termios` directly; the port routes both through seams so
+//! the whole menu is drivable in tests and in the differential harness
+//! with recording implementations, exactly like the python selftest
+//! redirects stdout and fakes `read_esc`. Where python reads module
+//! globals (USE_COLOR, HISTORY) the port takes parameters.
+//!
+//! Byte fidelity that the seams keep: the production `Out` reproduces
+//! python's text-mode newline translation (windows non-console stdout
+//! translates `\n` to `\r\n` - measured 2026-10-15; a windows console
+//! takes UTF-16 through WriteConsoleW); recording sinks carry raw LF
+//! and no translation, which is what io.StringIO does in the harness.
+
+use std::collections::VecDeque;
+use std::io::{IsTerminal, Read, Write};
+use std::sync::{Arc, Mutex, MutexGuard};
+
+use crate::term::{DOTS, FRAME_SECS, Spinner, flat_frames, flat_freeze, plain_cells, render_cells};
+
+/// Locking that ignores poisoning: a panicking writer must not take the
+/// whole menu down (python has no equivalent state).
+fn lock<T: ?Sized>(m: &Mutex<T>) -> MutexGuard<'_, T> {
+    match m.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    }
+}
+
+// ------------------------------------------------------------------ seams
+
+/// One `read_esc` answer. Line is a submitted line; Escape is python's
+/// None; Eof and Interrupted are python's EOFError and KeyboardInterrupt.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ReadOutcome {
+    Line(String),
+    Escape,
+    Eof,
+    Interrupted,
+}
+
+/// The input side. `below` is the reference block under a live prompt
+/// (python's `read_esc(..., below=...)`); the reader writes prompts and
+/// blocks itself, like python's read_esc does.
+pub trait Reader {
+    fn read_line(
+        &mut self,
+        prompt: &str,
+        below: Option<&[String]>,
+        out: &mut dyn Out,
+    ) -> ReadOutcome;
+}
+
+/// The output side: write plus flush, mirroring the python pairs
+/// `sys.stdout.write(...)` + `sys.stdout.flush()`.
+pub trait Out {
+    fn write(&mut self, text: &str);
+    fn flush(&mut self);
+}
+
+/// A recording sink for tests and the differential harness. Cloning
+/// shares the recording, so a `Stage` and its test can look at the same
+/// event log from two sides. Events keep write/flush order, so a test
+/// can assert that a frame never sits in a buffer.
+#[derive(Clone, Default)]
+pub struct RecordingOut {
+    inner: Arc<Mutex<RecordingInner>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RecEvent {
+    Write(String),
+    Flush,
+}
+
+#[derive(Default)]
+struct RecordingInner {
+    events: Vec<RecEvent>,
+}
+
+impl RecordingOut {
+    pub fn events(&self) -> Vec<RecEvent> {
+        lock(&self.inner).events.clone()
+    }
+    pub fn writes(&self) -> Vec<String> {
+        lock(&self.inner)
+            .events
+            .iter()
+            .filter_map(|e| match e {
+                RecEvent::Write(text) => Some(text.clone()),
+                RecEvent::Flush => None,
+            })
+            .collect()
+    }
+    pub fn flush_count(&self) -> usize {
+        lock(&self.inner)
+            .events
+            .iter()
+            .filter(|e| matches!(e, RecEvent::Flush))
+            .count()
+    }
+    pub fn text(&self) -> String {
+        lock(&self.inner)
+            .events
+            .iter()
+            .filter_map(|e| match e {
+                RecEvent::Write(text) => Some(text.as_str()),
+                RecEvent::Flush => None,
+            })
+            .collect()
+    }
+}
+
+impl Out for RecordingOut {
+    fn write(&mut self, text: &str) {
+        lock(&self.inner).events.push(RecEvent::Write(text.to_string()));
+    }
+    fn flush(&mut self) {
+        lock(&self.inner).events.push(RecEvent::Flush);
+    }
+}
+
+/// A scripted reader for tests and the harness: one queued outcome per
+/// read, prompts recorded in call order (the python hooks record the
+/// same list from their fake read_esc).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ScriptItem {
+    Line(String),
+    Escape,
+    Eof,
+    Interrupted,
+}
+
+pub struct ScriptedReader {
+    pub replies: VecDeque<ScriptItem>,
+    pub prompts: Vec<String>,
+    pub belows: Vec<Option<Vec<String>>>,
+}
+
+impl ScriptedReader {
+    pub fn new(replies: Vec<ScriptItem>) -> Self {
+        Self {
+            replies: replies.into(),
+            prompts: Vec::new(),
+            belows: Vec::new(),
+        }
+    }
+}
+
+impl Reader for ScriptedReader {
+    fn read_line(
+        &mut self,
+        prompt: &str,
+        below: Option<&[String]>,
+        _out: &mut dyn Out,
+    ) -> ReadOutcome {
+        self.prompts.push(prompt.to_string());
+        self.belows.push(below.map(|b| b.to_vec()));
+        match self.replies.pop_front() {
+            Some(ScriptItem::Line(line)) => ReadOutcome::Line(line),
+            Some(ScriptItem::Escape) => ReadOutcome::Escape,
+            Some(ScriptItem::Eof) | None => ReadOutcome::Eof,
+            Some(ScriptItem::Interrupted) => ReadOutcome::Interrupted,
+        }
+    }
+}
+
+// ------------------------------------------------------- production sides
+
+pub fn stdin_is_tty() -> bool {
+    std::io::stdin().is_terminal()
+}
+
+pub fn stdout_is_tty() -> bool {
+    std::io::stdout().is_terminal()
+}
+
+/// The production sink. Windows: a console handle takes UTF-16 through
+/// WriteConsoleW (non-ASCII stays intact, the console does its own
+/// newline handling), anything else translates `\n` to `\r\n` like
+/// python's text stdout on a pipe. Posix: UTF-8 bytes.
+pub struct StdoutOut {
+    #[cfg(windows)]
+    console: bool,
+}
+
+impl StdoutOut {
+    pub fn new() -> Self {
+        #[cfg(windows)]
+        {
+            Self {
+                console: windows_stdout_is_console(),
+            }
+        }
+        #[cfg(not(windows))]
+        {
+            Self {}
+        }
+    }
+}
+
+impl Default for StdoutOut {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Out for StdoutOut {
+    fn write(&mut self, text: &str) {
+        #[cfg(windows)]
+        {
+            if self.console {
+                write_console_w(text);
+                return;
+            }
+            let _ = std::io::stdout().write_all(text.replace('\n', "\r\n").as_bytes());
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = std::io::stdout().write_all(text.as_bytes());
+        }
+    }
+
+    fn flush(&mut self) {
+        let _ = std::io::stdout().flush();
+    }
+}
+
+#[cfg(windows)]
+fn windows_stdout_is_console() -> bool {
+    use windows_sys::Win32::System::Console::{GetConsoleMode, GetStdHandle, STD_OUTPUT_HANDLE};
+    unsafe {
+        let handle = GetStdHandle(STD_OUTPUT_HANDLE);
+        let mut mode: u32 = 0;
+        GetConsoleMode(handle, &mut mode) != 0
+    }
+}
+
+#[cfg(windows)]
+fn write_console_w(text: &str) {
+    use windows_sys::Win32::System::Console::{GetStdHandle, STD_OUTPUT_HANDLE, WriteConsoleW};
+    let wide: Vec<u16> = text.encode_utf16().collect();
+    if wide.is_empty() {
+        return;
+    }
+    let mut written: u32 = 0;
+    unsafe {
+        let handle = GetStdHandle(STD_OUTPUT_HANDLE);
+        // WriteConsoleW takes at most 64k units per call; interactive
+        // text is far below that.
+        let _ = WriteConsoleW(
+            handle,
+            wide.as_ptr(),
+            wide.len() as u32,
+            &mut written,
+            std::ptr::null(),
+        );
+    }
+}
+
+/// A sink that locks per call, so several writers (a menu and a stage
+/// thread) can share one terminal with whole-write atomicity.
+pub type SharedSink = Arc<Mutex<dyn Out + Send>>;
+
+#[derive(Clone)]
+pub struct SharedOut {
+    sink: SharedSink,
+}
+
+impl SharedOut {
+    pub fn new(inner: impl Out + Send + 'static) -> Self {
+        Self {
+            sink: Arc::new(Mutex::new(inner)),
+        }
+    }
+
+    pub fn from_sink(sink: SharedSink) -> Self {
+        Self { sink }
+    }
+
+    pub fn sink(&self) -> SharedSink {
+        Arc::clone(&self.sink)
+    }
+}
+
+impl Out for SharedOut {
+    fn write(&mut self, text: &str) {
+        lock(&self.sink).write(text);
+    }
+
+    fn flush(&mut self) {
+        lock(&self.sink).flush();
+    }
+}
+
+/// Windows consoles need ENABLE_VIRTUAL_TERMINAL_PROCESSING for ANSI.
+/// Errors are swallowed, like python's `enable_vt_output`.
+pub fn enable_vt_output() {
+    #[cfg(windows)]
+    unsafe {
+        use windows_sys::Win32::System::Console::{
+            ENABLE_VIRTUAL_TERMINAL_PROCESSING, GetConsoleMode, GetStdHandle, STD_OUTPUT_HANDLE,
+            SetConsoleMode,
+        };
+        let handle = GetStdHandle(STD_OUTPUT_HANDLE);
+        let mut mode: u32 = 0;
+        if GetConsoleMode(handle, &mut mode) != 0 {
+            let _ = SetConsoleMode(handle, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+        }
+    }
+}
+
+// ------------------------------------------------------- line editing
+
+pub const HISTORY_MAX: usize = 100;
+
+/// The session history of submitted lines (python's module-global
+/// HISTORY): urls and menu numbers alike, capped at HISTORY_MAX.
+#[derive(Default)]
+pub struct History {
+    pub entries: Vec<String>,
+}
+
+impl History {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Record a submitted line (non-empty after strip) for later recall.
+    pub fn remember(&mut self, line: &str) {
+        if !line.trim().is_empty() {
+            self.entries.push(line.to_string());
+            if self.entries.len() > HISTORY_MAX {
+                let cut = self.entries.len() - HISTORY_MAX;
+                self.entries.drain(..cut);
+            }
+        }
+    }
+}
+
+/// Line buffer with echo and history recall (python `LineEdit`): up/down
+/// walk the history, the half-typed line is the draft and comes back
+/// when walking down past the newest entry; left/right arrows are
+/// consumed without effect because the reader does no cursor editing.
+pub struct LineEdit {
+    prompt: String,
+    buf: Vec<char>,
+    idx: usize,
+    draft: String,
+}
+
+impl LineEdit {
+    pub fn new(prompt: &str, history: &History) -> Self {
+        Self {
+            prompt: prompt.to_string(),
+            buf: Vec::new(),
+            idx: history.entries.len(),
+            draft: String::new(),
+        }
+    }
+
+    pub fn text(&self) -> String {
+        self.buf.iter().collect()
+    }
+
+    pub fn add(&mut self, ch: char, out: &mut dyn Out) {
+        self.buf.push(ch);
+        let mut tmp = [0u8; 4];
+        out.write(ch.encode_utf8(&mut tmp));
+        out.flush();
+    }
+
+    pub fn back(&mut self, out: &mut dyn Out) {
+        if self.buf.pop().is_some() {
+            out.write("\x08 \x08");
+            out.flush();
+        }
+    }
+
+    fn show(&mut self, text: &str, out: &mut dyn Out) {
+        self.buf = text.chars().collect();
+        out.write(&format!("\r\x1b[K{}{}", self.prompt, text));
+        out.flush();
+    }
+
+    pub fn remember(&mut self, history: &mut History) {
+        let line = self.text();
+        history.remember(&line);
+    }
+
+    pub fn recall(&mut self, older: bool, history: &History, out: &mut dyn Out) {
+        if history.entries.is_empty() {
+            return;
+        }
+        if older {
+            if self.idx == history.entries.len() {
+                self.draft = self.text();
+            }
+            if self.idx > 0 {
+                self.idx -= 1;
+                let text = history.entries[self.idx].clone();
+                self.show(&text, out);
+            }
+        } else if self.idx < history.entries.len() - 1 {
+            self.idx += 1;
+            let text = history.entries[self.idx].clone();
+            self.show(&text, out);
+        } else if self.idx == history.entries.len() - 1 {
+            self.idx = history.entries.len();
+            let draft = self.draft.clone();
+            self.show(&draft, out);
+        }
+    }
+}
+
+// ------------------------------------------------------------ read_esc
+
+/// The piped byte source. Universal newlines exactly as python's text
+/// stdin (newline=None) delivers them, measured 2026-10-15: `\r\n` and
+/// lone `\n` end a line immediately; a lone `\r` needs the next byte
+/// (or EOF) to decide, so `abc\r` on an open pipe blocks; a partial
+/// last line is returned and the *next* read is EOF. Bytes decode as
+/// UTF-8; invalid sequences replace (python raises - recorded).
+pub struct LineSource {
+    pending: VecDeque<u8>,
+    eof: bool,
+    scripted: bool,
+}
+
+impl Default for LineSource {
+    fn default() -> Self {
+        Self::stdin()
+    }
+}
+
+impl LineSource {
+    pub fn stdin() -> Self {
+        Self {
+            pending: VecDeque::new(),
+            eof: false,
+            scripted: false,
+        }
+    }
+
+    /// A source over fixed bytes, used by the differential harness and
+    /// standalone tests.
+    pub fn from_bytes(bytes: &[u8]) -> Self {
+        Self {
+            pending: bytes.iter().copied().collect(),
+            eof: false,
+            scripted: true,
+        }
+    }
+
+    fn fill(&mut self) -> bool {
+        if self.eof {
+            return false;
+        }
+        if self.scripted {
+            self.eof = true;
+            return false;
+        }
+        let mut chunk = [0u8; 4096];
+        match std::io::stdin().lock().read(&mut chunk) {
+            Ok(0) => {
+                self.eof = true;
+                false
+            }
+            Ok(n) => {
+                self.pending.extend(&chunk[..n]);
+                true
+            }
+            Err(_) => {
+                self.eof = true;
+                false
+            }
+        }
+    }
+
+    fn next_byte(&mut self) -> Option<u8> {
+        loop {
+            if let Some(b) = self.pending.pop_front() {
+                return Some(b);
+            }
+            if !self.fill() {
+                return None;
+            }
+        }
+    }
+
+    fn push_front(&mut self, b: u8) {
+        self.pending.push_front(b);
+    }
+
+    /// One line without its terminator, or None at EOF with nothing read.
+    pub fn read_line(&mut self) -> Option<String> {
+        let mut bytes: Vec<u8> = Vec::new();
+        loop {
+            let b = match self.next_byte() {
+                Some(b) => b,
+                // EOF: a partial line still counts, python's input()
+                // returns it and the next read raises
+                None => return if bytes.is_empty() { None } else { Some(decode(&bytes)) },
+            };
+            match b {
+                b'\n' => return Some(decode(&bytes)),
+                b'\r' => match self.next_byte() {
+                    None => return Some(decode(&bytes)),
+                    Some(b'\n') => return Some(decode(&bytes)),
+                    Some(other) => {
+                        self.push_front(other);
+                        return Some(decode(&bytes));
+                    }
+                },
+                _ => bytes.push(b),
+            }
+        }
+    }
+}
+
+fn decode(bytes: &[u8]) -> String {
+    String::from_utf8_lossy(bytes).into_owned()
+}
+
+/// python's piped read_esc branch: the `below` block first (each line
+/// plus its newline), then the prompt, then one line; EOF maps to
+/// python's EOFError.
+pub fn read_esc_piped(
+    prompt: &str,
+    below: Option<&[String]>,
+    lines: &mut LineSource,
+    out: &mut dyn Out,
+) -> ReadOutcome {
+    if let Some(block) = below {
+        for line in block {
+            out.write(line);
+            out.write("\n");
+        }
+        out.flush();
+    }
+    if !prompt.is_empty() {
+        out.write(prompt);
+        out.flush();
+    }
+    match lines.read_line() {
+        Some(line) => ReadOutcome::Line(line),
+        None => ReadOutcome::Eof,
+    }
+}
+
+/// One input line; returns Escape (python None) when Escape was pressed.
+/// The reader the menu uses: piped stdin takes the fallback branch, a
+/// tty takes the raw branch.
+pub struct TtyReader {
+    pub lines: LineSource,
+    pub history: History,
+}
+
+impl Default for TtyReader {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl TtyReader {
+    pub fn new() -> Self {
+        Self {
+            lines: LineSource::stdin(),
+            history: History::new(),
+        }
+    }
+}
+
+impl Reader for TtyReader {
+    fn read_line(
+        &mut self,
+        prompt: &str,
+        below: Option<&[String]>,
+        out: &mut dyn Out,
+    ) -> ReadOutcome {
+        if stdin_is_tty() {
+            read_esc_tty(prompt, below, out, &mut self.history)
+        } else {
+            read_esc_piped(prompt, below, &mut self.lines, out)
+        }
+    }
+}
+
+/// The tty branch: prompt first, then the `below` block, then the raw
+/// loop (python read_esc lines 244-314).
+pub fn read_esc_tty(
+    prompt: &str,
+    below: Option<&[String]>,
+    out: &mut dyn Out,
+    history: &mut History,
+) -> ReadOutcome {
+    if !prompt.is_empty() {
+        out.write(prompt);
+        out.flush();
+    }
+    if let Some(block) = below {
+        out.write("\n");
+        out.write(&block.join("\n"));
+        out.write("\n");
+        out.write(&format!("\x1b[{}A", block.len() + 1));
+        out.flush();
+    }
+    #[cfg(unix)]
+    {
+        read_esc_tty_unix(prompt, out, history)
+    }
+    #[cfg(windows)]
+    {
+        read_esc_tty_windows(prompt, out, history)
+    }
+}
+
+/// Wait for enter without printing a prompt (python `hold`): the menu
+/// repaint wipes anything that does not hold, so a caller with
+/// something to say prints it and then holds.
+pub fn hold(out: &mut dyn Out, reader: &mut dyn Reader) {
+    let _ = reader.read_line("", None, out);
+}
+
+// ------------------------------------------------------- posix raw mode
+
+#[cfg(unix)]
+struct RawMode {
+    fd: i32,
+    saved: libc::termios,
+}
+
+#[cfg(unix)]
+impl RawMode {
+    /// python `tty.setraw`: the flag clears of tty.py, applied with
+    /// TCSAFLUSH (which also drains pending input).
+    fn enter(fd: i32) -> Option<Self> {
+        let mut saved = std::mem::MaybeUninit::<libc::termios>::uninit();
+        if unsafe { libc::tcgetattr(fd, saved.as_mut_ptr()) } != 0 {
+            return None;
+        }
+        let saved = unsafe { saved.assume_init() };
+        let mut raw = saved;
+        raw.c_iflag &= !(libc::IGNBRK
+            | libc::BRKINT
+            | libc::IGNPAR
+            | libc::PARMRK
+            | libc::INPCK
+            | libc::ISTRIP
+            | libc::INLCR
+            | libc::IGNCR
+            | libc::ICRNL
+            | libc::IXON
+            | libc::IXANY
+            | libc::IXOFF);
+        raw.c_oflag &= !libc::OPOST;
+        raw.c_cflag &= !(libc::PARENB | libc::CSIZE);
+        raw.c_cflag |= libc::CS8;
+        raw.c_lflag &= !(libc::ECHO
+            | libc::ECHOE
+            | libc::ECHOK
+            | libc::ECHONL
+            | libc::ICANON
+            | libc::IEXTEN
+            | libc::ISIG
+            | libc::NOFLSH
+            | libc::TOSTOP);
+        raw.c_cc[libc::VMIN] = 1;
+        raw.c_cc[libc::VTIME] = 0;
+        if unsafe { libc::tcsetattr(fd, libc::TCSAFLUSH, &raw) } != 0 {
+            return None;
+        }
+        Some(Self { fd, saved })
+    }
+
+    fn restore(&self) {
+        unsafe {
+            libc::tcsetattr(self.fd, libc::TCSAFLUSH, &self.saved);
+        }
+    }
+}
+
+#[cfg(unix)]
+impl Drop for RawMode {
+    fn drop(&mut self) {
+        self.restore();
+    }
+}
+
+#[cfg(unix)]
+fn byte_ready(fd: i32, timeout_ms: i32) -> bool {
+    let mut p = libc::pollfd {
+        fd,
+        events: libc::POLLIN,
+        revents: 0,
+    };
+    let r = unsafe { libc::poll(&mut p, 1, timeout_ms) };
+    r > 0
+}
+
+/// One byte, or None on EOF or a non-retryable error. Retries EINTR
+/// like python's os.read (PEP 475).
+#[cfg(unix)]
+fn read_byte(fd: i32) -> Option<u8> {
+    let mut b: u8 = 0;
+    loop {
+        let n = unsafe { libc::read(fd, (&mut b as *mut u8).cast(), 1) };
+        if n == 1 {
+            return Some(b);
+        }
+        if n == 0 {
+            return None;
+        }
+        let err = std::io::Error::last_os_error();
+        if err.kind() == std::io::ErrorKind::Interrupted {
+            continue;
+        }
+        return None;
+    }
+}
+
+/// python `_esc_more`: the next byte of an in-flight ESC sequence, or
+/// None when nothing follows within the timeout. One byte decodes as
+/// UTF-8 with replacement, python's `os.read(fd,1).decode(...)`.
+#[cfg(unix)]
+fn esc_more(fd: i32, timeout_ms: i32) -> Option<char> {
+    if !byte_ready(fd, timeout_ms) {
+        return None;
+    }
+    match read_byte(fd) {
+        None => None,
+        Some(b) if b < 0x80 => Some(b as char),
+        Some(_) => Some('\u{fffd}'),
+    }
+}
+
+/// python `_csi_final`: the final letter of a CSI key sequence; the
+/// parameter bytes (< 0x40) are swallowed.
+#[cfg(unix)]
+fn csi_final(fd: i32) -> Option<char> {
+    loop {
+        match esc_more(fd, 50) {
+            None => return None,
+            Some(ch) if (ch as u32) >= 0x40 => return Some(ch),
+            Some(_) => {}
+        }
+    }
+}
+
+#[cfg(unix)]
+fn read_esc_tty_unix(prompt: &str, out: &mut dyn Out, history: &mut History) -> ReadOutcome {
+    let fd = 0;
+    let Some(_raw) = RawMode::enter(fd) else {
+        // python would raise from tcgetattr; a stdin that is a tty but
+        // has no termios is outside this product's world
+        return ReadOutcome::Eof;
+    };
+    let mut ed = LineEdit::new(prompt, history);
+    loop {
+        // a 0-byte read (closed pty master) is a python spin; the port
+        // answers escape (recorded deviation)
+        let Some(b) = read_byte(fd) else {
+            return ReadOutcome::Escape;
+        };
+        match b {
+            b'\r' | b'\n' => {
+                out.write("\n");
+                out.flush();
+                ed.remember(history);
+                return ReadOutcome::Line(ed.text());
+            }
+            0x1b => match esc_more(fd, 50) {
+                None => {
+                    out.write("\r\x1b[K");
+                    out.flush();
+                    return ReadOutcome::Escape;
+                }
+                Some('[') => {
+                    if let Some(fin) = csi_final(fd) {
+                        match fin {
+                            'A' => ed.recall(true, history, out),
+                            'B' => ed.recall(false, history, out),
+                            _ => {}
+                        }
+                    }
+                }
+                Some(_) => {}
+            },
+            0x08 | 0x7f => ed.back(out),
+            0x03 => return ReadOutcome::Interrupted,
+            b if b >= 0x20 => {
+                let ch = if b < 0x80 { char::from(b) } else { '\u{fffd}' };
+                ed.add(ch, out);
+            }
+            _ => {}
+        }
+    }
+}
+
+// ----------------------------------------------------- windows raw mode
+
+#[cfg(windows)]
+unsafe extern "C" {
+    // the CRT console functions CPython's msvcrt module calls
+    fn _getwch() -> u16;
+    fn _kbhit() -> i32;
+}
+
+/// The windows raw loop: msvcrt.getwch semantics - extended keys arrive
+/// as `\x00`/`\xe0` plus a scan code, H recalls older and P newer; a
+/// lone surrogate half (a non-BMP key) maps to U+FFFD because a rust
+/// String cannot carry it (recorded deviation).
+#[cfg(windows)]
+fn read_esc_tty_windows(prompt: &str, out: &mut dyn Out, history: &mut History) -> ReadOutcome {
+    let mut ed = LineEdit::new(prompt, history);
+    loop {
+        let w = unsafe { _getwch() };
+        match w {
+            0x000d | 0x000a => {
+                out.write("\n");
+                out.flush();
+                ed.remember(history);
+                return ReadOutcome::Line(ed.text());
+            }
+            0x001b => {
+                out.write("\r\x1b[K");
+                out.flush();
+                return ReadOutcome::Escape;
+            }
+            0x0008 | 0x007f => ed.back(out),
+            0x0000 | 0x00e0 => {
+                let code = unsafe { _getwch() };
+                match code {
+                    0x0048 => ed.recall(true, history, out),
+                    0x0050 => ed.recall(false, history, out),
+                    _ => {}
+                }
+            }
+            0x0003 => return ReadOutcome::Interrupted,
+            c if c >= 0x20 => {
+                let ch = char::from_u32(c as u32).unwrap_or('\u{fffd}');
+                ed.add(ch, out);
+            }
+            _ => {}
+        }
+    }
+}
+
+// -------------------------------------------------------------- KeyWatch
+
+/// Raw key watcher for the download run: only escape is acted on. Inert
+/// off a tty; restores the mode on drop (python restores in `restore()`
+/// and the runner calls it from `finally`).
+pub struct KeyWatch {
+    #[cfg(unix)]
+    fd: i32,
+    #[cfg(unix)]
+    saved: Option<libc::termios>,
+}
+
+impl Default for KeyWatch {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl KeyWatch {
+    pub fn new() -> Self {
+        #[cfg(windows)]
+        {
+            Self {}
+        }
+        #[cfg(unix)]
+        {
+            let fd = 0;
+            if !stdin_is_tty() {
+                return Self { fd, saved: None };
+            }
+            Self {
+                fd,
+                saved: cbreak(fd),
+            }
+        }
+    }
+
+    pub fn escape_hit(&mut self) -> bool {
+        #[cfg(windows)]
+        {
+            unsafe {
+                if _kbhit() == 0 {
+                    return false;
+                }
+                let ch = _getwch();
+                if ch == 0 || ch == 0xe0 {
+                    let _ = _getwch();
+                    return false;
+                }
+                ch == 0x1b
+            }
+        }
+        #[cfg(unix)]
+        {
+            if self.saved.is_none() {
+                return false;
+            }
+            if !byte_ready(self.fd, 0) {
+                return false;
+            }
+            read_byte(self.fd) == Some(0x1b)
+        }
+    }
+}
+
+#[cfg(unix)]
+impl Drop for KeyWatch {
+    fn drop(&mut self) {
+        if let Some(saved) = &self.saved {
+            unsafe {
+                libc::tcsetattr(self.fd, libc::TCSAFLUSH, saved);
+            }
+        }
+    }
+}
+
+/// python `tty.setcbreak`: echo and canonical mode off, VMIN=1/VTIME=0.
+#[cfg(unix)]
+fn cbreak(fd: i32) -> Option<libc::termios> {
+    let mut saved = std::mem::MaybeUninit::<libc::termios>::uninit();
+    if unsafe { libc::tcgetattr(fd, saved.as_mut_ptr()) } != 0 {
+        return None;
+    }
+    let saved = unsafe { saved.assume_init() };
+    let mut mode = saved;
+    mode.c_lflag &= !(libc::ECHO | libc::ICANON);
+    mode.c_cc[libc::VMIN] = 1;
+    mode.c_cc[libc::VTIME] = 0;
+    if unsafe { libc::tcsetattr(fd, libc::TCSAFLUSH, &mode) } != 0 {
+        return None;
+    }
+    Some(saved)
+}
+
+// ----------------------------------------------------------------- Stage
+
+struct StageState {
+    live: Option<String>,
+    stop: bool,
+}
+
+/// One animated stage line: cells spin, then the line freezes. Every
+/// rewrite clears the line first. The animation runs on its own thread
+/// over the shared sink; off color the thread is skipped and only the
+/// final line prints. `done` writes the freeze frame plus final text
+/// plus newline, exactly python's three write forms.
+pub struct Stage {
+    text: String,
+    frames: Vec<Vec<(String, u8)>>,
+    tick: f64,
+    freeze: Vec<(String, u8)>,
+    use_color: bool,
+    state: Arc<Mutex<StageState>>,
+    sink: SharedSink,
+    thread: Option<std::thread::JoinHandle<()>>,
+}
+
+impl Stage {
+    pub fn new(
+        text: &str,
+        frames: Vec<Vec<(String, u8)>>,
+        tick: f64,
+        freeze: Vec<(String, u8)>,
+        use_color: bool,
+        sink: SharedSink,
+    ) -> Self {
+        Self {
+            text: text.to_string(),
+            frames,
+            tick,
+            freeze,
+            use_color,
+            state: Arc::new(Mutex::new(StageState {
+                live: None,
+                stop: false,
+            })),
+            sink,
+            thread: None,
+        }
+    }
+
+    pub fn start(&mut self) {
+        if !self.use_color {
+            return;
+        }
+        let state = Arc::clone(&self.state);
+        let sink = Arc::clone(&self.sink);
+        let frames = self.frames.clone();
+        let text = self.text.clone();
+        let tick = self.tick;
+        self.thread = Some(std::thread::spawn(move || {
+            let count = frames.len().max(1);
+            let mut i: usize = 0;
+            loop {
+                {
+                    let mut out = lock(&sink);
+                    let st = lock(&state);
+                    if st.stop {
+                        break;
+                    }
+                    let label = match &st.live {
+                        Some(live) => live.clone(),
+                        None => text.clone(),
+                    };
+                    let frame = &frames[i % count];
+                    i += 1;
+                    drop(st);
+                    out.write(&format!("\r\x1b[K{} {}", render_cells(frame), label));
+                    out.flush();
+                }
+                std::thread::sleep(std::time::Duration::from_secs_f64(tick));
+            }
+        }));
+    }
+
+    /// The live progress text the pump threads publish (python reads and
+    /// writes `stage.live` from two threads; a lock replaces the plain
+    /// attribute).
+    pub fn set_live(&self, text: Option<String>) {
+        lock(&self.state).live = text;
+    }
+
+    pub fn done(&mut self, text: Option<&str>) {
+        lock(&self.state).stop = true;
+        // python joins with a 1.0 s timeout; the loop checks the flag
+        // every tick (<= 0.12 s) and never blocks on the sink for long
+        if let Some(handle) = self.thread.take() {
+            let _ = handle.join();
+        }
+        let final_text = match text {
+            Some(t) => t.to_string(),
+            None => self.text.clone(),
+        };
+        let mut out = lock(&self.sink);
+        if self.use_color {
+            out.write(&format!(
+                "\r\x1b[K{} {}\n",
+                render_cells(&self.freeze),
+                final_text
+            ));
+        } else {
+            out.write(&format!("{} {}\n", plain_cells(&self.freeze), final_text));
+        }
+        out.flush();
+    }
+}
+
+/// The quiet amber dot stage for preflight, subtitle and ffmpeg waits.
+pub fn dot_stage(text: &str, use_color: bool, sink: SharedSink) -> Stage {
+    let frames = flat_frames(&DOTS.iter().map(|d| (*d).to_string()).collect::<Vec<_>>(), 214);
+    Stage::new(
+        text,
+        frames,
+        FRAME_SECS,
+        flat_freeze("...", 214),
+        use_color,
+        sink,
+    )
+}
+
+/// The download stage: one of the eight animations, chosen at random by
+/// the caller (python `pick_spinner`).
+pub fn spinner_stage(text: &str, spinner: &Spinner, use_color: bool, sink: SharedSink) -> Stage {
+    Stage::new(
+        text,
+        spinner.frames.clone(),
+        spinner.tick,
+        spinner.freeze.clone(),
+        use_color,
+        sink,
+    )
+}
+
+// ------------------------------------------------------ block and size
+
+/// True when a reference block can be painted under a live input line.
+/// Needs color, a real stdin console, and room: a block wider than the
+/// window would wrap and a block taller would scroll the prompt off the
+/// top. python measures with len() (code points), not display width.
+pub fn block_under_input(
+    block: &[String],
+    use_color: bool,
+    stdin_tty: bool,
+    terminal: Option<(i64, i64)>,
+) -> bool {
+    if !use_color || !stdin_tty {
+        return false;
+    }
+    let Some((columns, lines)) = terminal else {
+        return false;
+    };
+    let maxw = block
+        .iter()
+        .map(|line| line.chars().count() as i64)
+        .max()
+        .unwrap_or(0);
+    maxw + 1 < columns && (block.len() as i64) + 2 < lines
+}
+
+/// os.get_terminal_size() on stdout: windows takes the window rect from
+/// the console screen buffer (the same math as CPython's
+/// TERMSIZE_USE_CONIO), posix takes TIOCGWINSZ; any error is None and
+/// reads as no room in block_under_input.
+pub fn terminal_size_stdout() -> Option<(i64, i64)> {
+    #[cfg(unix)]
+    {
+        let mut ws: libc::winsize = unsafe { std::mem::zeroed() };
+        if unsafe { libc::ioctl(1, libc::TIOCGWINSZ, &mut ws) } != 0 {
+            return None;
+        }
+        Some((i64::from(ws.ws_col), i64::from(ws.ws_row)))
+    }
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::System::Console::{
+            CONSOLE_SCREEN_BUFFER_INFO, GetConsoleScreenBufferInfo, GetStdHandle, STD_OUTPUT_HANDLE,
+        };
+        let mut info = std::mem::MaybeUninit::<CONSOLE_SCREEN_BUFFER_INFO>::uninit();
+        unsafe {
+            let handle = GetStdHandle(STD_OUTPUT_HANDLE);
+            if GetConsoleScreenBufferInfo(handle, info.as_mut_ptr()) == 0 {
+                return None;
+            }
+            let info = info.assume_init();
+            Some((
+                i64::from(info.srWindow.Right) - i64::from(info.srWindow.Left) + 1,
+                i64::from(info.srWindow.Bottom) - i64::from(info.srWindow.Top) + 1,
+            ))
+        }
+    }
+}

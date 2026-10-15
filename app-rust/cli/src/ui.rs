@@ -4,8 +4,12 @@
 //! its phase; the row builders here are pure and column-width correct so
 //! the differential harness can drive them with and without color.
 
-use crate::args::{KNOWN_LANG_CODES, clean_url};
-use crate::term::{A_AMBER, A_DARKGREY, A_GREY, c, cut_to_width, dwidth, tail_to_width};
+use crate::args::{KNOWN_LANG_CODES, clean_url, playlist_max_items};
+use crate::config::{self, Obj, Value};
+use crate::resolve::ShapeKind;
+use crate::term::{
+    A_AMBER, A_DARKGREY, A_GREY, A_LBLUE, A_RESET, c, cut_to_width, dwidth, tail_to_width,
+};
 
 /// The menu box width (WIDTH in the python source; a pinned constant).
 pub const WIDTH: i64 = 64;
@@ -107,6 +111,253 @@ pub fn pick_row(option: &str, current: &str, index: i64, use_color: bool) -> Str
         "    {} {index:>2}  {option}",
         sel_mark(option == current, use_color)
     )
+}
+
+/// python `onoff(flag)`: "on" for a truthy raw value, "off" otherwise.
+pub fn onoff(flag: Option<&Value>) -> String {
+    if flag.is_some_and(config::py_truthy) {
+        "on".to_string()
+    } else {
+        "off".to_string()
+    }
+}
+
+/// `menu_summary(s)`: the one-line download summary (phase 7 shows it).
+pub fn menu_summary(s: &Obj) -> Result<String, ShapeKind> {
+    let kind = config::get(s, "type");
+    let audio_only = matches!(kind, Some(Value::Str(t)) if t == "audio only");
+    if audio_only {
+        let fmt = required(s, "audio_format")?;
+        return Ok(format!("audio-only {}", config::py_str(fmt)));
+    }
+    let container = required(s, "video_container")?;
+    let res = required(s, "video_resolution")?;
+    Ok(format!(
+        "{} {}p",
+        config::py_str(container),
+        config::py_str(res)
+    ))
+}
+
+/// A key the loaded settings always carries; missing is python's
+/// KeyError and stays out of contract (recorded, phase-5 style).
+fn required<'a>(s: &'a Obj, key: &str) -> Result<&'a Value, ShapeKind> {
+    config::get(s, key).ok_or(ShapeKind::TypeError)
+}
+
+/// One menu row: (number, label, value, grey).
+pub struct MenuRow {
+    pub idx: i64,
+    pub label: String,
+    pub value: String,
+    pub grey: bool,
+}
+
+/// `menu_items(s)`: the menu rows, numbered 1 to 13. `outdir` is the
+/// resolved output folder (python calls resolve_outdir here; the port
+/// takes the phase-4 answer as a parameter). Values render through
+/// py_str so a hand-edited raw value cannot diverge.
+pub fn menu_items(s: &Obj, outdir: &str, is_windows: bool) -> Result<Vec<MenuRow>, ShapeKind> {
+    let kind = config::get(s, "type");
+    let res = required(s, "video_resolution")?;
+    let audio_only = matches!(kind, Some(Value::Str(t)) if t == "audio only");
+    let video_no_audio = matches!(kind, Some(Value::Str(t)) if t == "video no audio");
+    let res_text = config::py_str(res);
+    let (shown, container, media) = if audio_only {
+        (
+            format!("audio only ({})", config::py_str(required(s, "audio_format")?)),
+            "-".to_string(),
+            "-".to_string(),
+        )
+    } else if video_no_audio {
+        (
+            "video no audio".to_string(),
+            "-".to_string(),
+            if res_text == "best" {
+                "best".to_string()
+            } else {
+                format!("{res_text}p")
+            },
+        )
+    } else {
+        (
+            "video".to_string(),
+            config::py_str(required(s, "video_container")?),
+            if res_text == "best" {
+                "best".to_string()
+            } else {
+                format!("{res_text}p")
+            },
+        )
+    };
+    let playlist = config::get(s, "playlist").is_some_and(config::py_truthy);
+    let pl = if playlist {
+        let n = playlist_max_items(s)?;
+        if n <= 0 {
+            "on (all)".to_string()
+        } else {
+            format!("on (max {n})")
+        }
+    } else {
+        "off".to_string()
+    };
+    let maxv = WIDTH - "  5  output folder".chars().count() as i64 - 3;
+    let rows = vec![
+        MenuRow {
+            idx: 1,
+            label: "video/audio".to_string(),
+            value: shown,
+            grey: true,
+        },
+        MenuRow {
+            idx: 2,
+            label: "format container".to_string(),
+            value: container,
+            grey: true,
+        },
+        MenuRow {
+            idx: 3,
+            label: "video resolution".to_string(),
+            value: media,
+            grey: true,
+        },
+        MenuRow {
+            idx: 4,
+            label: "audio format".to_string(),
+            value: config::py_str(required(s, "audio_format")?),
+            grey: true,
+        },
+        MenuRow {
+            idx: 5,
+            label: "output folder".to_string(),
+            value: short_path(outdir, maxv, is_windows),
+            grey: true,
+        },
+        MenuRow {
+            idx: 6,
+            label: "filename template".to_string(),
+            value: config::py_str(required(s, "filename_template")?),
+            grey: true,
+        },
+        MenuRow {
+            idx: 7,
+            label: "subtitles".to_string(),
+            value: format!(
+                "{} ({})",
+                onoff(config::get(s, "subtitles")),
+                config::py_str(required(s, "subtitle_langs")?)
+            ),
+            grey: true,
+        },
+        MenuRow {
+            idx: 8,
+            label: "playlist on/off".to_string(),
+            value: pl,
+            grey: true,
+        },
+        MenuRow {
+            idx: 9,
+            label: "add multiple youtube urls".to_string(),
+            value: String::new(),
+            grey: true,
+        },
+        MenuRow {
+            idx: 10,
+            label: "reset defaults".to_string(),
+            value: "config/settings.json".to_string(),
+            grey: true,
+        },
+        MenuRow {
+            idx: 11,
+            label: "update yt-dlp + cli".to_string(),
+            value: String::new(),
+            grey: true,
+        },
+        MenuRow {
+            idx: 12,
+            label: "auto update".to_string(),
+            value: onoff(config::get(s, "auto_update")),
+            grey: true,
+        },
+        MenuRow {
+            idx: 13,
+            label: "quit".to_string(),
+            value: String::new(),
+            grey: false,
+        },
+    ];
+    Ok(rows)
+}
+
+/// `header()`: the two dotted lines and the centered title. `version` is
+/// the product version the binary carries (python reads module VERSION;
+/// the port takes it as a parameter so the arm can pin the layout).
+pub fn header_lines(version: &str, use_color: bool) -> Vec<String> {
+    let title = format!("yt-dlp cli  v{version}");
+    let text = format!(" {title} ");
+    let pad = WIDTH - text.chars().count() as i64;
+    let left = pad / 2;
+    let right = pad - left;
+    let div = "-".repeat((WIDTH + 2) as usize);
+    let line = if use_color {
+        format!(
+            "{A_LBLUE}|{A_RESET}{}{A_AMBER}{text}{A_RESET}{}{A_LBLUE}|{A_RESET}",
+            " ".repeat(left as usize),
+            " ".repeat(right as usize)
+        )
+    } else {
+        format!("|{}{text}{}|", " ".repeat(left as usize), " ".repeat(right as usize))
+    };
+    vec![c(use_color, A_LBLUE, &div), line, c(use_color, A_LBLUE, &div)]
+}
+
+/// `hint(s)`: amber instructions plus grey detail lines, above the
+/// input field. `outdir` is the resolved output folder (python's hint
+/// resolves it here; the port takes the phase-4 answer as a parameter).
+pub fn hint_lines(outdir: &str, use_color: bool) -> Vec<String> {
+    let div = "-".repeat((WIDTH + 2) as usize);
+    let l1 = "paste url, press enter and download will start.";
+    let l2 = "enter number to change default settings";
+    let l3 = "change download location by choosing menu item: 5";
+    let l3b = "download several urls at once by choosing menu item: 9";
+    let l4 = format!("DL location: {outdir}");
+    vec![
+        c(use_color, A_AMBER, l1),
+        c(use_color, A_AMBER, l2),
+        c(use_color, A_DARKGREY, l3),
+        c(use_color, A_DARKGREY, l3b),
+        c(use_color, A_DARKGREY, &l4),
+        c(use_color, A_LBLUE, &div),
+    ]
+}
+
+/// `render(s)`: header, box top, the 13 rows, the escape hint, box
+/// bottom. Returns the lines; the caller prints them.
+pub fn render_lines(
+    version: &str,
+    s: &Obj,
+    outdir: &str,
+    is_windows: bool,
+    use_color: bool,
+) -> Result<Vec<String>, ShapeKind> {
+    let mut lines = header_lines(version, use_color);
+    let m = c(use_color, A_DARKGREY, "|");
+    lines.push(format!("{m}{}{m}", " ".repeat(WIDTH as usize)));
+    for row in menu_items(s, outdir, is_windows)? {
+        lines.push(menu_line(row.idx, &row.label, &row.value, row.grey, use_color));
+    }
+    let desc = "press escape to exit submenu";
+    let pad = WIDTH - desc.chars().count() as i64;
+    let left = pad / 2;
+    let right = pad - left;
+    lines.push(format!(
+        "{m}{}{}{}{m}",
+        " ".repeat(left as usize),
+        c(use_color, A_LBLUE, desc),
+        " ".repeat(right as usize)
+    ));
+    lines.push(c(use_color, A_DARKGREY, &"-".repeat((WIDTH + 2) as usize)));
+    Ok(lines)
 }
 
 #[cfg(test)]
