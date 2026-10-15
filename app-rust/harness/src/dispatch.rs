@@ -16,8 +16,6 @@
 //! pick_spinner has no arm on purpose: it returns a random draw, so a
 //! byte comparison is impossible; its twins live in cli/src/term.rs.
 
-use std::collections::BTreeMap;
-
 use crate::json::Json;
 use ytdlp_cli::config::{Obj, Value};
 use ytdlp_cli::resolve::{self, ShapeKind};
@@ -300,7 +298,7 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
             let os_name = field_str(case, "os_name")?;
             let sys_platform = field_str(case, "sys_platform")?;
             let platform = resolve::platform_name(&os_name, &sys_platform);
-            let bin_dir = resolve_scratch("{scratch}/bin", &dir);
+            let bin_dir = resolve::py_path_join(&resolve_scratch("{scratch}", &dir), "bin");
             let mut which_calls: Vec<String> = Vec::new();
             let result = {
                 let mut which = map_which_closure(&dir, obj_field(case, "which"), &mut which_calls);
@@ -324,7 +322,7 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
             materialize_files(&dir, obj_field(case, "files"))?;
             let saved = settings_from_case(case)?;
             let is_windows = field_str(case, "os_name")? == "nt";
-            let bin_dir = resolve_scratch("{scratch}/bin", &dir);
+            let bin_dir = resolve::py_path_join(&resolve_scratch("{scratch}", &dir), "bin");
             let mut which_calls: Vec<String> = Vec::new();
             let result = {
                 let mut which = map_which_closure(&dir, obj_field(case, "which"), &mut which_calls);
@@ -400,7 +398,7 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
             let case = arg(args, 0, "auto_outdir case")?;
             let dir = TempCaseDir::new("outdir")?;
             materialize_files(&dir, obj_field(case, "files"))?;
-            let home = resolve_scratch("{scratch}/home", &dir);
+            let home = resolve::py_path_join(&resolve_scratch("{scratch}", &dir), "home");
             if let Some(text) = field_opt_str(case, "user_dirs")? {
                 let target = resolve::py_path_join(&home, ".config/user-dirs.dirs");
                 if let Some(parent) = std::path::Path::new(&target).parent() {
@@ -418,8 +416,8 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                     .map_err(|e| format!("scratch seed: {e}"))?;
             }
             let mut env = env_map_from_json(case, Some(&dir))?;
-            env.insert("HOME".to_string(), home.clone());
-            env.insert("USERPROFILE".to_string(), home.clone());
+            env.push(("HOME".to_string(), home.clone()));
+            env.push(("USERPROFILE".to_string(), home.clone()));
             let is_windows = field_str(case, "os_name")? == "nt";
             let win = obj_field(case, "win");
             let win_value = |key: &str| -> Result<Option<String>, String> {
@@ -512,9 +510,13 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
             let case = arg(args, 0, "show_check case")?;
             let dir = TempCaseDir::new("check")?;
             materialize_files(&dir, obj_field(case, "files"))?;
-            let root = resolve_scratch("{scratch}/root", &dir);
+            let scratch_root = resolve_scratch("{scratch}", &dir);
+            let root = resolve::py_path_join(&scratch_root, "root");
             let bin_dir = resolve::py_path_join(&root, "bin");
-            let config_path = resolve_scratch("{scratch}/config/settings.json", &dir);
+            let config_path = resolve::py_path_join(
+                &resolve::py_path_join(&scratch_root, "config"),
+                "settings.json",
+            );
             let config_exists = if let Some(text) = field_opt_str(case, "config_text")? {
                 if let Some(parent) = std::path::Path::new(&config_path).parent() {
                     std::fs::create_dir_all(parent).map_err(|e| format!("scratch setup: {e}"))?;
@@ -525,7 +527,7 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
             } else {
                 false
             };
-            let home = resolve_scratch("{scratch}/home", &dir);
+            let home = resolve::py_path_join(&scratch_root, "home");
             if let Some(text) = field_opt_str(case, "user_dirs")? {
                 let target = resolve::py_path_join(&home, ".config/user-dirs.dirs");
                 if let Some(parent) = std::path::Path::new(&target).parent() {
@@ -535,8 +537,8 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                     .map_err(|e| format!("scratch seed: {e}"))?;
             }
             let mut env = env_map_from_json(case, Some(&dir))?;
-            env.insert("HOME".to_string(), home.clone());
-            env.insert("USERPROFILE".to_string(), home.clone());
+            env.push(("HOME".to_string(), home.clone()));
+            env.push(("USERPROFILE".to_string(), home.clone()));
             let os_name = field_str(case, "os_name")?;
             let sys_platform = field_str(case, "sys_platform")?;
             let platform = resolve::platform_name(&os_name, &sys_platform);
@@ -918,7 +920,7 @@ fn settings_from_case(case: &Json) -> Result<Obj, String> {
 
 /// The case's `env` object, `{scratch}`-resolved when a dir is given.
 fn env_map_from_json(case: &Json, dir: Option<&TempCaseDir>) -> Result<resolve::EnvMap, String> {
-    let mut map = BTreeMap::new();
+    let mut map: resolve::EnvMap = Vec::new();
     match obj_field(case, "env") {
         None | Some(Json::Null) => {}
         Some(Json::Obj(fields)) => {
@@ -930,7 +932,7 @@ fn env_map_from_json(case: &Json, dir: Option<&TempCaseDir>) -> Result<resolve::
                     Some(d) => resolve_scratch(s, d),
                     None => s.clone(),
                 };
-                map.insert(k.clone(), value);
+                map.push((k.clone(), value));
             }
         }
         Some(other) => return Err(format!("env must be an object: {other:?}")),

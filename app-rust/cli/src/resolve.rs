@@ -11,7 +11,6 @@
 //! phase-4 port notes). Shapes where python raises carry typed branches
 //! (`ShapeKind`), and messages that embed payloads stay shape-gated.
 
-use std::collections::BTreeMap;
 #[cfg(unix)]
 use std::path::Path;
 
@@ -313,29 +312,40 @@ pub fn py_path_parent(path: &str) -> String {
 
 // ------------------------------------------------------- expandvars
 
-pub type EnvMap = BTreeMap<String, String>;
+pub type EnvMap = Vec<(String, String)>;
 
-/// Environment lookup with python's semantics: `os.environ` on windows
-/// compares keys case-insensitively via `str.upper`; posix exactly.
-fn env_lookup(env: &EnvMap, name: &str) -> Option<String> {
-    if cfg!(windows) {
-        let upper = name.to_uppercase();
-        env.iter()
-            .find(|(k, _)| k.to_uppercase() == upper)
-            .map(|(_, v)| v.clone())
-    } else {
-        env.get(name).cloned()
-    }
+/// Environment lookup with python's semantics: exact keys on posix,
+/// case-insensitive via `str.upper` on windows (`os.environ` compares
+/// encoded keys); a duplicate assignment overwrites, so the last match
+/// wins like a dict.
+fn env_lookup(env: &EnvMap, name: &str, case_insensitive: bool) -> Option<String> {
+    env.iter()
+        .rev()
+        .find(|(k, _)| {
+            if case_insensitive {
+                k.to_uppercase() == name.to_uppercase()
+            } else {
+                k == name
+            }
+        })
+        .map(|(_, v)| v.clone())
 }
 
 fn is_ascii_word(c: char) -> bool {
     c.is_ascii_alphanumeric() || c == '_'
 }
 
-/// `os.path.expandvars`: posix `$name`/`${name}` only; windows adds
+/// `os.path.expandvars`, flavor selected by the running os like the
+/// python `os.path` module: posix `$name`/`${name}` only; windows adds
 /// `%name%`, `$$ -> $`, `%% -> %` and the single-quoted-chunk skip.
 /// Single pass; unknown names stay verbatim (probed oracle matrices).
 pub fn expandvars(text: &str, env: &EnvMap) -> String {
+    expandvars_flavor(text, env, cfg!(windows))
+}
+
+/// One scanner for both flavors, so the windows pattern set is
+/// unit-testable on every os.
+fn expandvars_flavor(text: &str, env: &EnvMap, nt: bool) -> String {
     let chars: Vec<char> = text.chars().collect();
     let n = chars.len();
     let mut out = String::with_capacity(text.len());
@@ -343,8 +353,7 @@ pub fn expandvars(text: &str, env: &EnvMap) -> String {
     while i < n {
         let c = chars[i];
         let mut consumed: Option<(usize, String)> = None;
-        #[cfg(windows)]
-        if c == '\'' {
+        if nt && c == '\'' {
             // `'[^']*'?`: single-quoted chunks pass through verbatim.
             let mut j = i + 1;
             while j < n && chars[j] != '\'' {
@@ -356,8 +365,7 @@ pub fn expandvars(text: &str, env: &EnvMap) -> String {
             let chunk: String = chars[i..j].iter().collect();
             consumed = Some((j, replacement_quote(&chunk, env)));
         }
-        #[cfg(windows)]
-        if consumed.is_none() && c == '%' {
+        if consumed.is_none() && nt && c == '%' {
             let (j, group) = if chars.get(i + 1) == Some(&'%') {
                 (i + 2, "%".to_string())
             } else {
@@ -372,13 +380,18 @@ pub fn expandvars(text: &str, env: &EnvMap) -> String {
             };
             consumed = Some((j, replacement_percent(&chars[i..j], &group, env)));
         }
-        if consumed.is_none()
-            && c == '$'
-            && (chars.get(i + 1) == Some(&'{')
-                || chars.get(i + 1).copied().is_some_and(is_dollar_word))
-        {
-            let (j, group) = dollar_span(&chars, i);
-            consumed = Some((j, replacement_dollar(&chars[i..j], &group, env)));
+        if consumed.is_none() && c == '$' {
+            if nt && chars.get(i + 1) == Some(&'$') {
+                consumed = Some((i + 2, "$".to_string()));
+            } else if chars.get(i + 1) == Some(&'{')
+                || chars
+                    .get(i + 1)
+                    .copied()
+                    .is_some_and(|c| is_dollar_word(c, nt))
+            {
+                let (j, group) = dollar_span(&chars, i, nt);
+                consumed = Some((j, replacement_dollar(&chars[i..j], &group, env, nt)));
+            }
         }
         match consumed {
             Some((j, repl)) => {
@@ -394,18 +407,13 @@ pub fn expandvars(text: &str, env: &EnvMap) -> String {
     out
 }
 
-#[cfg(windows)]
-fn is_dollar_word(c: char) -> bool {
-    is_ascii_word(c) || c == '-'
-}
-#[cfg(not(windows))]
-fn is_dollar_word(c: char) -> bool {
-    is_ascii_word(c)
+fn is_dollar_word(c: char, nt: bool) -> bool {
+    is_ascii_word(c) || (nt && c == '-')
 }
 
 /// Span of the `$...` alternative at `i` (caller checked the head) plus
 /// its group text.
-fn dollar_span(chars: &[char], i: usize) -> (usize, String) {
+fn dollar_span(chars: &[char], i: usize, nt: bool) -> (usize, String) {
     let n = chars.len();
     if chars.get(i + 1) == Some(&'{') {
         let mut j = i + 2;
@@ -419,7 +427,7 @@ fn dollar_span(chars: &[char], i: usize) -> (usize, String) {
         (j, group)
     } else {
         let mut j = i + 2; // chars[i+1] is a word char
-        while j < n && is_dollar_word(chars[j]) {
+        while j < n && is_dollar_word(chars[j], nt) {
             j += 1;
         }
         let group: String = chars[i + 1..j].iter().collect();
@@ -428,7 +436,6 @@ fn dollar_span(chars: &[char], i: usize) -> (usize, String) {
 }
 
 /// Windows quoted alternative: verbatim, with python's odd `%`-trim path.
-#[cfg(windows)]
 fn replacement_quote(chunk: &str, env: &EnvMap) -> String {
     if chunk == "%" {
         return chunk.to_string();
@@ -437,11 +444,10 @@ fn replacement_quote(chunk: &str, env: &EnvMap) -> String {
         return chunk.to_string();
     }
     let name = &chunk[..chunk.len() - 1];
-    env_lookup(env, name).unwrap_or_else(|| chunk.to_string())
+    env_lookup(env, name, true).unwrap_or_else(|| chunk.to_string())
 }
 
 /// Windows `%name%` alternative.
-#[cfg(windows)]
 fn replacement_percent(whole: &[char], group: &str, env: &EnvMap) -> String {
     if group == "%" {
         return "%".to_string();
@@ -451,11 +457,11 @@ fn replacement_percent(whole: &[char], group: &str, env: &EnvMap) -> String {
         return original;
     }
     let name = &group[..group.len() - 1];
-    env_lookup(env, name).unwrap_or(original)
+    env_lookup(env, name, true).unwrap_or(original)
 }
 
 /// `$name` / `${name}` alternative.
-fn replacement_dollar(whole: &[char], group: &str, env: &EnvMap) -> String {
+fn replacement_dollar(whole: &[char], group: &str, env: &EnvMap, nt: bool) -> String {
     let original: String = whole.iter().collect();
     let name = if group.starts_with('{') {
         if !group.ends_with('}') {
@@ -465,11 +471,7 @@ fn replacement_dollar(whole: &[char], group: &str, env: &EnvMap) -> String {
     } else {
         group
     };
-    #[cfg(windows)]
-    if name == "$" {
-        return "$".to_string();
-    }
-    env_lookup(env, name).unwrap_or(original)
+    env_lookup(env, name, nt).unwrap_or(original)
 }
 
 /// `str(Path.home() / name)` for the auto-outdir candidates.
@@ -484,13 +486,12 @@ pub fn home_dir(home: &str, name: &str) -> String {
 pub fn home_from_env(env: &EnvMap) -> Option<String> {
     #[cfg(windows)]
     {
-        let raw = if let Some(profile) = env.get("USERPROFILE") {
-            profile.clone()
-        } else if let Some(homepath) = env.get("HOMEPATH") {
-            let drive = env.get("HOMEDRIVE").cloned().unwrap_or_default();
-            nt_join(&drive, homepath)
+        let raw = if let Some(profile) = env_lookup(env, "USERPROFILE", true) {
+            profile
         } else {
-            return None;
+            let homepath = env_lookup(env, "HOMEPATH", true)?;
+            let drive = env_lookup(env, "HOMEDRIVE", true).unwrap_or_default();
+            nt_join(&drive, &homepath)
         };
         let stripped = raw.trim_end_matches('\\').to_string();
         Some(if stripped.is_empty() {
@@ -501,7 +502,7 @@ pub fn home_from_env(env: &EnvMap) -> Option<String> {
     }
     #[cfg(not(windows))]
     {
-        let raw = env.get("HOME")?;
+        let raw = env_lookup(env, "HOME", false)?;
         let stripped = raw.trim_end_matches('/').to_string();
         Some(if stripped.is_empty() {
             "/".to_string()
@@ -1256,10 +1257,8 @@ fn registry_query_string(
         if rc != ERROR_SUCCESS {
             return None;
         }
-        let units: Vec<u16> = buf
-            .chunks_exact(2)
-            .map(|c| u16::from_le_bytes([c[0], c[1]]))
-            .collect();
+        let (pairs, _rest) = buf.as_chunks::<2>();
+        let units: Vec<u16> = pairs.iter().map(|c| u16::from_le_bytes(*c)).collect();
         let end = units.iter().position(|&c| c == 0).unwrap_or(units.len());
         Some(String::from_utf16_lossy(&units[..end]))
     }
@@ -1428,6 +1427,94 @@ mod tests {
             assert_eq!(expandvars("%A%", &e), "%A%");
             assert_eq!(expandvars("$A-x", &e), "1-x", "the dash ends the name");
             assert_eq!(expandvars("'$A'", &e), "'1'");
+        }
+    }
+
+    #[test]
+    fn expandvars_nt_flavor_matches_the_probed_matrix() {
+        // the windows rows, runnable on every os (probed 2026-10-15)
+        let e = env(&[("A", "1"), ("B", "two words"), ("EMPTY", ""), ("AB", "ab")]);
+        let rows: &[(&str, &str)] = &[
+            ("$A", "1"),
+            ("${A}", "1"),
+            ("$A-x", "$A-x"),
+            ("$", "$"),
+            ("$$", "$"),
+            ("$A$B", "1two words"),
+            ("%A%", "1"),
+            ("%%", "%"),
+            ("100%", "100%"),
+            ("%A", "%A"),
+            ("%A%x", "1x"),
+            ("'$A'", "'$A'"),
+            ("'%A%'", "'%A%'"),
+            ("$MISSING", "$MISSING"),
+            ("%MISSING%", "%MISSING%"),
+            ("${A", "${A"),
+            ("${}", "${}"),
+            ("${A}}", "1}"),
+            ("$A%%B", "1%B"),
+            ("caf\u{e9}$A", "caf\u{e9}1"),
+            ("$$A", "$A"),
+            ("dollar$", "dollar$"),
+            ("$EMPTY.", "."),
+            ("${EMPTY}x", "x"),
+            ("%EMPTY%.", "."),
+            ("$ab", "ab"),
+            ("$AB", "ab"),
+            ("%ab%", "ab"),
+            ("$A$", "1$"),
+            ("\\$A", "\\1"),
+            ("$A\\B", "1\\B"),
+        ];
+        for (input, expected) in rows {
+            assert_eq!(
+                &expandvars_flavor(input, &e, true),
+                expected,
+                "nt flavor on {input:?}"
+            );
+        }
+        // os.environ on windows uppercases keys, so a later duplicate
+        // assignment overwrites the earlier one (insertion order)
+        let dup = env(&[("AB", "ab"), ("ab", "low")]);
+        assert_eq!(expandvars_flavor("$ab", &dup, true), "low");
+        assert_eq!(expandvars_flavor("$AB", &dup, true), "low");
+        assert_eq!(expandvars_flavor("%ab%", &dup, true), "low");
+    }
+
+    #[test]
+    fn expandvars_posix_flavor_matches_the_probed_matrix() {
+        let e = env(&[("A", "1"), ("B", "two words"), ("EMPTY", ""), ("AB", "ab")]);
+        let rows: &[(&str, &str)] = &[
+            ("$A", "1"),
+            ("${A}", "1"),
+            ("$A-x", "1-x"),
+            ("$", "$"),
+            ("$$", "$$"),
+            ("$A$B", "1two words"),
+            ("%A%", "%A%"),
+            ("$MISSING", "$MISSING"),
+            ("${A", "${A"),
+            ("${}", "${}"),
+            ("${A}}", "1}"),
+            ("$A%%B", "1%%B"),
+            ("caf\u{e9}$A", "caf\u{e9}1"),
+            ("$ab", "$ab"),
+            ("$AB", "ab"),
+            ("$A$", "1$"),
+            ("$A\\B", "1\\B"),
+            ("${a b}", "${a b}"),
+            ("$1", "$1"),
+            ("$_", "$_"),
+            ("$A.B", "1.B"),
+            ("'$A'", "'1'"),
+        ];
+        for (input, expected) in rows {
+            assert_eq!(
+                &expandvars_flavor(input, &e, false),
+                expected,
+                "posix flavor on {input:?}"
+            );
         }
     }
 
