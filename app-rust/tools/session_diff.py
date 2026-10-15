@@ -104,7 +104,8 @@ def stage_tree(kind, work, settings, rust_bin, keep):
     (tree / "config").mkdir(parents=True, exist_ok=True)
     cfg = dict(settings)
     if isinstance(cfg.get("output_dir"), str) and cfg["output_dir"].startswith("{scratch}"):
-        cfg["output_dir"] = cfg["output_dir"].replace("{scratch}", str(tree))
+        # Path() collapses the mixed separators into the native form
+        cfg["output_dir"] = str(Path(cfg["output_dir"].replace("{scratch}", str(tree))))
     (tree / "config" / "settings.json").write_bytes(render_settings(cfg))
     if kind == "py":
         (tree / "src").mkdir(parents=True, exist_ok=True)
@@ -130,10 +131,21 @@ def rust_command(tree, exe):
 
 def normalize(data, tree):
     # the tree path appears raw in stdout and JSON-escaped inside
-    # settings.json (windows backslashes), so both spellings project
-    escaped = json.dumps(str(tree)).encode("utf-8")[1:-1]
-    data = data.replace(escaped, b"{root}")
-    data = data.replace(str(tree).encode("utf-8"), b"{root}")
+    # settings.json, so both spellings project. The python side derives
+    # its root through Path.resolve(), which can differ from the
+    # mkdtemp spelling (macOS /var -> /private/var, windows canonical
+    # case), so the resolved form projects too.
+    forms = [str(tree)]
+    try:
+        resolved = str(Path(str(tree)).resolve())
+    except OSError:
+        resolved = None
+    if resolved and resolved != forms[0]:
+        forms.append(resolved)
+    for form in forms:
+        escaped = json.dumps(form).encode("utf-8")[1:-1]
+        data = data.replace(escaped, b"{root}")
+        data = data.replace(form.encode("utf-8"), b"{root}")
     data = VERSION_RE.sub(rb"\1{ver}", data)
     return data
 

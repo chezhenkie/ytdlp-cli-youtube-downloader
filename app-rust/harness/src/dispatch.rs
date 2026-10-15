@@ -967,7 +967,9 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
             let root = case_root(&dir);
             let auto = case_auto(case, &dir)?;
             let version = field_str(case, "version")?;
-            let config_path = resolve_scratch("{scratch}/config/settings.json", &dir);
+            // pathlib-rendered like python's work / "config" / "settings.json"
+            // (windows backslashes), so the bye line matches on every OS
+            let config_path = resolve::py_path_join(&root, "config/settings.json");
             if let Some(parent) = std::path::Path::new(&config_path).parent() {
                 std::fs::create_dir_all(parent).map_err(|e| format!("scratch setup: {e}"))?;
             }
