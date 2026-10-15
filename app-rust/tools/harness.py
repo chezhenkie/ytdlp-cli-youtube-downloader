@@ -45,6 +45,24 @@ state:
                            answer and the which map in the case object;
                            the record carries the argv element list, the
                            port-domain shape token or the which call log.
+                           Phase 6 (menu_summary, menu_items, header,
+                           hint, render, block_under_input, read_esc_piped,
+                           line_edit, pick_list, ask_bool, act, main_menu)
+                           drives the terminal layer without a terminal:
+                           the hooks fake read_esc (a scripted reply
+                           queue: a string is a line, null is escape,
+                           {"eof": true} / {"ctrl_c": true} are the read
+                           failures), bind a StringIO stdin with
+                           newline=None, CONFIG_PATH, ROOT, VERSION,
+                           USE_COLOR, os.name and a terminal size into a
+                           private scratch dir, capture stdout and return
+                           records projected as {scratch}: transcript
+                           text, prompt lists, settings state and the
+                           settings file. The rust twins take the same
+                           scripted reader, recording sink and world as
+                           parameters. The binary-level sibling is
+                           tools/session_diff.py (piped and pty golden
+                           transcripts over staged trees).
 
 Interchange format: one line per case carrying exactly the bytes of
 

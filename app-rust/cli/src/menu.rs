@@ -777,7 +777,7 @@ pub const TEMPLATE_PRESETS: [&str; 4] = [
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tty::{RecordingOut, ScriptItem, ScriptedReader};
+    use crate::tty::{RecEvent, RecordingOut, ScriptItem, ScriptedReader};
 
     struct TempConfig {
         dir: std::path::PathBuf,
@@ -853,6 +853,36 @@ mod tests {
             outcome = outcome.err()
         );
         (rec.text(), reader.prompts)
+    }
+
+    /// Every interactive write lands flushed before the next logical
+    /// write (G6's "no frame sits in a buffer" pin, menu side): for a
+    /// pick_list flow the writes group as title + two rows, each group
+    /// closed by a flush, and nothing dangles after the last flush.
+    #[test]
+    fn interactive_writes_flush() {
+        let mut rec = RecordingOut::default();
+        let mut reader = ScriptedReader::new(vec![ScriptItem::Line("2".to_string())]);
+        let current = Value::Str("a".to_string());
+        let w = world("", "1.5.0", false, false, None);
+        {
+            let mut io = Io {
+                out: &mut rec,
+                reader: &mut reader,
+            };
+            pick_list("t", &["a", "b"], Some(&current), &mut io, &w).unwrap();
+        }
+        let events = rec.events();
+        assert!(matches!(events.last(), Some(RecEvent::Flush)), "{events:?}");
+        assert_eq!(rec.flush_count(), 3, "title + two rows: one flush each");
+        for (i, event) in events.iter().enumerate() {
+            if let RecEvent::Flush = event {
+                assert!(
+                    matches!(events.get(i + 1), None | Some(RecEvent::Write(_))),
+                    "a flush must close a write group: {events:?}"
+                );
+            }
+        }
     }
 
     #[test]

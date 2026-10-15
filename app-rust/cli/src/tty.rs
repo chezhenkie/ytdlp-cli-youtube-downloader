@@ -1464,18 +1464,20 @@ mod tests {
 
         let mut saw_frame = false;
         for (i, event) in events.iter().enumerate() {
-            if let RecEvent::Write(write) = event {
-                if write.starts_with("\r\x1b[K") {
-                    if !write.contains("downloading") && !write.contains("finished") {
-                        panic!("frame write carried foreign text: {write:?}");
-                    }
-                    assert!(
-                        matches!(events.get(i + 1), Some(RecEvent::Flush)),
-                        "a frame was left unflushed: {write:?}"
-                    );
-                    saw_frame = true;
-                }
+            let RecEvent::Write(write) = event else {
+                continue;
+            };
+            if !write.starts_with("\r\x1b[K") {
+                continue;
             }
+            if !write.contains("downloading") && !write.contains("finished") {
+                panic!("frame write carried foreign text: {write:?}");
+            }
+            assert!(
+                matches!(events.get(i + 1), Some(RecEvent::Flush)),
+                "a frame was left unflushed: {write:?}"
+            );
+            saw_frame = true;
         }
         assert!(saw_frame, "the spinner thread never wrote a frame");
         let last = events.last().expect("events");
@@ -1507,10 +1509,10 @@ mod tests {
 
     #[test]
     fn keywatch_is_inert_without_a_tty() {
-        // the test process has no tty stdin, so the watcher must be a no-op
+        // the test process has no tty stdin, so the watcher must be a no-op;
+        // it drops at scope end, restoring the mode on posix
         let mut watch = KeyWatch::new();
         assert!(!watch.escape_hit());
-        drop(watch);
     }
 
     #[test]
