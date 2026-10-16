@@ -5,6 +5,9 @@ Newest first. Current level: v2.0.1 (native, released 2026-10-16); v1.5.0 is the
 
 ## v2.0.1 native (released 2026-10-16)
 
+- docs: specsheet describes the native product only (this commit)
+The frozen v1.5.0 line is demoted to a single reference-oracle note in 00; its 154 mentions and every code line-cite are gone from sections 1-13 and the port notes became a per-phase native decision record. No behavior, decision, number or evidence changed; file names on disk (app-python/, the refactor-pitfalls memo) are untouched.
+
 - docs: OQ-N2 remainder closed - the startup notice's live check landed (this commit)
 With v2.0.1 published the quiet startup notice could finally fire: the published v2.0.0 linux image ran under a real pty with live network and printed "a newer version is published: v2.0.1 (this is v2.0.0)" plus the releases url and the y/n prompt; the decline path answered "not updated" and the daily stamp persisted (evidence scratch-phase10/n2-notice-pty.txt). The windows-boot form was not separately re-run; this path is platform-agnostic.
 
