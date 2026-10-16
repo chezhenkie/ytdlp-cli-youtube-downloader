@@ -68,19 +68,19 @@ jobs:
           if ($g2 -ne $env:GPL2_SHA256) { throw "GPL-2.0.txt digest mismatch: $g2" }
           $g3 = (Get-FileHash -Algorithm SHA256 app-rust/packaging/GPL-3.0.txt).Hash.ToLower()
           if ($g3 -ne $env:GPL3_SHA256) { throw "GPL-3.0.txt digest mismatch: $g3" }
-          $stage = "dist/ytdlp-cli-$ver"
+          $stage = "dist/ytdlp-cli-v$ver"
           New-Item -ItemType Directory -Force "$stage/bin" | Out-Null
           Copy-Item app-rust/target/release/ytdlp.exe "$stage/ytdlp.exe"
           Copy-Item app-rust/packaging/run-ytdlp.bat, app-rust/packaging/run-ytdlp.sh "$stage/"
           Copy-Item README.md, CHANGELOG.md, LICENSE, THIRD-PARTY-NOTICES.md "$stage/"
           Copy-Item payload/yt-dlp.exe "$stage/bin/yt-dlp.exe"
-          Compress-Archive -Path $stage -DestinationPath "dist/ytdlp-cli-$ver-windows-lean.zip"
+          Compress-Archive -Path $stage -DestinationPath "dist/ytdlp-cli-v$ver-windows-lean.zip"
           Expand-Archive -Path payload/ffmpeg-windows.zip -DestinationPath payload/ffmpeg-windows
           $ff = Get-ChildItem payload/ffmpeg-windows -Recurse -Filter ffmpeg.exe | Where-Object { $_.Directory.Name -eq "bin" } | Select-Object -First 1
           if (-not $ff) { throw "ffmpeg.exe not found in the gyan archive" }
           Copy-Item $ff.FullName "$stage/bin/ffmpeg.exe"
           Copy-Item app-rust/packaging/GPL-2.0.txt, app-rust/packaging/GPL-3.0.txt "$stage/"
-          Compress-Archive -Path $stage -DestinationPath "dist/ytdlp-cli-$ver-windows-portable.zip"
+          Compress-Archive -Path $stage -DestinationPath "dist/ytdlp-cli-v$ver-windows-portable.zip"
           Copy-Item app-rust/target/release/ytdlp.exe dist/ytdlp-native-windows-x86_64.exe
           cd dist
           Get-ChildItem *.zip, *.exe | Sort-Object Name | ForEach-Object {
@@ -126,17 +126,17 @@ jobs:
           tar -xJf payload/btbn.tar.xz -C payload
           ff=$(find payload -path '*/bin/ffmpeg' -type f -print -quit)
           test -n "$ff"
-          stage="dist/ytdlp-cli-$ver"
+          stage="dist/ytdlp-cli-v$ver"
           mkdir -p "$stage/bin"
           install -m 0755 app-rust/target/release/ytdlp "$stage/ytdlp"
           install -m 0755 app-rust/packaging/run-ytdlp.sh "$stage/run-ytdlp.sh"
           install -m 0644 app-rust/packaging/run-ytdlp.bat "$stage/run-ytdlp.bat"
           install -m 0644 README.md CHANGELOG.md LICENSE THIRD-PARTY-NOTICES.md "$stage/"
           install -m 0755 payload/yt-dlp_linux "$stage/bin/yt-dlp"
-          tar -czf "dist/ytdlp-cli-$ver-linux-lean.tar.gz" -C dist "ytdlp-cli-$ver"
+          tar -czf "dist/ytdlp-cli-v$ver-linux-lean.tar.gz" -C dist "ytdlp-cli-v$ver"
           install -m 0755 "$ff" "$stage/bin/ffmpeg"
           install -m 0644 app-rust/packaging/GPL-2.0.txt app-rust/packaging/GPL-3.0.txt "$stage/"
-          tar -czf "dist/ytdlp-cli-$ver-linux-portable.tar.gz" -C dist "ytdlp-cli-$ver"
+          tar -czf "dist/ytdlp-cli-v$ver-linux-portable.tar.gz" -C dist "ytdlp-cli-v$ver"
           install -m 0755 app-rust/target/release/ytdlp dist/ytdlp-native-linux-x86_64
           cd dist
           sha256sum *.tar.gz ytdlp-native-linux-x86_64 > SHA256SUMS
