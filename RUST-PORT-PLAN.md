@@ -1,6 +1,6 @@
 # RUST-PORT-PLAN.md
 
-Companion to the specsheet in `specsheet/` (`specsheet/00-specsheet-main.md` is the main document, sections 1-14 live in its numbered part files), which remains the source of truth for product behaviour. This document plans the implementation move from `app-python/` to `app-rust/`.
+Companion to the specsheet in `specsheet/` (`specsheet/00-specsheet-main.md` is the main document; the numbered part files carry contiguous spec section ranges, 01 = 1-3, 05 = 5-7, 08 = 8-10), which remains the source of truth for product behaviour. This document plans the implementation move from `app-python/` to `app-rust/`.
 
 ## 1. Baseline
 

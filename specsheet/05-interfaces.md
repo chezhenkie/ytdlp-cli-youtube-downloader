@@ -24,3 +24,32 @@ IF-7 Network endpoints. CLI self-update fetches the raw main-branch ytdlp.py (on
 
 IF-8 CI and selftest (IF to developers): offline; every push and pull request runs selftest + --check on windows/ubuntu/macos (workflow L1-L28). The native port adds a second workflow covering fmt, clippy with warnings denied, unit tests and a cross-implementation differential check on the same three OS; neither workflow contacts the network in a test (NFR-4).
 
+## 6. Functionality
+
+Startup journey: enable ANSI/VT where needed (L47-L59), paint menu box (header "yt-dlp cli  v1.5.0" centered, blank row, 13 rows, "press escape to exit submenu", rules, L1872-L1945), print the hint block above the input line - verbatim, amber then grey then divider (hint L1856-L1869):
+
+    paste url, press enter and download will start.
+    enter number to change default settings
+    change download location by choosing menu item: 5
+    download several urls at once by choosing menu item: 9
+    DL location: <resolved folder>
+
+then auto-update check (FR-13) and first save (L1968-L1972). The menu never disappears: everything paints under it, nothing prints beyond the hint block, item-9 entry lines, and stage/verdict lines (main_menu loop L1954-L2005).
+
+Primary flow (single url): prompt accepts text; first http(s) substring is the url (before any number is consulted, L1984-L1997) - when no url is present, text goes to act(); do_download per FR-7: preflight freeze, then the spinner stage with live progress, then exactly one of three justified verdicts: finished (plus "... <name> (<MB>)" file line via newest_since, 2 s slack, L1146-L1160), failed (full error line), or stopped-by-escape (partial cleanup count). States covered: not a url (message), yt-dlp missing (guidance), yt-dlp fails its check (frozen rc), no ffmpeg (offer per FR-14 or declined continuation), success, failure (always ends in a readable frozen line), escape (kill + clean). Stage lines persist until the next url, menu pick, repaint or escape (L1954-L2005 management of results/dirty).
+
+Batch flow (item 9): FR-12 above; states: empty entry closes and starts, escape returns without downloads, bad line marked and skipped, per-url header line, batch aborted by escape only.
+
+Updaters (items 11/12): FR-13; states: current version ("already current"), newer version offered with enter = no, network down (silent or, when forced, one explanatory line), older published file (no version found message when forced).
+
+Settings flows (items) each end in: new value shown, a hold read, menu repaint; item 10 restores DEFAULTS and answers "defaults restored" (L2329-L2333); item 13 saves and prints the settings path (L2344-L2347).
+
+Failure handling pattern: every detectable failure (missing binary, failed probe, refused install, checksum mismatch, unreadable archive, network loss) ends in a specific user-visible line describing the fix or the kept state; nothing fails silently except non-forced network contact (NFR, L2174-L2179).
+
+## 7. Implementation
+
+Only what this spec defines is implemented; code comments carry the long-form rationale where a spec-sized claim cannot (FR-14's "checksum before install" order is documented in RELEASE-NOTES.md and the code comment L1447-L1453). Named owner for everything: chezhenkie. Every component stays in its layer (section 4).
+
+Observability is the stage line system itself: one grouped preflight line, one live progress line, one frozen verdict per run - no external logging, no collected telemetry, no crash dumps. --check is the operator's window (FR-15). Selftest pins the observable surfaces called out in NFR-4.
+
+Processes must start and stop cleanly and release everything they acquire (NFR-3): threads are daemon, stages join their writer thread with a 1.0 s timeout on done() (L1078-L1090), temp files (".ff-" dirs, tmp settings file, .new binary) are removed or replaced on every successful path and refused paths write nothing.
