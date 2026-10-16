@@ -314,6 +314,13 @@ def case_extras(tree, case, project_frames, native=False):
 def compare_case(name, py, rs, work, strict_stderr=False):
     py_rc, py_out, py_err, py_cfg, py_extra = py
     rs_rc, rs_out, rs_err, rs_cfg, rs_extra = rs
+    # the raw normalized transcripts land in the work dir: removed with
+    # the trees unless --keep, but a local repro can always inspect them
+    try:
+        (work / ("stdout-py-%s.bin" % name)).write_bytes(py_out)
+        (work / ("stdout-rs-%s.bin" % name)).write_bytes(rs_out)
+    except OSError:
+        pass
     problems = []
     if py_rc != rs_rc:
         problems.append("exit code: python %d, native %d" % (py_rc, rs_rc))
@@ -350,6 +357,14 @@ def compare_case(name, py, rs, work, strict_stderr=False):
         print("  first stdout difference at line %d" % (first + 1))
         print("  python: %r" % exp)
         print("  native: %r" % act)
+        # a line preview cuts at 110 bytes; the byte neighborhood at the
+        # first differing offset is the actionable view
+        n = min(len(py_out), len(rs_out))
+        off = next((i for i in range(n) if py_out[i] != rs_out[i]), n)
+        lo = max(0, off - 80)
+        print("  first byte difference at offset %d" % off)
+        print("  python: %r" % py_out[lo : off + 80])
+        print("  native: %r" % rs_out[lo : off + 80])
     if py_cfg != rs_cfg:
         print("  python settings: %r" % py_cfg[:220])
         print("  native settings: %r" % rs_cfg[:220])
