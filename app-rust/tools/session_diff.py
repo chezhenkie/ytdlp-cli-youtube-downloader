@@ -12,9 +12,9 @@ like the harness's {scratch}:
   - the staged tree path, as `{root}` (the two trees live side by side,
     so resolved output folders differ only by that prefix);
   - the header version `yt-dlp cli  vX.Y.Z` as `v{ver}`: the native
-    product version is v2.0.0 by owner call while the ported behaviour
-    carries python v1.5.0's transcripts (RUST-PORT-PLAN.md phase 6
-    notes).
+    product version tracks its own release line while the ported
+    behaviour carries python v1.5.0's transcripts (RUST-PORT-PLAN.md
+    phase 6 notes).
 
 Phase 7 adds executable cases: a case may stage the scripted yt-dlp
 stand-in (`app-rust/fake-ytdlp`) into the tree's `bin/`, pin PATH to that

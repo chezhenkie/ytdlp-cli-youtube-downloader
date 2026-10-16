@@ -186,9 +186,12 @@ jobs:
       - name: PE version resource assertions (FR-16)
         shell: pwsh
         run: |
+          $m = [regex]::Match((Get-Content Cargo.toml -Raw), '(?m)^version = "([^"]+)"')
+          if (-not $m.Success) { throw "version not found in Cargo.toml" }
+          $ver = $m.Groups[1].Value
           $v = (Get-Item target/release/ytdlp.exe).VersionInfo
-          if ($v.ProductVersion -notlike "2.0.0*") { throw "ProductVersion: $($v.ProductVersion)" }
-          if ($v.FileVersion -notlike "2.0.0*") { throw "FileVersion: $($v.FileVersion)" }
+          if ($v.ProductVersion -notlike "$ver*") { throw "ProductVersion: $($v.ProductVersion)" }
+          if ($v.FileVersion -notlike "$ver*") { throw "FileVersion: $($v.FileVersion)" }
           if ($v.ProductName -ne "yt-dlp cli") { throw "ProductName: $($v.ProductName)" }
           if ($v.CompanyName -ne "chezhenkie") { throw "CompanyName: $($v.CompanyName)" }
           if (-not $v.FileDescription) { throw "FileDescription empty" }

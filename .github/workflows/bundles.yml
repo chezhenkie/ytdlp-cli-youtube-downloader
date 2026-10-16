@@ -1,6 +1,6 @@
 name: bundles
 
-# Phase 10 (owner call 2026-10-16): assemble the seven v2.0.0 release files on the
+# Phase 10 (owner call 2026-10-16): assemble the seven release files on the
 # native runners. workflow_dispatch only. This workflow builds artifacts; it does
 # not tag or publish anything. The release commit carries the digests, the tag
 # follows, and gh release upload places exactly these bytes.
