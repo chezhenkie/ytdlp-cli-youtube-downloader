@@ -147,7 +147,8 @@ Harness first: a tool taking a function name plus JSON fixture vector, callable 
 
 No I/O, no terminal: `one_dec_num`, `pad_speed`, `color_progress`, `dwidth`, `cut_to_width`, `tail_to_width`, `short_path`, `menu_line`, `version_tuple`, `parse_sha256`, `pick_checksum`, `sub_fail_reason`, `sub_success_lines`, `sub_fail_lines`, `fail_sentence`, `clean_url`, `sub_lang_patterns`, `parse_lang_input`, `coerce_settings`, `js_runtime_args`, `flat_frames`, `render_cells`, `plain_cells`, `pick_spinner`, `sub_lang_lines`, `batch_row`, `pick_list` row shapes.
 
-**G2:** every pure check has a Rust twin; differ reports zero mismatches over a corpus including CJK and emoji folder names, unknown language codes, malformed audio-quality strings, the six boundary values (the F1/F2 junk set in `selftest`). The east-asian width table is generated from one pinned oracle - CPython 3.14.x (`unicodedata` 16.0.0; dev 3.14.6 and WSL 3.14.4 measured). CI's selftest workflow pins python 3.12 (`unicodedata` 15.0.0), so the differential workflow pins its own interpreter to the oracle version and does not reuse the 3.12 job. Hand-rolled sha256 matches the FIPS 180-4 example vectors in every run; the README-pinned digests are checked additionally when the `releases/` artifacts exist locally (dev-only; `releases/` is gitignored and absent in CI).
+**G2:** every pure check has a Rust twin; differ reports zero mismatches over a corpus including CJK and emoji folder names, unknown language codes, malformed audio-quality strings, the six boundary values (the F1/F2 junk set in `selftest`). The east-asian width table is generated from one pinned oracle - CPython 3.14.x (`unicodedata` 16.0.0; dev 3.14.6 and WSL 3.14.4 measured). CI's selftest workflow pins python 3.12 (`unicodedata` 15.0.0), so the differential workflow pins its own interpreter
+to the oracle version and does not reuse the 3.12 job. Hand-rolled sha256 matches the FIPS 180-4 example vectors in every run; the README-pinned digests are checked additionally when the `releases/` artifacts exist locally (dev-only; `releases/` is gitignored and absent in CI).
 
 ### Phase 3 - State
 
@@ -183,7 +184,8 @@ No I/O, no terminal: `one_dec_num`, `pad_speed`, `color_progress`, `dwidth`, `cu
 
 `http_text`, `http_file` with `.part` staging, 6 s and 60 s timeout pins, `sha256_file`, `expected_sha`, `extract_member` for zip and tar.xz, `install_ffmpeg`, `offer_ffmpeg`, `update_yt_dlp`, `fetch_cli`, `install_cli`, `auto_update_check`.
 
-**G8:** digest mismatch, truncated archive, and unrunnable binary each change nothing on disk. The 6.00 s unroutable-host measurement reproduced. The proxy environment path is exercised offline (a fake proxy must be dialed) or the IF-7 deviation is recorded. `-U` on a downloaded `yt-dlp_linux` confirmed to self-replace: per pinned `yt_dlp/update.py`, a frozen onefile on linux x86_64 maps to variant `linux_exe`, `_FILE_SUFFIXES` maps that to the `_linux` asset, and `_NON_UPDATEABLE_REASONS` marks every `_FILE_SUFFIXES` key updatable.
+**G8:** digest mismatch, truncated archive, and unrunnable binary each change nothing on disk. The 6.00 s unroutable-host measurement reproduced. The proxy environment path is exercised offline (a fake proxy must be dialed) or the IF-7 deviation is recorded. `-U` on a downloaded `yt-dlp_linux` confirmed to self-replace: per pinned `yt_dlp/update.py`, a frozen onefile on linux x86_64 maps to variant `linux_exe`, `_FILE_SUFFIXES` maps that to the `_linux` asset, and `_NON_UPDATEABLE_REASONS` marks
+every `_FILE_SUFFIXES` key updatable.
 
 ### Phase 9 - Parity
 
