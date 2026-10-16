@@ -21,7 +21,8 @@ This file is 00-specsheet-main.md; each part carries a contiguous block of spec 
 | part | sections | describes |
 |---|---|---|
 | [01-problem-goals.md](01-problem-goals.md) | 1-3 | problem, goals, non-goals; FR-1..FR-15 the functional requirements; NFR-1..NFR-8 the non-functional requirements |
-| [04-architecture.md](04-architecture.md) | 4 | components and layers, capability map, crate policy, build matrix, port notes |
+| [04-architecture.md](04-architecture.md) | 4 | components and layers, capability map, crate policy, language gates, build matrix, data ownership, third-party licensing |
+| [04-port-notes.md](04-port-notes.md) | 4 | section 4 continuation: the per-phase native port-note audit trail (phases 2-9) |
 | [05-interfaces.md](05-interfaces.md) | 5-7 | IF-1..IF-8 launchers, argv, settings schema, subprocess contracts, endpoints, CI; startup journey, user flows, states, failure handling; implementation rules, observability, process hygiene |
 | [08-data.md](08-data.md) | 8-10 | settings.json field table and boundary validation; documentation duties; requirement-to-verification map, the two implementation columns and the phase-9 conformance map |
 | [12-phases-and-gates.md](12-phases-and-gates.md) | 12 | phases and gates, Python release gates, native gate 0, G9 spec and evidence |
