@@ -40,7 +40,7 @@ Two columns, both live since G9: the Python column is the frozen v1.5.0 oracle, 
 | FR-5 | history and reader checks | twin; real-console behaviour is OQ-N2 (owner hands-on on the CI artifact; the pty side is pinned by the ubuntu+macos session jobs) |
 | FR-6 | outdir checks plus the audit memo regression | twin |
 | FR-10 | color/width/spinner/render checks | twin, including the erase sequences and the cursor-up block sequence |
-| FR-11, FR-12 | clean_url, fail_sentence, batch checks, work-folder cleanup (argv temp path, fresh-partial removal, empty-folder removal) | twin, including identical cleaned-partial counts on escape |
+| FR-11, FR-12 | clean_url, fail_sentence, batch checks, work-folder cleanup (argv temp path, fresh-partial removal, empty-folder removal) | twin, including identical cleaned-partial counts on escape; the native run ends additionally force-remove the work folder (FR-11 amendment 2026-10-16c; the function-level checks are unchanged) |
 | FR-13 | version_tuple, checksum parsers, install_cli, the 6 s timeout regression | twin of the timeout regression; the digest and `<new> --selftest` gate replaces install_cli's compile() gate per FR-13 and is tested as such; the live two-image dance waits on the first tagged release (OQ-N4) |
 | FR-14 | extract_member fixtures, probe shim | twin; the Windows offer source runs as `windows ffmpeg source is BtbN` (owner-decided 2026-10-16c: the native offer fetches the BtbN win64 GPL zip, digest-first; python keeps gyan.dev) - the third recorded comparator mapping |
 | FR-15 | --check output | byte-identical `--check` output on all three OS |

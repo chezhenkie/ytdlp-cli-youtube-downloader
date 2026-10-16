@@ -5,6 +5,14 @@ Newest first. Current level: v2.0.0 (native, released 2026-10-16); v1.5.0 is the
 
 ## v2.0.0 native port (released 2026-10-16)
 
+- spec: FR-11 amendment - the native work folder never survives a run (this commit)
+Owner call during the OQ-N2 console pass after seeing .ytdlp-tmp survive a Ctrl+C: nothing in the work folder has value. Every native run end now removes it with its contents - success, failure, escape (rc 130 shape kept) and Ctrl+C. Supersedes NFR-3's keep-for-resume for the native line; named consequence: python's 429-subtitle keep-for-retry across runs does not apply natively. Python stays frozen; `drop_temp_dir`'s function semantics and its selftest checks are unchanged -
+only the native call sites change. Implementation follows.
+
+- docs: OQ-N2 closed - owner console pass PASS on a real console (this commit)
+Owner ran scratch-oqn2/OQN2-CONSOLE-PASS.md runs 0-6 by hand against the FR-16 build: boot colors, the offer's decline and accept paths with the live ffmpeg stage text, escape and Ctrl+C mid-download, item 11's transcript, the chcp 437 codepage run - all PASS by owner call. Recorded along: the published build's offer url is still gyan.dev (the FR-14 BtbN repoint lands in the next build), and Ctrl+C keeps the .ytdlp-tmp partials while escape cleans them (NFR-3 parity, verified
+against the frozen source - not a fault).
+
 - spec: FR-14 amendment - the native Windows ffmpeg offer moves to BtbN win64 (this commit)
 Owner call during the OQ-N2 console pass: a live offer download measured ~300 KB/s from gyan.dev, so the native Windows offer fetches the BtbN/FFmpeg-Builds win64 GPL build (the provider the Linux side already uses) - `ffmpeg-n9.0-latest-win64-gpl-9.0.zip` on the moving `latest` tag, digest read fresh from the provider's `checksums.sha256` on every run so the tag moving cannot go stale. Verified 2026-10-16: 193963209 bytes, sha256 177bec2e8c3397c5e9739901993dadc1cad0954de97d2604a2704c8531a59e32,
 member `bin/ffmpeg.exe`. The frozen python line keeps gyan.dev; recorded as the third native deviation, so the selftest check `windows ffmpeg source is gyan.dev` runs natively as `windows ffmpeg source is BtbN` (selftest_compare + session_diff projections and the section-8 conformance map follow). Check count, order and the record set are unchanged; the v2.0.0 bundle payload pins are not touched (they ship the pinned gyan build; a future release decides its own). Implementation follows.
