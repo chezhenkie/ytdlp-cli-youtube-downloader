@@ -230,6 +230,19 @@ def _project_quick_row(data):
     return data
 
 
+# the macos pty line discipline occasionally decorates a linefeed with a
+# second CR (the same bytes are clean on linux and on most macos runs;
+# strace 2026-10-16 shows both children emitting identical
+# one-write-per-line shapes, and no write in either program emits a bare
+# CR before a LF, so \r\r\n is a pty artifact, not program output):
+# collapse it like the ONLCR translation of any other line
+DOUBLE_CR_RE = re.compile(rb"\r\r+\n")
+
+
+def _project_pty_cr(data):
+    return DOUBLE_CR_RE.sub(b"\r\n", data)
+
+
 def normalize(data, tree, project_frames=False):
     # the tree path appears raw in stdout and JSON-escaped inside
     # settings.json, so both spellings project. The python side derives
@@ -248,6 +261,7 @@ def normalize(data, tree, project_frames=False):
         data = data.replace(form.encode("utf-8"), b"{root}")
     data = VERSION_RE.sub(rb"\1{ver}", data)
     data = _project_quick_row(data)
+    data = _project_pty_cr(data)
     # the argparse prog is the interpreter's script name on one side and
     # the exe basename on the other
     data = PROG_USAGE_RE.sub(b"usage: {prog} ", data)
@@ -365,9 +379,6 @@ def compare_case(name, py, rs, work, strict_stderr=False):
         print("  first byte difference at offset %d" % off)
         print("  python: %r" % py_out[lo : off + 80])
         print("  native: %r" % rs_out[lo : off + 80])
-        # TEMP (FR-17 macos race investigation): the wider neighborhood
-        print("  python wide: %r" % py_out[max(0, off - 400) : off + 40])
-        print("  native wide: %r" % rs_out[max(0, off - 400) : off + 40])
     if py_cfg != rs_cfg:
         print("  python settings: %r" % py_cfg[:220])
         print("  native settings: %r" % rs_cfg[:220])

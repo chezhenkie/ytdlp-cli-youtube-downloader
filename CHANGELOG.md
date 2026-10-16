@@ -5,6 +5,9 @@ Newest first. Current level: v2.0.2 (native, in development); v2.0.1 released 20
 
 ## v2.0.2 native (in development)
 
+- fix: session_diff projects the macos pty's double-CR linefeed decoration (this commit)
+macos pty runs intermittently showed one extra \r before a paint line's \n (usually the first paint, per-process random). strace shows both children emit identical one-write-per-line shapes and no program write contains a bare CR before a LF, so the byte is a line-discipline artifact of the pty; the differ now collapses \r\r+\n to \r\n on both sides (linux runs never produce it). The failure dump also keeps the first-diff byte window and writes the raw transcripts into the work dir for --keep runs.
+
 - feat: FR-17 quick-paste row - press 0 to paste a link and start the download (this commit)
 The menu box's blank top row is now row 0, "press zero '0' to paste link and start direct download", in a darker amber (208). Pressing 0 reads the system clipboard (windows: Win32 CF_UNICODETEXT; posix: wl-paste/xclip/xsel/pbpaste), takes the first link with clean_url and runs the download exactly like a pasted url - the results screen stays, escape wipes it; no link prints one amber line and holds. The clipboard is a menu::World seam; the row bytes and both flows are pinned by crate tests, and the differential (run-all 69/978/0) and session suites (piped 32/32, pty 14/14) project the row to {menu-quick-row} on both sides.
 
