@@ -201,7 +201,7 @@ Four bundles plus the two bare-binary updater assets FR-13 defines. Linux lean s
 
 ### Phase 11 - Cutover
 
-Python stays published until cutover. Then `app-python/` is retired, README drops the Python requirement, CI drops the python job, specsheet records the retirement.
+Python stays published until cutover. Then the native line is the shipped product: README drops the Python requirement and keeps one short legacy note, CI drops the python jobs, the specsheet records the cutover, and `app-python/` stays in the repo as a legacy folder - never deleted (owner call 2026-10-16).
 
 ## 5. Risks
 
