@@ -365,6 +365,9 @@ def compare_case(name, py, rs, work, strict_stderr=False):
         print("  first byte difference at offset %d" % off)
         print("  python: %r" % py_out[lo : off + 80])
         print("  native: %r" % rs_out[lo : off + 80])
+        # TEMP (FR-17 macos race investigation): the wider neighborhood
+        print("  python wide: %r" % py_out[max(0, off - 400) : off + 40])
+        print("  native wide: %r" % rs_out[max(0, off - 400) : off + 40])
     if py_cfg != rs_cfg:
         print("  python settings: %r" % py_cfg[:220])
         print("  native settings: %r" % rs_cfg[:220])
