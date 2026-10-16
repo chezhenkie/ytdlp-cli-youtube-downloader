@@ -5,6 +5,9 @@ Newest first. Current level: v2.0.1 (native, released 2026-10-16); v1.5.0 is the
 
 ## v2.0.1 native (released 2026-10-16)
 
+- cutover: native is the shipped product (this commit)
+Phase 11 landed at v2.0.1: the python selftest CI workflow is retired (rust.yml keeps the frozen python line plus CPython 3.14.4 as the differential oracle), and the specsheet records the cutover in the 00 header and section 12. README already switched to the native bundles at the v2.0.0 release commit with one legacy line; app-python/ stays in the repo as the legacy folder, never deleted (owner call 2026-10-16).
+
 - v2.0.1 verified at the destination; G10 green (this commit)
 Every asset downloaded from the published release: the six digest rows in RELEASE-NOTES.md hash-match the downloaded bytes and the api digests equal README's numbers. All four bundles extracted and run from the published bytes on their target platform - windows-lean/portable selftest 177/0 with PE imports clean and the 2.0.1 version fields; linux-lean/portable launcher selftest 177/0, --check resolving the bundled yt-dlp 2026.08.19 and the portable bundle's ffmpeg (n9.0.2-27-g7e93014c5b-20261013), 0755 modes in the tar listing. Measured sizes: windows lean 19473494, windows portable 59482988, linux lean 41981136, linux portable 110055725, updater images 3958784 (windows) and 4936744 (linux).
 
