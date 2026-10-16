@@ -30,4 +30,4 @@ This file is 00-specsheet-main.md; each part carries a contiguous block of spec 
 | [05-interfaces.md](05-interfaces.md) | 5-7 | IF-1..IF-8 launchers, argv, settings schema, subprocess contracts, endpoints, CI; startup journey, user flows, states, failure handling; implementation rules, observability, process hygiene |
 | [08-data.md](08-data.md) | 8-10 | settings.json field table and boundary validation; documentation duties; requirement-to-verification map, the two implementation columns and the phase-9 conformance map |
 | [12-phases-and-gates.md](12-phases-and-gates.md) | 12 | phases and gates, Python release gates, native gate 0, G9 spec and evidence |
-| [13-open-questions.md](13-open-questions.md) | 13 | open questions register: OQ-B, OQ-N1, OQ-N2, OQ-N4 |
+| [13-open-questions.md](13-open-questions.md) | 13 | open questions register: OQ-B, OQ-N2, OQ-N4 |
