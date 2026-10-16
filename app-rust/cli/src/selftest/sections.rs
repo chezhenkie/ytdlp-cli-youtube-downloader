@@ -1,28 +1,7 @@
-//! The packaged selftest (phase 9): python's `selftest()` as a runtime
-//! command.
-//!
-//! Check names, order and count follow the python selftest one to one
-//! (177 checks), so `app-rust/tools/selftest_compare.py` can run both
-//! reports and diff the decoded name/verdict stream. Where python
-//! monkeypatched a module global this module injects the seam the
-//! ported function already takes - the same rule the crate tests and
-//! the phase-6 harness arms follow. The deviations with no native
-//! counterpart are each recorded in the specsheet conformance map
-//! (section 10).
-//!
-//! The report itself is plain text - python's `print` never colored it -
-//! and the production `Out` handles windows' newline translation, like
-//! python's `print`. Captured menu subcalls go through a local capture
-//! `Out`; where python printed a subcall straight into the report
-//! (item 12's hold), this module does the same.
+//! The 19 check sections, mirroring python's selftest() block by block.
 
 use std::cell::RefCell;
-use std::collections::VecDeque;
-use std::fs::File;
-use std::io::Write;
-use std::path::Path;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
 
 use crate::archive;
 use crate::args;
@@ -31,475 +10,15 @@ use crate::exec;
 use crate::menu::{self, ActOutcome, Io, World};
 use crate::net;
 use crate::pyfs;
-use crate::pytext;
 use crate::resolve;
 use crate::term;
-use crate::tty::{self, Out, ReadOutcome, Reader};
+use crate::tty::{self, Out, Reader};
 use crate::ui;
 use crate::ui::WIDTH;
 use crate::update;
+use super::plumbing::*;
 
-// ------------------------------------------------------------ plumbing
-
-/// Python's default `got`: `check(name, cond)` passes none, and `%r`
-/// of `""` renders `''`.
-const NO_GOT: &str = "''";
-
-/// `''` renderer for the checks python ran without a `got`.
-fn bare_got() -> String {
-    NO_GOT.to_string()
-}
-
-fn now_secs() -> f64 {
-    // mirrors main.rs's `now` semantics exactly
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs_f64())
-        .unwrap_or(0.0)
-}
-
-/// The windows-only registry folders when on windows, empty elsewhere
-/// (main.rs's `shell_folders`, the same shape).
-fn shell_folders(env: &resolve::EnvMap) -> (Option<String>, Option<String>) {
-    #[cfg(windows)]
-    {
-        resolve::shell_folder_values(env)
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = env;
-        (None, None)
-    }
-}
-
-/// The check sink: `PASS name` / `FAIL name  got: <repr>`, the running
-/// count and the failing names. Python's `check()`, byte for byte.
-struct Checker<'a> {
-    count: i64,
-    fails: Vec<String>,
-    out: &'a mut dyn Out,
-}
-
-impl<'a> Checker<'a> {
-    fn new(out: &'a mut dyn Out) -> Self {
-        Self {
-            count: 0,
-            fails: Vec::new(),
-            out,
-        }
-    }
-
-    /// The report's own sink, for the one menu subcall python printed
-    /// straight into the report (item 12's hold; audit F8).
-    fn report_out(&mut self) -> &mut dyn Out {
-        self.out
-    }
-
-    fn check(&mut self, name: &str, cond: bool, got: &str) {
-        self.count += 1;
-        let verb = if cond { "PASS" } else { "FAIL" };
-        let tail = if cond {
-            String::new()
-        } else {
-            format!("  got: {got}")
-        };
-        self.out.write(&format!("{verb:<4} {name}{tail}"));
-        self.out.write("\n");
-        self.out.flush();
-        if !cond {
-            self.fails.push(name.to_string());
-        }
-    }
-}
-
-/// Captured stdout (python's `io.StringIO()` copies): raw bytes, so
-/// every capture is exactly what the menu wrote. `Arc<Mutex<..>>`
-/// keeps the capture `Send` for the `SharedOut`/`SharedSink` seams.
-#[derive(Clone, Default)]
-struct CaptureOut {
-    lines: Arc<Mutex<Vec<u8>>>,
-}
-
-impl Out for CaptureOut {
-    fn write(&mut self, text: &str) {
-        self.lines
-            .lock()
-            .unwrap()
-            .extend_from_slice(text.as_bytes());
-    }
-    fn flush(&mut self) {}
-}
-
-impl CaptureOut {
-    fn text(&self) -> String {
-        String::from_utf8_lossy(&self.lines.lock().unwrap()).into_owned()
-    }
-}
-
-/// A scripted reader: queues python's fake answers and records every
-/// `(prompt, below)` python's `fake_esc` appended. Echoes the answer
-/// the way python's fakes do - value, then Enter.
-struct ScriptedReader {
-    replies: VecDeque<String>,
-    seen: Vec<(String, Option<Vec<String>>)>,
-}
-
-impl ScriptedReader {
-    fn new(replies: &[&str]) -> Self {
-        Self {
-            replies: replies.iter().map(|r| (*r).to_string()).collect(),
-            seen: Vec::new(),
-        }
-    }
-}
-
-impl Reader for ScriptedReader {
-    fn read_line(
-        &mut self,
-        prompt: &str,
-        below: Option<&[String]>,
-        out: &mut dyn Out,
-    ) -> ReadOutcome {
-        let below_vec = below.map(|b| b.to_vec());
-        self.seen.push((prompt.to_string(), below_vec.clone()));
-        if !prompt.is_empty() {
-            out.write(prompt);
-        }
-        if let Some(lines) = &below_vec {
-            out.write("\n");
-            for line in lines {
-                out.write(line);
-                out.write("\n");
-            }
-            out.write(&format!("\x1b[{}A", lines.len() + 1));
-        }
-        let reply = self.replies.pop_front().unwrap_or_default();
-        out.write(&reply);
-        out.write("\n");
-        ReadOutcome::Line(reply)
-    }
-}
-
-/// A reader that must never be read; a read is a programming fault the
-/// report then catches through whatever the caller observes.
-struct NoReader;
-impl Reader for NoReader {
-    fn read_line(
-        &mut self,
-        _prompt: &str,
-        _below: Option<&[String]>,
-        _out: &mut dyn Out,
-    ) -> ReadOutcome {
-        ReadOutcome::Eof
-    }
-}
-
-/// A network that records `(url, timeout)` per call and always fails:
-/// python's F3 `fake_fetch` raising offline.
-struct RecordingHttp {
-    calls: Rc<RefCell<Vec<(String, u64)>>>,
-}
-
-impl net::HttpRt for RecordingHttp {
-    fn text(&mut self, url: &str, timeout: u64) -> Result<String, String> {
-        self.calls.borrow_mut().push((url.to_string(), timeout));
-        Err("offline".to_string())
-    }
-    fn file(
-        &mut self,
-        url: &str,
-        _dest: &str,
-        timeout: u64,
-        _live: Option<&mut dyn FnMut(&str)>,
-    ) -> Result<net::FileOutcome, String> {
-        self.calls.borrow_mut().push((url.to_string(), timeout));
-        Err("offline".to_string())
-    }
-}
-
-/// A network nobody reads (the installer dance reads nothing).
-struct DeadHttp;
-impl net::HttpRt for DeadHttp {
-    fn text(&mut self, _url: &str, _timeout: u64) -> Result<String, String> {
-        Err("dead".to_string())
-    }
-    fn file(
-        &mut self,
-        _url: &str,
-        _dest: &str,
-        _timeout: u64,
-        _live: Option<&mut dyn FnMut(&str)>,
-    ) -> Result<net::FileOutcome, String> {
-        Err("dead".to_string())
-    }
-}
-
-fn platform_name() -> &'static str {
-    if cfg!(windows) { "windows" } else { "linux" }
-}
-
-fn arch_name() -> &'static str {
-    std::env::consts::ARCH
-}
-
-// ------------------------------------------------------- repr helpers
-
-/// python `repr` of an option string.
-fn py_opt_str(v: Option<&str>) -> String {
-    match v {
-        None => "None".to_string(),
-        Some(s) => format!("'{}'", pytext::py_repr_str(s)),
-    }
-}
-
-/// python `repr` of a settings value (None spelled).
-fn py_value(v: Option<&Value>) -> String {
-    match v {
-        None => "None".to_string(),
-        Some(v) => config::py_repr(v),
-    }
-}
-
-/// python `repr` of a small tuple of strings: `('a', 'b')`.
-fn got_strs(values: &[&str]) -> String {
-    let parts: Vec<String> = values
-        .iter()
-        .map(|v| format!("'{}'", pytext::py_repr_str(v)))
-        .collect();
-    format!("({})", parts.join(", "))
-}
-
-/// python `repr` of a list of strings: `['a', 'b']`.
-fn got_list<S: AsRef<str>>(values: &[S]) -> String {
-    let parts: Vec<String> = values
-        .iter()
-        .map(|v| format!("'{}'", pytext::py_repr_str(v.as_ref())))
-        .collect();
-    format!("[{}]", parts.join(", "))
-}
-
-/// Strips python's three `A_*` tokens from captured bytes (python's
-/// `plain7` comprehension does exactly these replaces).
-fn strip_tokens(text: &str) -> String {
-    text.replace(term::A_AMBER, "")
-        .replace(term::A_DARKGREY, "")
-        .replace(term::A_RESET, "")
-}
-
-/// The `\x1b[Nm` stripper behind the F10 menu-row check (python's
-/// compiled `ansi` regex; no regex dependency - the scan follows the
-/// same rule: only a completed `[0-9;]*m` sequence drops).
-fn strip_ansi(text: &str) -> String {
-    let chars: Vec<char> = text.chars().collect();
-    let mut out = String::with_capacity(text.len());
-    let mut i = 0;
-    while i < chars.len() {
-        if chars[i] == '\x1b' && i + 1 < chars.len() && chars[i + 1] == '[' {
-            let mut j = i + 2;
-            while j < chars.len() && (chars[j].is_ascii_digit() || chars[j] == ';') {
-                j += 1;
-            }
-            if j < chars.len() && chars[j] == 'm' {
-                i = j + 1;
-                continue;
-            }
-        }
-        out.push(chars[i]);
-        i += 1;
-    }
-    out
-}
-
-// -------------------------------------------------------- scratch dirs
-
-/// python `tempfile.mkdtemp(prefix=...)` into the system temp dir.
-fn mkdtemp(prefix: &str) -> String {
-    let base = std::env::temp_dir().to_string_lossy().into_owned();
-    pyfs::mkdtemp(prefix, &base).expect("selftest: mkdtemp failed")
-}
-
-fn write_bytes(path: &str, bytes: &[u8]) {
-    File::create(path)
-        .and_then(|mut f| f.write_all(bytes))
-        .expect("selftest: fixture write failed");
-}
-
-fn file_bytes(path: &str) -> Vec<u8> {
-    std::fs::read(path).unwrap_or_default()
-}
-
-/// Backdates a file's mtime so `clean_partials` reads it as stale.
-fn set_mtime_back(path: &str, secs: f64) {
-    let file = File::options()
-        .write(true)
-        .open(path)
-        .expect("selftest: reopen");
-    let mtime = std::time::SystemTime::now() - std::time::Duration::from_secs_f64(secs);
-    file.set_modified(mtime).expect("selftest: set_modified");
-}
-
-/// The names in a folder (the untouched-listing assertion).
-fn dir_names(path: &str) -> Vec<String> {
-    let mut names: Vec<String> = std::fs::read_dir(path)
-        .map(|entries| {
-            entries
-                .flatten()
-                .map(|e| e.file_name().to_string_lossy().into_owned())
-                .collect()
-        })
-        .unwrap_or_default();
-    names.sort();
-    names
-}
-
-/// `os.chmod(path, 0o755)` on posix, nothing on windows (only the
-/// shell shims need it).
-fn make_executable(path: &str) {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755));
-    }
-    #[cfg(not(unix))]
-    {
-        let _ = path;
-    }
-}
-
-// ------------------------------------------------------ argv fixtures
-
-/// python `a_index(argv, flag)`.
-fn a_index<'a>(argv: &'a [String], flag: &str) -> Option<&'a String> {
-    argv.iter()
-        .position(|t| t == flag)
-        .and_then(|i| argv.get(i + 1))
-}
-
-fn a_contains(argv: &[String], flag: &str) -> bool {
-    argv.iter().any(|t| t == flag)
-}
-
-/// The ffmpeg sentinel python's selftest passes: truthy, non-existent,
-/// joined into the argv with no disk probe.
-fn ff_dir() -> Option<&'static str> {
-    Some("FFMPEG_DIR_SENTINEL")
-}
-
-/// `build_args` with the selftest's node answer; a shape error is
-/// reported through the failing check so the count never jumps when a
-/// branch is skipped.
-fn argv_of(
-    c: &mut Checker<'_>,
-    s: &Obj,
-    url: &str,
-    ffdir: Option<&str>,
-    root: &str,
-    auto: Option<&str>,
-) -> Vec<String> {
-    let mut has_node = || false;
-    match args::build_args(s, url, ffdir, root, auto, &mut has_node) {
-        Ok(argv) => argv,
-        Err(kind) => {
-            c.check("build_args shape error", false, &format!("{kind:?}"));
-            Vec::new()
-        }
-    }
-}
-
-/// The real auto-outdir answer (python's fresh memo after
-/// `_outdir_cache.clear()`): the real environment, home and - on
-/// windows - the registry folders.
-fn real_auto_outdir() -> Option<String> {
-    let env = resolve::env_map_from_process();
-    let home = resolve::home_from_env(&env).unwrap_or_default();
-    let (win_desktop, win_downloads) = shell_folders(&env);
-    resolve::auto_outdir_lookup(
-        cfg!(windows),
-        win_desktop.as_deref(),
-        win_downloads.as_deref(),
-        &home,
-        &env,
-    )
-    .ok()
-    .flatten()
-}
-
-/// The real settings or the defaults fallback (python's
-/// `load_settings()` is silent; the boot notes print elsewhere).
-fn loaded_settings(config_path: &str) -> Obj {
-    match config::load_settings(Path::new(config_path)) {
-        Ok(config::LoadOutcome::Loaded { settings, .. }) => settings,
-        Ok(config::LoadOutcome::Unreadable { settings, .. }) => settings,
-        Err(_) => config::defaults(),
-    }
-}
-
-/// The outdir a python call would resolve at this point (python's
-/// helpers resolve it from the settings themselves).
-fn outdir_of(s: &Obj, root: &str, auto: Option<&str>) -> String {
-    resolve::resolve_outdir(s, auto, root).unwrap_or_default()
-}
-
-// ------------------------------------------------------ shim builders
-
-/// The ffmpeg-probe shim of python's check: `--version` prints its
-/// banner to stderr and exits 2880417800, `-version` answers rc 0 -
-/// the exact ffmpeg-9 bug this pin survives (the 2026 code shipped).
-fn probe_shim(dir: &str) -> String {
-    let name = if cfg!(windows) { "ff9.bat" } else { "ff9.sh" };
-    let path = resolve::py_path_join(dir, name);
-    if cfg!(windows) {
-        write_bytes(
-            &path,
-            concat!(
-                "@echo off\r\n",
-                "if \"%~1\"==\"--version\" echo ffmpeg version 9.0.2 fake 1>&2",
-                " & exit /b 2880417800\r\n",
-                "echo ffmpeg version 9.0.2 fake\r\nexit /b 0\r\n"
-            )
-            .as_bytes(),
-        );
-    } else {
-        write_bytes(
-            &path,
-            concat!(
-                "#!/bin/sh\n",
-                "if [ \"$1\" = \"--version\" ]; then\n",
-                "  echo 'ffmpeg version 9.0.2 fake' >&2\n",
-                "  exit 2880417800\n",
-                "fi\n",
-                "echo 'ffmpeg version 9.0.2 fake'\n",
-                "exit 0\n"
-            )
-            .as_bytes(),
-        );
-        make_executable(&path);
-    }
-    path
-}
-
-/// A cheap spawnable that answers `--version` with one line (python's
-/// `sys.executable --version` in the F4 memo check has no native twin;
-/// the shim is the guaranteed rc-0 answer).
-fn memo_shim(dir: &str) -> String {
-    let name = if cfg!(windows) {
-        "probe.bat"
-    } else {
-        "probe.sh"
-    };
-    let path = resolve::py_path_join(dir, name);
-    if cfg!(windows) {
-        write_bytes(&path, b"@echo off\r\necho shim probe 2026.10.16\r\n");
-    } else {
-        write_bytes(&path, b"#!/bin/sh\necho shim probe 2026.10.16\n");
-        make_executable(&path);
-    }
-    path
-}
-
-// ============================================================== sections
-
-fn section_history(c: &mut Checker<'_>, capture: &CaptureOut) {
+pub(super) fn section_history(c: &mut Checker<'_>, capture: &CaptureOut) {
     let mut history = tty::History::new();
     history.remember("https://a.example");
     history.remember("https://b.example");
@@ -547,7 +66,7 @@ fn section_history(c: &mut Checker<'_>, capture: &CaptureOut) {
     );
 }
 
-fn section_subs(c: &mut Checker<'_>) {
+pub(super) fn section_subs(c: &mut Checker<'_>) {
     let r429_src = "ERROR: Unable to download video subtitles \
                     for 'en': HTTP Error 429: Too Many Requests";
     let r429 = exec::sub_fail_reason(Some(r429_src));
@@ -609,7 +128,7 @@ fn section_subs(c: &mut Checker<'_>) {
     let _ = &c;
 }
 
-fn section_args(c: &mut Checker<'_>, root: &str, config_path: &str, auto: Option<&str>) {
+pub(super) fn section_args(c: &mut Checker<'_>, root: &str, config_path: &str, auto: Option<&str>) {
     let settings = loaded_settings(config_path);
     let d = config::defaults();
     c.check(
@@ -787,7 +306,7 @@ fn section_args(c: &mut Checker<'_>, root: &str, config_path: &str, auto: Option
     let _ = a;
 }
 
-fn sub_argv_of(
+pub(super) fn sub_argv_of(
     c: &mut Checker<'_>,
     s: &Obj,
     url: &str,
@@ -805,7 +324,7 @@ fn sub_argv_of(
     }
 }
 
-fn section_args2(c: &mut Checker<'_>, root: &str, auto: Option<&str>) {
+pub(super) fn section_args2(c: &mut Checker<'_>, root: &str, auto: Option<&str>) {
     let url = "https://x/y";
     let mut tmp = config::defaults();
     config::set(&mut tmp, "subtitles", Value::Bool(false));
@@ -909,7 +428,7 @@ fn section_args2(c: &mut Checker<'_>, root: &str, auto: Option<&str>) {
     );
 }
 
-fn section_partials(c: &mut Checker<'_>) {
+pub(super) fn section_partials(c: &mut Checker<'_>) {
     let wt = mkdtemp("ytdlp-wf-");
     let j = |name: &str| resolve::py_path_join(&wt, name);
     let fresh_paths: Vec<String> = vec![
@@ -978,7 +497,7 @@ fn section_partials(c: &mut Checker<'_>) {
     pyfs::rmtree_quiet(&wt);
 }
 
-fn section_misc(c: &mut Checker<'_>) {
+pub(super) fn section_misc(c: &mut Checker<'_>) {
     // clean_url
     let basic = args::clean_url(Some("watch https://youtu.be/abc-123_x now"));
     c.check(
@@ -1017,7 +536,7 @@ fn section_misc(c: &mut Checker<'_>) {
 }
 
 /// ---------------- progress pins ----------------
-fn section_progress(c: &mut Checker<'_>) {
+pub(super) fn section_progress(c: &mut Checker<'_>) {
     let cp = term::color_progress("15.2% of 198.15MiB at 2.32MiB/s ETA 01:12");
     c.check(
         "progress percent amber",
@@ -1076,7 +595,7 @@ fn section_progress(c: &mut Checker<'_>) {
     );
 }
 
-fn section_spinners(c: &mut Checker<'_>, capture: &CaptureOut) {
+pub(super) fn section_spinners(c: &mut Checker<'_>, capture: &CaptureOut) {
     let all = term::spinners();
     let names: Vec<&str> = all.iter().map(|s| s.name).collect();
     c.check("eight spinners", all.len() == 8, &got_strs_vec(&names));
@@ -1171,7 +690,7 @@ fn section_spinners(c: &mut Checker<'_>, capture: &CaptureOut) {
     );
 }
 
-fn section_menu(
+pub(super) fn section_menu(
     c: &mut Checker<'_>,
     root: &str,
     config_path: &str,
@@ -1321,12 +840,12 @@ fn section_menu(
     );
 }
 
-fn got_strs_vec(values: &[&str]) -> String {
+pub(super) fn got_strs_vec(values: &[&str]) -> String {
     let parts: Vec<String> = values.iter().map(|v| format!("'{v}'")).collect();
     format!("[{}]", parts.join(", "))
 }
 
-fn section_parsers(c: &mut Checker<'_>, root: &str, image_path: &str, is_windows: bool) {
+pub(super) fn section_parsers(c: &mut Checker<'_>, root: &str, image_path: &str, is_windows: bool) {
     // version_tuple
     let v110 = update::version_tuple(Some("1.10.0"));
     let v190 = update::version_tuple(Some("1.9.0"));
@@ -1474,7 +993,7 @@ fn section_parsers(c: &mut Checker<'_>, root: &str, image_path: &str, is_windows
     pyfs::rmtree_quiet(&scratch);
 }
 
-fn section_langs(c: &mut Checker<'_>) {
+pub(super) fn section_langs(c: &mut Checker<'_>) {
     let langs = ui::sub_lang_lines(WIDTH);
     let boxed = !langs.is_empty() && langs.iter().all(|l| l.chars().count() <= WIDTH as usize);
     c.check("lang lines fit the box", boxed, &got_list(&langs));
@@ -1576,13 +1095,13 @@ fn section_langs(c: &mut Checker<'_>) {
 }
 
 /// python's `sorted()` before a repr so the `got` reads sorted.
-fn got_list_sorted(values: &[String]) -> String {
+pub(super) fn got_list_sorted(values: &[String]) -> String {
     let mut sorted: Vec<String> = values.to_vec();
     sorted.sort();
     got_list(&sorted)
 }
 
-fn section_lang_input(c: &mut Checker<'_>) {
+pub(super) fn section_lang_input(c: &mut Checker<'_>) {
     let (k1, b1, u1) = args::parse_lang_input(Some("en,8"));
     let first = k1 == ["en".to_string()] && b1 == ["8".to_string()] && u1.is_empty();
     let _ = (&k1, &b1, &u1);
@@ -1643,7 +1162,7 @@ fn section_lang_input(c: &mut Checker<'_>) {
     let _ = (&u1, &u2, &u3, &u4, &u5, &u5b, &u6);
 }
 
-fn menu_world<'w>(
+pub(super) fn menu_world<'w>(
     version: &'w str,
     root: &'w str,
     use_color: bool,
@@ -1664,14 +1183,14 @@ fn menu_world<'w>(
     }
 }
 
-fn make_io<'a>(capture: &'a mut CaptureOut, reader: &'a mut dyn Reader) -> Io<'a> {
+pub(super) fn make_io<'a>(capture: &'a mut CaptureOut, reader: &'a mut dyn Reader) -> Io<'a> {
     Io {
         out: capture,
         reader,
     }
 }
 
-fn section_holds(
+pub(super) fn section_holds(
     c: &mut Checker<'_>,
     version: &str,
     root: &str,
@@ -1740,7 +1259,7 @@ fn section_holds(
     }
 }
 
-fn section_item7(
+pub(super) fn section_item7(
     c: &mut Checker<'_>,
     version: &str,
     root: &str,
@@ -1811,23 +1330,23 @@ fn section_item7(
     );
 }
 
-fn plain7_slice(text: &[String], start: usize, count: usize) -> Vec<String> {
+pub(super) fn plain7_slice(text: &[String], start: usize, count: usize) -> Vec<String> {
     text.iter().skip(start).take(count).cloned().collect()
 }
 
-fn plain7_at(text: &[String], index: usize) -> String {
+pub(super) fn plain7_at(text: &[String], index: usize) -> String {
     text.get(index).cloned().unwrap_or_default()
 }
 
-fn no_download(_s: &mut Obj, _url: &str, _io: &mut Io<'_>) -> i32 {
+pub(super) fn no_download(_s: &mut Obj, _url: &str, _io: &mut Io<'_>) -> i32 {
     0
 }
 
-fn no_update(_s: &mut Obj, _io: &mut Io<'_>) -> Result<(), menu::MenuErr> {
+pub(super) fn no_update(_s: &mut Obj, _io: &mut Io<'_>) -> Result<(), menu::MenuErr> {
     Ok(())
 }
 
-fn section_block(c: &mut Checker<'_>) {
+pub(super) fn section_block(c: &mut Checker<'_>) {
     let block = ui::sub_lang_lines(WIDTH);
     let roomy = tty::block_under_input(&block, true, true, Some((120, 50)));
     c.check(
@@ -1862,7 +1381,7 @@ fn section_block(c: &mut Checker<'_>) {
     );
 }
 
-fn section_batch(
+pub(super) fn section_batch(
     c: &mut Checker<'_>,
     version: &str,
     root: &str,
@@ -2023,7 +1542,7 @@ fn section_batch(
     );
 }
 
-fn section_audit(
+pub(super) fn section_audit(
     c: &mut Checker<'_>,
     version: &str,
     root: &str,
@@ -2291,12 +1810,12 @@ fn section_audit(
 }
 
 /// `(url, timeout)`-pair count for the F3 timeout records.
-fn got_timeouts(timeouts: &[u64]) -> String {
+pub(super) fn got_timeouts(timeouts: &[u64]) -> String {
     let parts: Vec<String> = timeouts.iter().map(|t| t.to_string()).collect();
     format!("[{}]", parts.join(", "))
 }
 
-fn section_archive(c: &mut Checker<'_>) {
+pub(super) fn section_archive(c: &mut Checker<'_>) {
     let scratch = mkdtemp("ytdlp-extract-");
     let zip_dir = resolve::py_path_join(&scratch, "z");
     let tar_dir = resolve::py_path_join(&scratch, "t");
@@ -2391,116 +1910,4 @@ fn section_archive(c: &mut Checker<'_>) {
     );
 
     pyfs::rmtree_quiet(&scratch);
-}
-
-/// The entry point: python's `selftest()` - the 177-check report, rc 0
-/// when all pass and rc 1 like python's return.
-pub fn run_selftest(
-    version: &str,
-    root: &str,
-    config_path: &str,
-    image_path: &str,
-    out: &mut dyn Out,
-) -> i64 {
-    let capture = CaptureOut::default();
-    let mut c = Checker::new(out);
-    let auto = real_auto_outdir();
-    let is_windows = cfg!(windows);
-
-    // python's dispatch order: history, subs, args, progress, spinners,
-    // args tail, partials, urls, menus+updaters pins, parsers, archive
-    // probes, langs, item 7, block, holds, batch, then the audit set
-    section_history(&mut c, &capture);
-    section_subs(&mut c);
-    section_args(&mut c, root, config_path, auto.as_deref());
-    {
-        let _ = capture; // the args block captures nothing
-    }
-    section_progress(&mut c);
-    section_spinners(&mut c, &capture);
-    section_args2(&mut c, root, auto.as_deref());
-    section_partials(&mut c);
-    section_misc(&mut c);
-    section_menu(&mut c, root, config_path, auto.as_deref(), is_windows);
-    section_parsers(&mut c, root, image_path, is_windows);
-    section_archive(&mut c);
-    section_langs(&mut c);
-    section_lang_input(&mut c);
-    section_item7(&mut c, version, root, config_path, auto.as_deref());
-    section_block(&mut c);
-    section_holds(&mut c, version, root, config_path, auto.as_deref());
-    section_batch(&mut c, version, root, config_path, auto.as_deref());
-    section_audit(&mut c, version, root, config_path, auto.as_deref());
-
-    let count = c.count;
-    let failed = c.fails.len() as i64;
-    finish_report(count, failed, c.report_out())
-}
-
-/// Python's closing pair (`"-" * WIDTH`, then the count summary); the
-/// rc rule is 1 when any check failed (python's return).
-fn finish_report(count: i64, failed: i64, out: &mut dyn Out) -> i64 {
-    out.write(&"-".repeat(WIDTH as usize));
-    out.write("\n");
-    out.write(&format!("selftest: {count} checks, {failed} failed"));
-    out.write("\n");
-    out.flush();
-    if failed > 0 { 1 } else { 0 }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// The sink's shape pinned: the report stays byte-equal to python's
-    /// `%-4s %s%s` formatting.
-    #[test]
-    fn the_sink_formats_pass_fail() {
-        let capture = CaptureOut::default();
-        let mut echoed = capture.clone();
-        let mut checker = Checker::new(&mut echoed);
-        checker.check("one good", true, NO_GOT);
-        checker.check("one bad", false, NO_GOT);
-        assert_eq!(
-            capture.text(),
-            "PASS one good\nFAIL one bad  got: ''\n",
-            "the sink text must be python's format"
-        );
-        assert_eq!(checker.count, 2);
-        assert_eq!(checker.fails, vec!["one bad".to_string()]);
-    }
-
-    /// The report's summary line and rc rule: 0 when nothing failed, 1
-    /// when any check did (python's return).
-    #[test]
-    fn the_summary_line_and_rc_rule() {
-        let capture_a = CaptureOut::default();
-        let mut echoed_a = capture_a.clone();
-        let mut clean = Checker::new(&mut echoed_a);
-        clean.check("good", true, NO_GOT);
-        assert_eq!(
-            finish_report(clean.count, clean.fails.len() as i64, &mut echoed_a),
-            0
-        );
-        assert!(
-            capture_a
-                .text()
-                .ends_with("\nselftest: 1 checks, 0 failed\n")
-        );
-
-        let capture_b = CaptureOut::default();
-        let mut echoed_b = capture_b.clone();
-        let mut failing = Checker::new(&mut echoed_b);
-        failing.check("good", true, NO_GOT);
-        failing.check("bad", false, NO_GOT);
-        assert_eq!(
-            finish_report(failing.count, failing.fails.len() as i64, &mut echoed_b),
-            1
-        );
-        assert!(
-            capture_b
-                .text()
-                .ends_with("\nselftest: 2 checks, 1 failed\n")
-        );
-    }
 }
