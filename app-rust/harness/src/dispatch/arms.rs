@@ -1241,7 +1241,45 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
             };
             let result = exec::install_ffmpeg(None, &platform, &bin_dir, is_windows, &mut ctx);
             let listed = listing(&bin_dir, &dir);
-            let calls = http.call_log();
+            // The offer source urls are per-implementation (the native
+            // FR-14 amendment points windows at BtbN), so the two urls
+            // project to tokens exactly like the update-source token in
+            // the phase-8 records; the scripted shape stays identical.
+            let calls = match (exec::ffmpeg_source(&platform), http.call_log()) {
+                (Some(src), Json::Arr(entries)) => Json::Arr(
+                    entries
+                        .into_iter()
+                        .map(|entry| match entry {
+                            Json::Obj(fields) => Json::Obj(
+                                fields
+                                    .into_iter()
+                                    .map(|(k, v)| {
+                                        if k == "url" {
+                                            if let Json::Str(u) = &v {
+                                                if u.as_str() == src.url {
+                                                    return (
+                                                        "url".to_string(),
+                                                        Json::Str("{ffmpeg-url}".to_string()),
+                                                    );
+                                                }
+                                                if u.as_str() == src.sha_url {
+                                                    return (
+                                                        "url".to_string(),
+                                                        Json::Str("{ffmpeg-sha-url}".to_string()),
+                                                    );
+                                                }
+                                            }
+                                        }
+                                        (k, v)
+                                    })
+                                    .collect(),
+                            ),
+                            other => other,
+                        })
+                        .collect(),
+                ),
+                (_, other) => other,
+            };
             Ok(Json::Obj(vec![
                 (
                     "result".to_string(),

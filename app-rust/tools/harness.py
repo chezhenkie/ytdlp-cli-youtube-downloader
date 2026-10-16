@@ -1940,14 +1940,28 @@ def _hook_install_ffmpeg(module, args):
         module.BIN_DIR = bin_dir
         module.probe_version = probe
 
+        src = module.FFMPEG_SOURCES.get(case["platform"])
+        src_url = src[0] if src else None
+        src_sha = src[1] if src else None
+
+        def _tok(url):
+            # the offer source urls are per-implementation (the native
+            # FR-14 amendment points windows at BtbN); project them to
+            # tokens like the update-source token in the phase-8 records
+            if url == src_url:
+                return "{ffmpeg-url}"
+            if url == src_sha:
+                return "{ffmpeg-sha-url}"
+            return url
+
         def fake_http_text(url, timeout=60):
-            log.append({"kind": "text", "url": url, "timeout": timeout, "user_agent": None})
+            log.append({"kind": "text", "url": _tok(url), "timeout": timeout, "user_agent": None})
             if case.get("sha_error"):
                 raise OSError(case["sha_error"])
             return "%s  %s\n" % (digest, asset)
 
         def fake_http_file(url, dest, stage=None, timeout=module.DL_TIMEOUT):
-            log.append({"kind": "file", "url": url, "timeout": timeout, "user_agent": None})
+            log.append({"kind": "file", "url": _tok(url), "timeout": timeout, "user_agent": None})
             if stage is not None:
                 stage.live = "downloading ffmpeg - 0.0 / 0.0 MB"
             if case.get("download_error"):
