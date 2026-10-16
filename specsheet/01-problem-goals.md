@@ -61,6 +61,10 @@ FR-14 ffmpeg fetch offer. On an os with no ffmpeg and a human on the line (stdin
 
 FR-15 Diagnostics. --check prints platform, project root, resolved yt-dlp binary and version, ffmpeg dir or MISSING, output folder and settings file (show_check L2355-L2366). --update is the non-interactive form of item 11 (L3254, L3266-L3267).
 
+FR-16 Windows file metadata (native line only; owner call 2026-10-16). The shipped `ytdlp.exe` carries a complete PE version resource so Explorer's Properties dialog shows the product identity without opening anything: FileDescription "yt-dlp cli - text-menu download wrapper around yt-dlp",
+ProductName "yt-dlp cli", FileVersion and ProductVersion tied to the product version (v2.0.0 for the first native release), CompanyName "chezhenkie", LegalCopyright "MIT License", InternalName and OriginalFilename "ytdlp", Comments "https://github.com/chezhenkie/ytdlp-cli-youtube-downloader". The frozen python line does not carry it.
+Verification: the CI windows job asserts the built exe's VersionInfo fields, G10 repeats the assertion on the extracted bundle, and the owner checks the Details tab in the OQ-N2 console pass.
+
 ## 3. Non-functional requirements
 
 NFR-1 No system runtime. The published artifact must run on a machine with nothing installed beyond its own bundle: no interpreter, no package manager, no redistributable, no toolchain. Two implementations satisfy this differently.

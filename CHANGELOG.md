@@ -5,6 +5,9 @@ Newest first. Current level: v2.0.0 (native port, unreleased); v1.5.0 is the shi
 
 ## v2.0.0 native port (unreleased)
 
+- phase 10 spec: CI bundle assembly, payload pins kept, FR-16 Windows file metadata (this commit)
+Owner calls 2026-10-16: the four v2.0.0 bundles assemble in a workflow_dispatch job on the native runners from the pinned v1.5.0 payloads, emitting SHA256SUMS plus artifacts; the release commit carries the digests and gh release upload places those exact bytes; RELEASE-NOTES.md attaches as an asset. The Windows exe gains a complete PE version resource (FR-16: product, version, owner, copyright, comments; the Explorer Details tab) with CI and G10 assertions. Docs-only so far; the build change follows.
+
 - size pass: five code-motion splits, records byte-stable (86b066c, 1bb8f29, d573674, e6398c2, 5749dbd, 7aa245d, 8ac60da)
 No behaviour change. `harness/src/dispatch.rs` split into a 12-line shell plus `dispatch/arms.rs`; `cli/src/selftest.rs` split along its seams into `selftest/{mod,plumbing,sections}.rs`; the cli_args help/usage rendering moved to `cli_args/help.rs`; the exec ffmpeg-install layer moved to `exec/ffmpeg.rs`; the exec run seam moved to `exec/run.rs`. Gate after every split: fmt check-only and clippy -D warnings clean, run-all 69 functions / 978 records / 0 mismatches, session_diff piped 32/32 and pty 14/14, 176 cli unit tests plus 4 integration tests, report parity 177/177. The `resolve.rs` line-slice split was attempted and reverted (cfg-dense; needs item-level parsing). One fmt-dirt round trip went red on CI: the earlier gate ran cargo fmt before its --check, masking dirt in the committed split files (fixed in 7aa245d; the gate is fmt-check-only since). Also gitignores app-rust log files (86b066c).
 

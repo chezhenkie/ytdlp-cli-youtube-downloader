@@ -195,9 +195,12 @@ All 177 checks as Rust tests, harness across the full fixture set, FR-by-FR read
 
 ### Phase 10 - Bundles and v2.0.0
 
-Four bundles plus the two bare-binary updater assets FR-13 defines. Linux lean ships `yt-dlp_linux` at 40446224 bytes instead of the 3072469-byte zipapp (both are release 2026.08.19 asset sizes; they sum to 43518693). The bundle replaces one entry with the other, so the shipped size lands below that sum - G10 records the measured figure. Portable adds ffmpeg plus GPL texts. Windows unchanged in shape. Launchers become thin, `run-ytdlp.sh` keeping its `$0`-based dash-safe contract.
+Four bundles plus the two bare-binary updater assets FR-13 defines, and RELEASE-NOTES.md, all attached to one tag. Bundles assemble in a `workflow_dispatch` job on the native runners (windows-latest, ubuntu-latest) from the pinned v1.5.0 payloads - yt-dlp 2026.08.19 (`yt-dlp.exe` and the 40446224-byte `yt-dlp_linux`), ffmpeg gyan 9.0.2 essentials and BtbN n9.0.2 - emitting `SHA256SUMS` plus the four
+bundle artifacts; the release commit carries the digests, the tag follows, and `gh release upload` places those exact bytes (owner call 2026-10-16). Linux lean ships `yt-dlp_linux` instead of the 3072469-byte zipapp (both are release 2026.08.19 asset sizes; they sum to 43518693), so the shipped size lands below that sum - G10 records the measured figure. Portable adds ffmpeg plus GPL texts. Windows unchanged in shape.
+Launchers become thin, `run-ytdlp.sh` keeping its `$0`-based dash-safe contract. The Windows exe carries the PE version resource (FR-16).
 
-**G10:** every bundle extracted and run from its destination on its target platform; selftest and `--check` from the extracted tree; digests in README and RELEASE-NOTES verified at the destination via the api; tag on the release commit; `gh release` with the four bundles and the two bare-binary updater assets. PE import table of the extracted Windows exe re-asserted free of `vcruntime*.dll` and `msvcp*.dll`.
+**G10:** every bundle extracted and run from its destination on its target platform; selftest and `--check` from the extracted tree; digests in README and RELEASE-NOTES verified at the destination via the api; tag on the release commit; `gh release` with the four bundles, the two bare-binary updater assets and RELEASE-NOTES.md. PE import table of the extracted Windows exe re-asserted free of `vcruntime*.dll` and `msvcp*.dll`.
+Its version resource is re-asserted too (FR-16 fields, via PowerShell VersionInfo on the extracted exe).
 
 ### Phase 11 - Cutover
 
