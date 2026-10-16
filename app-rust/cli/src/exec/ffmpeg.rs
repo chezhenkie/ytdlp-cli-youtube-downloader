@@ -44,8 +44,6 @@ pub fn ffmpeg_source(platform: &str) -> Option<FfmpegSource> {
     }
 }
 
-
-
 /// `install_ffmpeg(stage)`: fetch, verify, test and install ffmpeg into
 /// bin/ for this platform.
 ///

@@ -3,6 +3,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use super::plumbing::*;
 use crate::archive;
 use crate::args;
 use crate::config::{self, Obj, Value};
@@ -16,7 +17,6 @@ use crate::tty::{self, Out, Reader};
 use crate::ui;
 use crate::ui::WIDTH;
 use crate::update;
-use super::plumbing::*;
 
 pub(super) fn section_history(c: &mut Checker<'_>, capture: &CaptureOut) {
     let mut history = tty::History::new();

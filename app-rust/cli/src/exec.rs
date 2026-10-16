@@ -780,8 +780,8 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::sha256;
-use super::*;
     use crate::testfake::{FakeHttp, LinesOut};
     use crate::tty::{RecordingOut, ScriptItem, ScriptedReader};
     use crate::ui::WIDTH;

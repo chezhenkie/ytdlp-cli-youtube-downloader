@@ -1,7 +1,7 @@
 //! The help and usage renderer: python's argparse HelpFormatter port.
 //! Reads the option table from the parent module.
 
-use super::{OptionDef, OPTIONS, DESCRIPTION};
+use super::{DESCRIPTION, OPTIONS, OptionDef};
 use crate::tty;
 
 /// The argparse formatter width: `COLUMNS` when it parses positive, else

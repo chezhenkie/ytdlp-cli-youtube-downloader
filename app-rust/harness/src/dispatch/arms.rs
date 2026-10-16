@@ -2952,7 +2952,6 @@ impl exec::ChildHandle for ArmChild {
     }
 }
 
-
 /// The run_download arm's scripted escape watch.
 pub(crate) struct ArmWatch {
     hits: std::collections::VecDeque<bool>,
@@ -2963,4 +2962,3 @@ impl exec::EscapeWatch for ArmWatch {
         self.hits.pop_front().unwrap_or(false)
     }
 }
-
