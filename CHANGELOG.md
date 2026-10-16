@@ -5,6 +5,9 @@ Newest first. Current level: v2.0.1 (native, released 2026-10-16); v1.5.0 is the
 
 ## v2.0.1 native (released 2026-10-16)
 
+- v2.0.1 verified at the destination; G10 green (this commit)
+Every asset downloaded from the published release: the six digest rows in RELEASE-NOTES.md hash-match the downloaded bytes and the api digests equal README's numbers. All four bundles extracted and run from the published bytes on their target platform - windows-lean/portable selftest 177/0 with PE imports clean and the 2.0.1 version fields; linux-lean/portable launcher selftest 177/0, --check resolving the bundled yt-dlp 2026.08.19 and the portable bundle's ffmpeg (n9.0.2-27-g7e93014c5b-20261013), 0755 modes in the tar listing. Measured sizes: windows lean 19473494, windows portable 59482988, linux lean 41981136, linux portable 110055725, updater images 3958784 (windows) and 4936744 (linux).
+
 - v2.0.1 published (this commit)
 A behavior-fix release on the native line. CI run 38951859070 assembled the six binaries; both platform bundles were extracted and run from the CI bytes before upload (windows-lean/portable selftest 177/0 from the extracted tree with the 2.0.1 PE version fields and the import table free of vcruntime*/msvcp*; linux-lean/portable launcher selftest 177/0 and --check resolving the bundled yt-dlp and, in the portable bundle, the bundled ffmpeg) and all six match the CI SHA256SUMS. Digests folded into README.md and the staged releases/v2.0.1/RELEASE-NOTES.md; the tag and the gh release upload follow; G10 runs from the release after publish. Carries the FR-14 amendment (native Windows ffmpeg offer = BtbN win64, digest read fresh from checksums.sha256 on every offer) and the FR-11 amendment (every native run end removes the .ytdlp-tmp work folder, Ctrl+C included) - entries below. Bundle payload pins stay as published (gyan 9.0.2 windows portable, BtbN n9.0.2 linux).
 
