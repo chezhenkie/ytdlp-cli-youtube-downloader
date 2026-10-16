@@ -9,6 +9,7 @@
 use crate::args;
 use crate::config::{self, Obj, Value};
 use crate::net;
+use crate::pyfs;
 use crate::pytext::{py_repr_str, py_rstrip, py_split_ws, py_strip};
 use crate::resolve::{self, ShapeKind};
 use crate::term::{self, A_AMBER, ascii_safe, c};
@@ -106,10 +107,23 @@ pub fn temp_dir(saved: &Obj, auto: Option<&str>, root: &str) -> Result<String, S
 }
 
 /// `drop_temp_dir(s)`: remove the work folder when it ends empty; a
-/// failed run keeps its partials there for resume (FR-11).
+/// failed run keeps its partials there for resume (FR-11). The native
+/// run ends no longer use this shape - see `drop_temp_dir_force` - but
+/// the function keeps python's semantics for its selftest checks.
 pub fn drop_temp_dir(saved: &Obj, auto: Option<&str>, root: &str) {
     if let Ok(dir) = temp_dir(saved, auto, root) {
         let _ = std::fs::remove_dir(dir);
+    }
+}
+
+/// Native-only (FR-11 amendment, owner-decided 2026-10-16c): the work
+/// folder never survives a run - every ending removes it with whatever
+/// it holds. Python's `drop_temp_dir` keeps a non-empty folder for
+/// resume; the native rule is unconditional (nothing of value survives,
+/// so the 429-subtitle keep-for-retry across runs does not apply).
+pub fn drop_temp_dir_force(saved: &Obj, auto: Option<&str>, root: &str) {
+    if let Ok(dir) = temp_dir(saved, auto, root) {
+        pyfs::rmtree_quiet(&dir);
     }
 }
 
@@ -451,7 +465,7 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
             Ok(dir) => clean_partials(&dir, started, 5.0),
             Err(_) => Vec::new(),
         };
-        drop_temp_dir(s, ctx.auto, ctx.root);
+        drop_temp_dir_force(s, ctx.auto, ctx.root);
         let tail = if removed.is_empty() {
             String::new()
         } else {
@@ -467,7 +481,7 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
     if rc != 0 {
         let sentence = fail_sentence(rc, &err);
         st.done(Some(&sentence));
-        drop_temp_dir(s, ctx.auto, ctx.root);
+        drop_temp_dir_force(s, ctx.auto, ctx.root);
         return rc as i32;
     }
 
@@ -531,7 +545,7 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
             st2.done(Some(&lines[1]));
         }
     }
-    drop_temp_dir(s, ctx.auto, ctx.root);
+    drop_temp_dir_force(s, ctx.auto, ctx.root);
     0
 }
 
@@ -1180,6 +1194,30 @@ mod tests {
         std::fs::write(dir.join("late.part"), b"x").unwrap();
         assert!(clean_partials(&dir_text, now_secs() + 60.0, 5.0).is_empty());
         assert!(clean_partials(&format!("{dir_text}/gone"), now_secs(), 5.0).is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn drop_temp_dir_force_removes_a_work_folder_with_contents() {
+        // FR-11 amendment 2026-10-16c: every native run end removes the
+        // work folder with whatever it holds
+        let dir = scratch("forcedrop");
+        let out = dir.join("out");
+        std::fs::create_dir_all(&out).unwrap();
+        let work = out.join(resolve::TEMP_DIR_NAME);
+        std::fs::create_dir_all(&work).unwrap();
+        std::fs::write(work.join("v.mp4.part"), b"fresh partial").unwrap();
+        let mut s = config::defaults();
+        config::set(
+            &mut s,
+            "output_dir",
+            Value::Str(out.to_string_lossy().into_owned()),
+        );
+        let root = dir.to_string_lossy().into_owned();
+        drop_temp_dir_force(&s, None, &root);
+        assert!(!work.exists(), "contents and all");
+        // a missing folder is quiet
+        drop_temp_dir_force(&s, None, &root);
         let _ = std::fs::remove_dir_all(&dir);
     }
 
