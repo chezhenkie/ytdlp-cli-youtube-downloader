@@ -1254,20 +1254,20 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                                 fields
                                     .into_iter()
                                     .map(|(k, v)| {
-                                        if k == "url" {
-                                            if let Json::Str(u) = &v {
-                                                if u.as_str() == src.url {
-                                                    return (
-                                                        "url".to_string(),
-                                                        Json::Str("{ffmpeg-url}".to_string()),
-                                                    );
-                                                }
-                                                if u.as_str() == src.sha_url {
-                                                    return (
-                                                        "url".to_string(),
-                                                        Json::Str("{ffmpeg-sha-url}".to_string()),
-                                                    );
-                                                }
+                                        if k == "url"
+                                            && let Json::Str(u) = &v
+                                        {
+                                            if u.as_str() == src.url {
+                                                return (
+                                                    "url".to_string(),
+                                                    Json::Str("{ffmpeg-url}".to_string()),
+                                                );
+                                            }
+                                            if u.as_str() == src.sha_url {
+                                                return (
+                                                    "url".to_string(),
+                                                    Json::Str("{ffmpeg-sha-url}".to_string()),
+                                                );
                                             }
                                         }
                                         (k, v)

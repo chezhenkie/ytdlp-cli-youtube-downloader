@@ -5,6 +5,9 @@ Newest first. Current level: v2.0.0 (native, released 2026-10-16); v1.5.0 is the
 
 ## v2.0.0 native port (released 2026-10-16)
 
+- fix: FR-11 follow-ups after CI - let-chain in the harness record projection, session fs projection (this commit)
+CI caught two things: clippy denied the nested `if ... if let` in the install_ffmpeg record projection (now a let-chain), and the piped/pty session differ failed `quick-download-fail-keeps-partial` plus `quick-subs-429-keeps-vtt` on `fs_list differs` - the two cases where the oracle keeps work-folder files. The oracle's listing now drops entries under `.ytdlp-tmp` when forming the native expectation (`tools/session_diff.py`); a work entry surviving a native run still fails the compare.
+
 - spec: FR-11 amendment - the native work folder never survives a run (this commit)
 Owner call during the OQ-N2 console pass after seeing .ytdlp-tmp survive a Ctrl+C: nothing in the work folder has value. Every native run end now removes it with its contents - success, failure, escape (rc 130 shape kept) and Ctrl+C. Supersedes NFR-3's keep-for-resume for the native line; named consequence: python's 429-subtitle keep-for-retry across runs does not apply natively. Python stays frozen; `drop_temp_dir`'s function semantics and its selftest checks are unchanged -
 only the native call sites change. Implementation follows.

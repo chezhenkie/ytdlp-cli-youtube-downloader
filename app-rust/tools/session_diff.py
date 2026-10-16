@@ -22,7 +22,11 @@ bin so a runner's real ffmpeg/node cannot leak in, script the stand-in
 per case, and compare the argv the wrapper handed over plus a directory
 listing. Animated stage rewrites are collapsed to `{frame}` in cases that
 declare `project_frames` (frame counts are timing, not behaviour; the
-frame content itself is digest-pinned by cli tests).
+frame content itself is digest-pinned by cli tests). The oracle's listing
+drops entries under the work folder before the compare: by the FR-11
+amendment (owner call 2026-10-16c) every native run end removes the work
+folder, so a work entry surviving a native run is exactly what the case
+still catches.
 
 Modes:
 
@@ -202,6 +206,8 @@ SPINNER_COLOR_DONE_RE = re.compile(
     rb"\r\x1b\[K(?:\x1b\[[0-9;]+m|[^\x1b\r\n])+\x1b\[0m (?=downloading - )"
 )
 SPINNER_PIPED_DONE_RE = re.compile(rb"(?m)^\S+ (?=downloading - )")
+# the download work folder inside the output folder (exec.rs temp_dir)
+TEMP_DIR_NAME = ".ytdlp-tmp"
 
 
 def normalize(data, tree, project_frames=False):
@@ -254,7 +260,7 @@ def normalize(data, tree, project_frames=False):
     return data
 
 
-def case_extras(tree, case, project_frames):
+def case_extras(tree, case, project_frames, native=False):
     """The case's extra artifacts: the argv the wrapper handed to the
     stand-in (as a file it appends) and a directory listing."""
     extras = {}
@@ -269,6 +275,17 @@ def case_extras(tree, case, project_frames):
         if root.is_dir():
             for path in sorted(root.rglob("*")):
                 names.append(str(path.relative_to(root)).replace(os.sep, "/"))
+        if not native:
+            # FR-11 amendment (owner call 2026-10-16c): every native run
+            # end removes the work folder, so the oracle listing's kept
+            # work entries (fail-keeps-partial, subs-429-keeps-vtt) are
+            # not part of the native expectation. Only the oracle side is
+            # filtered - a work entry surviving a native run still fails.
+            names = [
+                n
+                for n in names
+                if n != TEMP_DIR_NAME and not n.startswith(TEMP_DIR_NAME + "/")
+            ]
         extras["fs_list"] = ("\n".join(names) + "\n").encode("utf-8")
     return extras
 
@@ -322,7 +339,7 @@ def compare_case(name, py, rs, work, strict_stderr=False):
     return False
 
 
-def read_result(tree, case, proc, out, err):
+def read_result(tree, case, proc, out, err, native=False):
     cfg = (tree / "config" / "settings.json").read_bytes()
     project_frames = bool(case.get("project_frames"))
     return (
@@ -330,7 +347,7 @@ def read_result(tree, case, proc, out, err):
         normalize(out, tree, project_frames),
         normalize(err, tree, project_frames)[:4096],
         normalize(cfg, tree, project_frames),
-        case_extras(tree, case, project_frames),
+        case_extras(tree, case, project_frames, native=native),
     )
 
 
@@ -585,7 +602,9 @@ def run_piped_case(case, work, rust_bin, fake_bin):
         timeout=120,
     )
     py = read_result(py_tree, case, py_proc, py_proc.stdout, py_proc.stderr)
-    rs = read_result(rs_tree, case, rs_proc, rs_proc.stdout, rs_proc.stderr)
+    rs = read_result(
+        rs_tree, case, rs_proc, rs_proc.stdout, rs_proc.stderr, native=True
+    )
     return compare_case(
         case["name"], py, rs, work, strict_stderr=bool(case.get("stderr_bytes"))
     )
@@ -844,7 +863,7 @@ def run_pty_case(case, work, rust_bin, fake_bin, cols=80, rows=24):
                 normalize(bytes(data), tree, project_frames),
                 normalize(stderr_bytes, tree, project_frames)[:4096],
                 normalize(cfg, tree, project_frames),
-                case_extras(tree, case, project_frames),
+                case_extras(tree, case, project_frames, native=(kind == "rs")),
             )
         )
     return compare_case(
