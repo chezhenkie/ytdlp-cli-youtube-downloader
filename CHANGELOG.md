@@ -5,6 +5,11 @@ Newest first. Current level: v2.0.0 (native port, unreleased); v1.5.0 is the shi
 
 ## v2.0.0 native port (unreleased)
 
+- phase 10: bundles.yml assembly workflow + thin native launchers (this commit)
+The four v2.0.0 bundles and the two updater images assemble in `.github/workflows/bundles.yml` (workflow_dispatch only) on the native runners: windows lean + portable zips, linux lean + portable tar.gz, plus the bare `ytdlp-native-windows-x86_64.exe` / `ytdlp-native-linux-x86_64` images, each staged from the release binary (linux = the gnu target) and the pinned payloads - yt-dlp 2026.08.19 (`yt-dlp.exe`, `yt-dlp_linux`), gyan.dev 9.0.2 essentials from the versioned packages url, BtbN
+n9.0.2-27-g7e93014c5b from the dated autobuild tag - every payload digest-checked before staging, SHA256SUMS emitted per job. The launchers move to `app-rust/packaging/` (thin `$0`-based posix `run-ytdlp.sh`, pause-on-error `run-ytdlp.bat`, IF-1) and ship in every bundle beside the binary. The BtbN pin moves from the moving `latest` tag to the dated autobuild-2026-10-13 tag: latest was republished upstream, so the digest the v1.5.0 line recorded (afa2b69c) is not retrievable anywhere; probe
+2026-10-16: the dated archive's ffmpeg binary is byte-identical to the v1.5.0-shipped binary (sha256 a573011f...), so the shipped payload stays the same and only THIRD-PARTY-NOTICES.md and the specsheet record the new archive name and digest (50e0ede1...). Local WSL smoke of the workflow's linux block verbatim: bundles built, extracted, `run-ytdlp.sh --selftest` rc 0.
+
 - phase 10 spec: CI bundle assembly, payload pins kept, FR-16 Windows file metadata (this commit)
 Owner calls 2026-10-16: the four v2.0.0 bundles assemble in a workflow_dispatch job on the native runners from the pinned v1.5.0 payloads, emitting SHA256SUMS plus artifacts; the release commit carries the digests and gh release upload places those exact bytes; RELEASE-NOTES.md attaches as an asset. The Windows exe gains a complete PE version resource (FR-16: product, version, owner, copyright, comments; the Explorer Details tab) with CI and G10 assertions. Docs-only so far; the build change follows.
 

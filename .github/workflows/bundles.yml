@@ -1,0 +1,150 @@
+name: bundles
+
+# Phase 10 (owner call 2026-10-16): assemble the seven v2.0.0 release files on the
+# native runners. workflow_dispatch only. This workflow builds artifacts; it does
+# not tag or publish anything. The release commit carries the digests, the tag
+# follows, and gh release upload places exactly these bytes.
+#
+# Payload pins are the v1.5.0 payload line (owner call: pins kept):
+#   yt-dlp 2026.08.19: yt-dlp.exe (windows), yt-dlp_linux (linux)
+#   ffmpeg: gyan.dev 9.0.2 essentials (windows), BtbN n9.0.2-27-g7e93014c5b
+#           autobuild-2026-10-13 (linux; the dated tag, so the pin cannot move
+#           under CI the way the moving "latest" tag did)
+# Every payload is checked against its pinned digest before anything is staged.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  YTDLP_URL_BASE: https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19
+  YTDLP_WINDOWS_SHA256: 66674953fe251b89f4d08c5f0e35e0728679bd67ab3d7d05c0562af101dd3e7a
+  YTDLP_LINUX_SHA256: 58162f9bfdc27458ea47bfcb311cf47028f17d8154a8bf7d689861d46399230a
+  FFMPEG_WINDOWS_URL: https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.2-essentials_build.zip
+  FFMPEG_WINDOWS_SHA256: 60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba
+  FFMPEG_LINUX_URL: https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-13-13-05/ffmpeg-n9.0.2-27-g7e93014c5b-linux64-gpl-9.0.tar.xz
+  FFMPEG_LINUX_SHA256: 50e0ede136e3545758a8dfb2e6cd12ec865643cd138af9ce6cd36a9015f395c2
+  GPL2_SHA256: edaef632cbb643e4e7a221717a6c441a4c1a7c918e6e4d56debc3d8739b233f6
+  GPL3_SHA256: 3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986
+
+jobs:
+  windows-bundles:
+    name: windows lean + portable + updater image
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+      - name: build the release binary (crt-static from repo .cargo/config.toml)
+        working-directory: app-rust
+        run: cargo build --release -p ytdlp-cli
+      - name: verify payload pins and assemble
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          function Get-Pinned([string]$url, [string]$out, [string]$want) {
+            curl.exe -fsSL --retry 3 -o $out $url
+            if ($LASTEXITCODE -ne 0) { throw "download failed: $url" }
+            $got = (Get-FileHash -Algorithm SHA256 $out).Hash.ToLower()
+            if ($got -ne $want) { throw "digest mismatch: $url`n  want $want`n  got  $got" }
+            Write-Host "pin ok: $out $got"
+          }
+          $ver = ((Get-Content app-rust/Cargo.toml | Where-Object { $_ -match '^version = "' })[0] -replace '^version = "','' -replace '".*$','')
+          Write-Host "assembling v$ver"
+          New-Item -ItemType Directory -Force payload, dist | Out-Null
+          Get-Pinned "$env:YTDLP_URL_BASE/yt-dlp.exe" payload/yt-dlp.exe $env:YTDLP_WINDOWS_SHA256
+          Get-Pinned $env:FFMPEG_WINDOWS_URL payload/ffmpeg-windows.zip $env:FFMPEG_WINDOWS_SHA256
+          curl.exe -fsSL --retry 3 -o payload/gpl-2.0.txt https://www.gnu.org/licenses/gpl-2.0.txt
+          curl.exe -fsSL --retry 3 -o payload/gpl-3.0.txt https://www.gnu.org/licenses/gpl-3.0.txt
+          $g2 = (Get-FileHash -Algorithm SHA256 payload/gpl-2.0.txt).Hash.ToLower()
+          if ($g2 -ne $env:GPL2_SHA256) { throw "gpl-2.0.txt digest mismatch: $g2" }
+          $g3 = (Get-FileHash -Algorithm SHA256 payload/gpl-3.0.txt).Hash.ToLower()
+          if ($g3 -ne $env:GPL3_SHA256) { throw "gpl-3.0.txt digest mismatch: $g3" }
+          $stage = "dist/ytdlp-cli-$ver"
+          New-Item -ItemType Directory -Force "$stage/bin" | Out-Null
+          Copy-Item app-rust/target/release/ytdlp.exe "$stage/ytdlp.exe"
+          Copy-Item app-rust/packaging/run-ytdlp.bat, app-rust/packaging/run-ytdlp.sh "$stage/"
+          Copy-Item README.md, CHANGELOG.md, LICENSE, THIRD-PARTY-NOTICES.md "$stage/"
+          Copy-Item payload/yt-dlp.exe "$stage/bin/yt-dlp.exe"
+          Compress-Archive -Path $stage -DestinationPath "dist/ytdlp-cli-$ver-windows-lean.zip"
+          Expand-Archive -Path payload/ffmpeg-windows.zip -DestinationPath payload/ffmpeg-windows
+          $ff = Get-ChildItem payload/ffmpeg-windows -Recurse -Filter ffmpeg.exe | Where-Object { $_.Directory.Name -eq "bin" } | Select-Object -First 1
+          if (-not $ff) { throw "ffmpeg.exe not found in the gyan archive" }
+          Copy-Item $ff.FullName "$stage/bin/ffmpeg.exe"
+          Copy-Item payload/gpl-2.0.txt "$stage/GPL-2.0.txt"
+          Copy-Item payload/gpl-3.0.txt "$stage/GPL-3.0.txt"
+          Compress-Archive -Path $stage -DestinationPath "dist/ytdlp-cli-$ver-windows-portable.zip"
+          Copy-Item app-rust/target/release/ytdlp.exe dist/ytdlp-native-windows-x86_64.exe
+          cd dist
+          Get-ChildItem *.zip, *.exe | Sort-Object Name | ForEach-Object {
+            "$((Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLower())  $($_.Name)"
+          } | Set-Content -Encoding ascii SHA256SUMS
+          Get-Content SHA256SUMS
+          Get-ChildItem *.zip, *.exe | Sort-Object Name | ForEach-Object { "size: $($_.Name) $($_.Length)" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-bundles
+          path: |
+            dist/ytdlp-cli-*.zip
+            dist/ytdlp-native-windows-x86_64.exe
+            dist/SHA256SUMS
+          if-no-files-found: error
+
+  linux-bundles:
+    name: linux lean + portable + updater image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+      - name: build the release binary
+        working-directory: app-rust
+        run: cargo build --release -p ytdlp-cli
+      - name: verify payload pins and assemble
+        run: |
+          set -euo pipefail
+          ver=$(sed -n 's/^version = "\(.*\)"$/\1/p' app-rust/Cargo.toml | head -n1)
+          echo "assembling v$ver"
+          mkdir -p payload dist
+          get_pinned() { # url out want
+            curl -fsSL --retry 3 -o "$2" "$1"
+            echo "$3  $2" | sha256sum -c -
+          }
+          get_pinned "$YTDLP_URL_BASE/yt-dlp_linux" payload/yt-dlp_linux "$YTDLP_LINUX_SHA256"
+          get_pinned "$FFMPEG_LINUX_URL" payload/btbn.tar.xz "$FFMPEG_LINUX_SHA256"
+          get_pinned https://www.gnu.org/licenses/gpl-2.0.txt payload/gpl-2.0.txt "$GPL2_SHA256"
+          get_pinned https://www.gnu.org/licenses/gpl-3.0.txt payload/gpl-3.0.txt "$GPL3_SHA256"
+          tar -xJf payload/btbn.tar.xz -C payload
+          ff=$(find payload -path '*/bin/ffmpeg' -type f -print -quit)
+          test -n "$ff"
+          stage="dist/ytdlp-cli-$ver"
+          mkdir -p "$stage/bin"
+          install -m 0755 app-rust/target/release/ytdlp "$stage/ytdlp"
+          install -m 0755 app-rust/packaging/run-ytdlp.sh "$stage/run-ytdlp.sh"
+          install -m 0644 app-rust/packaging/run-ytdlp.bat "$stage/run-ytdlp.bat"
+          install -m 0644 README.md CHANGELOG.md LICENSE THIRD-PARTY-NOTICES.md "$stage/"
+          install -m 0755 payload/yt-dlp_linux "$stage/bin/yt-dlp"
+          tar -czf "dist/ytdlp-cli-$ver-linux-lean.tar.gz" -C dist "ytdlp-cli-$ver"
+          install -m 0755 "$ff" "$stage/bin/ffmpeg"
+          install -m 0644 payload/gpl-2.0.txt "$stage/GPL-2.0.txt"
+          install -m 0644 payload/gpl-3.0.txt "$stage/GPL-3.0.txt"
+          tar -czf "dist/ytdlp-cli-$ver-linux-portable.tar.gz" -C dist "ytdlp-cli-$ver"
+          install -m 0755 app-rust/target/release/ytdlp dist/ytdlp-native-linux-x86_64
+          cd dist
+          sha256sum *.tar.gz ytdlp-native-linux-x86_64 > SHA256SUMS
+          cat SHA256SUMS
+          ls -l ytdlp-cli-*.tar.gz ytdlp-native-linux-x86_64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-bundles
+          path: |
+            dist/ytdlp-cli-*.tar.gz
+            dist/ytdlp-native-linux-x86_64
+            dist/SHA256SUMS
+          if-no-files-found: error

@@ -39,8 +39,8 @@ license.
 
    - Linux build, ffmpeg n9.0.2-27-g7e93014c5b-20261013, provided by
      BtbN/FFmpeg-Builds.
-     Archive: ffmpeg-n9.0-latest-linux64-gpl-9.0.tar.xz
-     sha256: afa2b69c9965919e0b519a633520321f838d74690f8fb28c76393c54a9448d60
+     Archive: ffmpeg-n9.0.2-27-g7e93014c5b-linux64-gpl-9.0.tar.xz (autobuild tag)
+     sha256: 50e0ede136e3545758a8dfb2e6cd12ec865643cd138af9ce6cd36a9015f395c2
      Release page: https://github.com/BtbN/FFmpeg-Builds/releases
      The scripts used to build these binaries live in that same repository.
 
