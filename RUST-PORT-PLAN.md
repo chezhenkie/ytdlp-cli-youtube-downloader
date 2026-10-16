@@ -195,9 +195,9 @@ All 177 checks as Rust tests, harness across the full fixture set, FR-by-FR read
 
 ### Phase 10 - Bundles and v2.0.0
 
-Four assets. Linux lean ships `yt-dlp_linux` at 40446224 bytes instead of the 3072469-byte zipapp (both are release 2026.08.19 asset sizes; they sum to 43518693). The bundle replaces one entry with the other, so the shipped size lands below that sum - G10 records the measured figure. Portable adds ffmpeg plus GPL texts. Windows unchanged in shape. Launchers become thin, `run-ytdlp.sh` keeping its `$0`-based dash-safe contract.
+Four bundles plus the two bare-binary updater assets FR-13 defines. Linux lean ships `yt-dlp_linux` at 40446224 bytes instead of the 3072469-byte zipapp (both are release 2026.08.19 asset sizes; they sum to 43518693). The bundle replaces one entry with the other, so the shipped size lands below that sum - G10 records the measured figure. Portable adds ffmpeg plus GPL texts. Windows unchanged in shape. Launchers become thin, `run-ytdlp.sh` keeping its `$0`-based dash-safe contract.
 
-**G10:** every bundle extracted and run from its destination on its target platform; selftest and `--check` from the extracted tree; digests in README and RELEASE-NOTES verified at the destination via the api; tag on the release commit; `gh release` with four assets. PE import table of the extracted Windows exe re-asserted free of `vcruntime*.dll` and `msvcp*.dll`.
+**G10:** every bundle extracted and run from its destination on its target platform; selftest and `--check` from the extracted tree; digests in README and RELEASE-NOTES verified at the destination via the api; tag on the release commit; `gh release` with the four bundles and the two bare-binary updater assets. PE import table of the extracted Windows exe re-asserted free of `vcruntime*.dll` and `msvcp*.dll`.
 
 ### Phase 11 - Cutover
 

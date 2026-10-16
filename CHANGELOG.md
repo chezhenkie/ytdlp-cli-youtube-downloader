@@ -5,6 +5,9 @@ Newest first. Current level: v2.0.0 (native port, unreleased); v1.5.0 is the shi
 
 ## v2.0.0 native port (unreleased)
 
+- size pass: five code-motion splits, records byte-stable (86b066c, 1bb8f29, d573674, e6398c2, 5749dbd, 7aa245d, 8ac60da)
+No behaviour change. `harness/src/dispatch.rs` split into a 12-line shell plus `dispatch/arms.rs`; `cli/src/selftest.rs` split along its seams into `selftest/{mod,plumbing,sections}.rs`; the cli_args help/usage rendering moved to `cli_args/help.rs`; the exec ffmpeg-install layer moved to `exec/ffmpeg.rs`; the exec run seam moved to `exec/run.rs`. Gate after every split: fmt check-only and clippy -D warnings clean, run-all 69 functions / 978 records / 0 mismatches, session_diff piped 32/32 and pty 14/14, 176 cli unit tests plus 4 integration tests, report parity 177/177. The `resolve.rs` line-slice split was attempted and reverted (cfg-dense; needs item-level parsing). One fmt-dirt round trip went red on CI: the earlier gate ran cargo fmt before its --check, masking dirt in the committed split files (fixed in 7aa245d; the gate is fmt-check-only since). Also gitignores app-rust log files (86b066c).
+
 - architecture split, doc lines wrapped (fa390c5)
 04-architecture.md doubles as the spec and the growth log, so it split: the spec (layers, capability map, crate policy, language gates, build matrix, data ownership, licensing) stays in 04-architecture.md (11 KB), the nine per-phase NATIVE PORT NOTES paragraphs move to 04-port-notes.md (32 KB) and are re-ordered to phase order (2-9); both files are section 4 for every citation, and 04 carries the pointer. Doc lines wrap at 500 characters so no line exceeds a tool read window. Doc-only; no
 requirement changed.
