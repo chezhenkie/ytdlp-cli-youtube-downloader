@@ -5,7 +5,11 @@ Newest first. Current level: v2.0.0 (native, released 2026-10-16); v1.5.0 is the
 
 ## v2.0.0 native port (released 2026-10-16)
 
-- v2.0.0 published; G10 green; OQ-N4 live two-image dance proven (this commit)
+- spec: FR-14 amendment - the native Windows ffmpeg offer moves to BtbN win64 (this commit)
+Owner call during the OQ-N2 console pass: a live offer download measured ~300 KB/s from gyan.dev, so the native Windows offer fetches the BtbN/FFmpeg-Builds win64 GPL build (the provider the Linux side already uses) - `ffmpeg-n9.0-latest-win64-gpl-9.0.zip` on the moving `latest` tag, digest read fresh from the provider's `checksums.sha256` on every run so the tag moving cannot go stale. Verified 2026-10-16: 193963209 bytes, sha256 177bec2e8c3397c5e9739901993dadc1cad0954de97d2604a2704c8531a59e32,
+member `bin/ffmpeg.exe`. The frozen python line keeps gyan.dev; recorded as the third native deviation, so the selftest check `windows ffmpeg source is gyan.dev` runs natively as `windows ffmpeg source is BtbN` (selftest_compare + session_diff projections and the section-8 conformance map follow). Check count, order and the record set are unchanged; the v2.0.0 bundle payload pins are not touched (they ship the pinned gyan build; a future release decides its own). Implementation follows.
+
+- v2.0.0 published; G10 green; OQ-N4 live two-image dance proven (a43949a)
 The release is up as seven files: four bundles under the `ytdlp-cli-v2.0.0-*` names, the two bare updater images and RELEASE-NOTES.md. G10 at the destination: every asset's api digest equals the numbers in README.md and RELEASE-NOTES.md; all four bundles extracted and run from the published bytes - windows-lean and windows-portable selftest 177/0 with the PE import table free of vcruntime*/msvcp* and the FR-16 version fields re-asserted; linux-lean and linux-portable launcher selftest 177/0 and
 `--check` resolving the bundled yt-dlp, plus the portable bundle's bundled ffmpeg (n9.0.2-27-g7e93014c5b-20261013). OQ-N4 closed: the new ignored test `live_two_image_dance_against_a_published_image` (update.rs) drove the real `<new> --selftest` spawn gate against the published linux image - placed file byte-identical to the asset, `.old` waits for the fresh-start cleanup (`remove_previous_image`), a dead staged file refused with the running image untouched; cargo rc 0, run manually with
 `YTDLP_LIVE_IMAGE` (section 13). Suite stays 176 unit tests + 2 ignored + 4 integration.

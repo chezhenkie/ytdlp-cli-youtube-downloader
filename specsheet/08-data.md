@@ -31,7 +31,7 @@ Header lists related docs. README.md is published text (usage, assets, checksums
 
 ## 10. Validation
 
-Two columns, both live since G9: the Python column is the frozen v1.5.0 oracle, the native column the landed port. The packaged `--selftest` carries python's checks by name, order and count (the two renamed checks are mapped in the conformance map below; G9 evidence in section 12). FR-5's real-console clause waits on OQ-N2 and FR-13's live install dance on OQ-N4; nothing else is pending.
+Two columns, both live since G9: the Python column is the frozen v1.5.0 oracle, the native column the landed port. The packaged `--selftest` carries python's checks by name, order and count (the three renamed checks are mapped in the conformance map below; G9 evidence in section 12). FR-5's real-console clause waits on OQ-N2 and FR-13's live install dance ran against the published v2.0.0 image (OQ-N4, closed 2026-10-16c); nothing else is pending.
 
 | requirement | Python (v1.5.0 oracle) | native (landed, G9) |
 |---|---|---|
@@ -42,13 +42,14 @@ Two columns, both live since G9: the Python column is the frozen v1.5.0 oracle, 
 | FR-10 | color/width/spinner/render checks | twin, including the erase sequences and the cursor-up block sequence |
 | FR-11, FR-12 | clean_url, fail_sentence, batch checks, work-folder cleanup (argv temp path, fresh-partial removal, empty-folder removal) | twin, including identical cleaned-partial counts on escape |
 | FR-13 | version_tuple, checksum parsers, install_cli, the 6 s timeout regression | twin of the timeout regression; the digest and `<new> --selftest` gate replaces install_cli's compile() gate per FR-13 and is tested as such; the live two-image dance waits on the first tagged release (OQ-N4) |
-| FR-14 | extract_member fixtures, probe shim | twin |
+| FR-14 | extract_member fixtures, probe shim | twin; the Windows offer source runs as `windows ffmpeg source is BtbN` (owner-decided 2026-10-16c: the native offer fetches the BtbN win64 GPL zip, digest-first; python keeps gyan.dev) - the third recorded comparator mapping |
 | FR-15 | --check output | byte-identical `--check` output on all three OS |
 | NFR-1 | not applicable (Python 3 on PATH is a stated prerequisite) | PE import table free of vcruntime*.dll and msvcp*.dll; asserted on the build output in CI (G1, green) and repeated on the extracted bundle at release (G10) |
 | NFR-4 | workflow | second workflow: fmt, clippy warnings denied, tests, differential harness |
 
 Acceptance criteria for every requirement are the PASS lines of the suite that ships it, with the differential rule of NFR-4 governing any native twin. Performance is not a target beyond NFR constraints and has no measured number in this spec (no invented factors).
 
-PHASE 9 CONFORMANCE MAP for the packaged `--selftest` (G9 evidence). The native report carries python's 177 checks by name, order and verdict; the honest compare is `app-rust/tools/selftest_compare.py` over the two implementations' `--selftest` reports on the same machine (name + verdict pairs must agree line for line), and the harness vector `vectors/selftest.json` pins the check stream as a record. The two comparator mappings, each a recorded deviation rather than a name change: `cli update
-url is raw main branch` runs natively as `cli update source is the releases api` (the native FR-13 contract; the raw-main url is python-only), and `install_cli refuses a file that does not parse` runs natively as `install_cli refuses an image that fails its own checks` (the native gate; the rename dance runs on a scratch side-name pair with a scripted gate, because a live-spawned gate would recurse - see OQ-N4 for the live dance). The `{archive-error}` payload of the unreadable-archive line is
+PHASE 9 CONFORMANCE MAP for the packaged `--selftest` (G9 evidence). The native report carries python's 177 checks by name, order and verdict; the honest compare is `app-rust/tools/selftest_compare.py` over the two implementations' `--selftest` reports on the same machine (name + verdict pairs must agree line for line), and the harness vector `vectors/selftest.json` pins the check stream as a record. The three comparator mappings, each a recorded deviation rather than a name change: `cli update
+url is raw main branch` runs natively as `cli update source is the releases api` (the native FR-13 contract; the raw-main url is python-only), `install_cli refuses a file that does not parse` runs natively as `install_cli refuses an image that fails its own checks` (the native gate; the rename dance runs on a scratch side-name pair with a scripted gate, because a live-spawned gate would recurse - see OQ-N4 for the live dance), and `windows ffmpeg source is gyan.dev` runs natively as `windows
+ffmpeg source is BtbN` (owner-decided 2026-10-16c: the native Windows offer fetches the BtbN win64 GPL zip with the digest read fresh from the provider's `checksums.sha256`; the frozen python line keeps gyan.dev - see FR-14). The `{archive-error}` payload of the unreadable-archive line is
 shape-gated like the phase-8 records (the real stdlib wording differs from the real native wording), and the item-12 audit print goes into the live report on both implementations uncaptured.
