@@ -5,6 +5,9 @@ Newest first. Current level: v2.0.1 (native, released 2026-10-16); v1.5.0 is the
 
 ## v2.0.1 native (released 2026-10-16)
 
+- docs: OQ-N2 remainder closed - the startup notice's live check landed (this commit)
+With v2.0.1 published the quiet startup notice could finally fire: the published v2.0.0 linux image ran under a real pty with live network and printed "a newer version is published: v2.0.1 (this is v2.0.0)" plus the releases url and the y/n prompt; the decline path answered "not updated" and the daily stamp persisted (evidence scratch-phase10/n2-notice-pty.txt). The windows-boot form was not separately re-run; this path is platform-agnostic.
+
 - cutover: native is the shipped product (this commit)
 Phase 11 landed at v2.0.1: the python selftest CI workflow is retired (rust.yml keeps the frozen python line plus CPython 3.14.4 as the differential oracle), and the specsheet records the cutover in the 00 header and section 12. README already switched to the native bundles at the v2.0.0 release commit with one legacy line; app-python/ stays in the repo as the legacy folder, never deleted (owner call 2026-10-16).
 
