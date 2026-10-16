@@ -6,27 +6,29 @@ For lean download only: on an OS with no ffmpeg installed the CLI offers to fetc
 
 | file | size | contains |
 |---|---|---|
-| `ytdlp-cli-v1.5.0-windows-lean.zip` | 17.7 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
-| `ytdlp-cli-v1.5.0-windows-portable.zip` | 57.6 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
-| `ytdlp-cli-v1.5.0-linux-lean.tar.gz` | 2.98 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
-| `ytdlp-cli-v1.5.0-linux-portable.tar.gz` | 70.6 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
+| `ytdlp-cli-v2.0.0-windows-lean.zip` | 19.5 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
+| `ytdlp-cli-v2.0.0-windows-portable.zip` | 59.5 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
+| `ytdlp-cli-v2.0.0-linux-lean.tar.gz` | 42.0 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
+| `ytdlp-cli-v2.0.0-linux-portable.tar.gz` | 110.1 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
 The two portable bundles are the larger downloads and the ones most people want. The lean bundles skip ffmpeg, and the CLI says so and falls back to a single best file rather than failing. On a machine with no ffmpeg at all it also offers to fetch the published build, with the checksum checked before it is installed.
 
 ## Requirements
 
-Python 3. No pip install, no dependencies: the CLI is stdlib only.
+None beyond the bundle: no Python, no runtime, no redistributable. The Windows binary is statically linked.
 
-- Windows: `run-ytdlp.bat`, or `python app-python\src\ytdlp.py`
-- Linux: `./run-ytdlp.sh`, which also works under `bash` and `sh`
+- Windows: `run-ytdlp.bat`, or `ytdlp.exe`
+- Linux: `./run-ytdlp.sh`, which also works under `sh` and `dash`, or `./ytdlp`
 
 Linux builds are x86_64 glibc. On any other architecture put `yt-dlp` on PATH or set `yt_dlp_path` in `config/settings.json`.
+
+v1.5.0 was the final Python release; its bundles remain on the v1.5.0 release page.
 
 ## Using it
 
 Start it and paste a URL. Or skip the menu:
 
 ```
-app-python\run-ytdlp.bat https://youtu.be/xxxx
+run-ytdlp.bat https://youtu.be/xxxx
 ```
 
 One-shot overrides look like `-f mkv -r 720 --subs`, also `-a`, `--af`, `-o`, `--template`, `--playlist`. Overrides apply to that run only and are never written to your settings.
@@ -38,11 +40,15 @@ Output goes to your desktop by default, falling back to your downloads folder. C
 ## Checksums
 
 ```
-394befb839f119e49ffb4ef061ba552432089552ea3e17644a662b561ff604ee  ytdlp-cli-v1.5.0-windows-lean.zip
-9a723498c30fc8557793a41a9325d790394dd2893342b5d49e8e8e835ebb018e  ytdlp-cli-v1.5.0-windows-portable.zip
-7f30c4de199ad07dbf839427f40e6b7e21ebb508386da93dc0f0c5a17889be2c  ytdlp-cli-v1.5.0-linux-lean.tar.gz
-f38babd4aac0be4f699e513e6c576b58244ebe9a94b767ea6bf10c13452d9302  ytdlp-cli-v1.5.0-linux-portable.tar.gz
+86726f1a91907c0aa4850bc7abc0e3c846f02531726eb4f1c3cb49bcd312e0e9  ytdlp-cli-v2.0.0-windows-lean.zip
+03c9e19b4cce29bc07f9b73ac77aba1cadf4125d3b4d0301da2eb0da06e64c42  ytdlp-cli-v2.0.0-windows-portable.zip
+6af6d371e2c28acd4899e1328a4c690fa10f8dc67492a6d34514514ee164627d  ytdlp-cli-v2.0.0-linux-lean.tar.gz
+8379c17cc5399ea35d4ddfe0c399ee64ad26c633a25d506da690d8b5a3b91f15  ytdlp-cli-v2.0.0-linux-portable.tar.gz
+6d81b69998a87b0c445a3bb109e2bb1d20ed11bed6325a23297328a25481e28d  ytdlp-native-windows-x86_64.exe
+5d3433352aa220486408bc8bdc904b64b81b00a4998c8aa93f278c0ae41a5d17  ytdlp-native-linux-x86_64
 ```
+
+The last two are the updater images the built-in updater fetches; their digests are published so every update is verified against them.
 
 The bundled yt-dlp is the official 2026.08.19 release and matches the SHA-256 sums published with it. The Windows ffmpeg is the gyan.dev 9.0.2 essentials build and the Linux one is the BtbN n9.0.2 build; both matched their providers' published checksums, and `THIRD-PARTY-NOTICES.md` in each bundle names the exact archive and its digest.
 

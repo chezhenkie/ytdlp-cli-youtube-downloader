@@ -5,6 +5,9 @@ Newest first. Current level: v2.0.0 (native port, unreleased); v1.5.0 is the shi
 
 ## v2.0.0 native port (unreleased)
 
+- v2.0.0 release: README switches to the native assets, digests folded, release notes staged (this commit)
+bundles.yml run 38935941248 assembled the six release binaries (linux 1m13s, windows 1m39s). Both platform bundles extracted and run from the CI bytes before upload - windows: selftest 177 checks 0 failed from the extracted tree, FR-16 version fields present; linux: launcher selftest 177/0 and `--check` resolves the bundled yt-dlp 2026.08.19 - and all six files match the CI SHA256SUMS. Digests folded into README.md (which now documents the native bundles; one line notes v1.5.0 was the final python release) and into the staged releases/v2.0.0/RELEASE-NOTES.md. The tag and the gh release upload follow the owner gate; G10 runs from the release after publish.
+
 - phase 10: bundles.yml assembly workflow + thin native launchers (this commit)
 The four v2.0.0 bundles and the two updater images assemble in `.github/workflows/bundles.yml` (workflow_dispatch only) on the native runners: windows lean + portable zips, linux lean + portable tar.gz, plus the bare `ytdlp-native-windows-x86_64.exe` / `ytdlp-native-linux-x86_64` images, each staged from the release binary (linux = the gnu target) and the pinned payloads - yt-dlp 2026.08.19 (`yt-dlp.exe`, `yt-dlp_linux`), gyan.dev 9.0.2 essentials from the versioned packages url, BtbN
 n9.0.2-27-g7e93014c5b from the dated autobuild tag - every payload digest-checked before staging, SHA256SUMS emitted per job. The launchers move to `app-rust/packaging/` (thin `$0`-based posix `run-ytdlp.sh`, pause-on-error `run-ytdlp.bat`, IF-1) and ship in every bundle beside the binary. The BtbN pin moves from the moving `latest` tag to the dated autobuild-2026-10-13 tag: latest was republished upstream, so the digest the v1.5.0 line recorded (afa2b69c) is not retrievable anywhere; probe
