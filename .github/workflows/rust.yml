@@ -183,6 +183,17 @@ jobs:
         run: |
           Get-Item target/release/ytdlp.exe, target/release/ytdlp-harness.exe |
             ForEach-Object { "size: $($_.Name) $($_.Length)" }
+      - name: PE version resource assertions (FR-16)
+        shell: pwsh
+        run: |
+          $v = (Get-Item target/release/ytdlp.exe).VersionInfo
+          if ($v.ProductVersion -notlike "2.0.0*") { throw "ProductVersion: $($v.ProductVersion)" }
+          if ($v.FileVersion -notlike "2.0.0*") { throw "FileVersion: $($v.FileVersion)" }
+          if ($v.ProductName -ne "yt-dlp cli") { throw "ProductName: $($v.ProductName)" }
+          if ($v.CompanyName -ne "chezhenkie") { throw "CompanyName: $($v.CompanyName)" }
+          if (-not $v.FileDescription) { throw "FileDescription empty" }
+          if (-not $v.LegalCopyright) { throw "LegalCopyright empty" }
+          $v | Format-List ProductName, ProductVersion, FileVersion, CompanyName, LegalCopyright, FileDescription, Comments
       - name: PE import table must be free of vcruntime/msvcp (green assertion)
         run: python tools/pe_imports.py target/release/ytdlp.exe --forbid "vcruntime*.dll" --forbid "msvcp*.dll" --require "kernel32.dll"
       - name: deliberately dynamic CRT must show vcruntime (red self-test proves the checker sees it)
