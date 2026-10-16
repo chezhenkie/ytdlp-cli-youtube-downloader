@@ -5,9 +5,12 @@ Newest first. Current level: v2.0.0 (native port, unreleased); v1.5.0 is the shi
 
 ## v2.0.0 native port (unreleased)
 
-- architecture split, doc lines wrapped (this commit)
+- architecture split, doc lines wrapped (fa390c5)
 04-architecture.md doubles as the spec and the growth log, so it split: the spec (layers, capability map, crate policy, language gates, build matrix, data ownership, licensing) stays in 04-architecture.md (11 KB), the nine per-phase NATIVE PORT NOTES paragraphs move to 04-port-notes.md (32 KB) and are re-ordered to phase order (2-9); both files are section 4 for every citation, and 04 carries the pointer. Doc lines wrap at 500 characters so no line exceeds a tool read window. Doc-only; no
 requirement changed.
+
+- evidence pin for line cites (this commit)
+The specsheet's FR/NFR/IF rows carry L<N> line cites recorded at write time; keeping them trustworthy meant re-checking each against the working tree before acting. The 00 header now pins every line cite to the recorded code state (v1.5.0 tag for python, the recorded commit for native): they describe history, re-verify nothing before an edit, re-pin at release time only. Doc-only; no requirement changed.
 
 - specsheet consolidated, docs capped (a4fb415)
 The specsheet/ parts merge by section range: 01 = sections 1-3 (problem, FR, NFR), 05 = sections 5-7 (interfaces, functionality, implementation), 08 = sections 8-10 (data, documentation, validation). 11-stakeholders (content already in the main header) and 14-decision-history are deleted; decisions live in CHANGELOG chapters and git history. Part number = first section, so "section 4" / "section 10" citations still resolve. CHANGELOG.md capped at 25 KB: older chapters keep version, commits and

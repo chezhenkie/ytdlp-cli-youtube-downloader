@@ -11,6 +11,7 @@
 shipped, supported and authoritative until cutover; every amendment is additive and changes no requirement of the shipped product. Amended again 2026-10-14 for the download work folder: yt-dlp writes its per-chunk fragment and part files into a work folder inside the output folder, so the user's folder only ever shows finished files (FR-7, FR-8, FR-11); owner decision, shipped in v1.5.0. Restructured 2026-10-15 into the specsheet/ folder: this file is the main document and the spec sections live
 in numbered part files. Consolidated 2026-10-16: one part file carries a contiguous section range (part number = first section), and the per-entry decision history was retired - decisions are recorded in CHANGELOG chapters and git history.
 - Related documents: README.md (published usage), CHANGELOG.md (history with hashes), THIRD-PARTY-NOTICES.md (bundle licensing), LICENSE (MIT), .github/workflows/selftest.yml (CI), RUST-PORT-PLAN.md (phases and gates for the native port).
+- Evidence pin: every line cite in this spec (L<N>, e.g. ytdlp.py L1562-L1639) is a location in the recorded code state it was written against - the v1.5.0 tag for the python side, the commit recorded with each port note for the native side - not the working tree. Cite them freely; do not re-verify them before an edit; re-pin only at release time when the cited file changes.
 
 ## Short description
 
