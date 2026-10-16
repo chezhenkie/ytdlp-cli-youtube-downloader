@@ -1,9 +1,12 @@
 changelog
 =========
 
-Newest first. Current level: v2.0.0 (native, released 2026-10-16); v1.5.0 is the final python line. Consolidated 2026-10-16: chapters longer than their headlines are compressed, full dated chapters live in git history.
+Newest first. Current level: v2.0.1 (native, released 2026-10-16); v1.5.0 is the final python line. Consolidated 2026-10-16: chapters longer than their headlines are compressed, full dated chapters live in git history.
 
-## v2.0.0 native port (released 2026-10-16)
+## v2.0.1 native (released 2026-10-16)
+
+- v2.0.1 published (this commit)
+A behavior-fix release on the native line. CI run 38951859070 assembled the six binaries; both platform bundles were extracted and run from the CI bytes before upload (windows-lean/portable selftest 177/0 from the extracted tree with the 2.0.1 PE version fields and the import table free of vcruntime*/msvcp*; linux-lean/portable launcher selftest 177/0 and --check resolving the bundled yt-dlp and, in the portable bundle, the bundled ffmpeg) and all six match the CI SHA256SUMS. Digests folded into README.md and the staged releases/v2.0.1/RELEASE-NOTES.md; the tag and the gh release upload follow; G10 runs from the release after publish. Carries the FR-14 amendment (native Windows ffmpeg offer = BtbN win64, digest read fresh from checksums.sha256 on every offer) and the FR-11 amendment (every native run end removes the .ytdlp-tmp work folder, Ctrl+C included) - entries below. Bundle payload pins stay as published (gyan 9.0.2 windows portable, BtbN n9.0.2 linux).
 
 - fix: FR-11 follow-ups after CI - let-chain in the harness record projection, session fs projection (this commit)
 CI caught two things: clippy denied the nested `if ... if let` in the install_ffmpeg record projection (now a let-chain), and the piped/pty session differ failed `quick-download-fail-keeps-partial` plus `quick-subs-429-keeps-vtt` on `fs_list differs` - the two cases where the oracle keeps work-folder files. The oracle's listing now drops entries under `.ytdlp-tmp` when forming the native expectation (`tools/session_diff.py`); a work entry surviving a native run still fails the compare.
@@ -19,6 +22,8 @@ fault; the owner called this at closure - the FR-11 amendment 2026-10-16c makes 
 - spec: FR-14 amendment - the native Windows ffmpeg offer moves to BtbN win64 (this commit)
 Owner call during the OQ-N2 console pass: a live offer download measured ~300 KB/s from gyan.dev, so the native Windows offer fetches the BtbN/FFmpeg-Builds win64 GPL build (the provider the Linux side already uses) - `ffmpeg-n9.0-latest-win64-gpl-9.0.zip` on the moving `latest` tag, digest read fresh from the provider's `checksums.sha256` on every run so the tag moving cannot go stale. Verified 2026-10-16: 193963209 bytes, sha256 177bec2e8c3397c5e9739901993dadc1cad0954de97d2604a2704c8531a59e32,
 member `bin/ffmpeg.exe`. The frozen python line keeps gyan.dev; recorded as the third native deviation, so the selftest check `windows ffmpeg source is gyan.dev` runs natively as `windows ffmpeg source is BtbN` (selftest_compare + session_diff projections and the section-8 conformance map follow). Check count, order and the record set are unchanged; the v2.0.0 bundle payload pins are not touched (they ship the pinned gyan build; a future release decides its own). Implemented in be54374.
+
+## v2.0.0 native port (released 2026-10-16)
 
 - v2.0.0 published; G10 green; OQ-N4 live two-image dance proven (a43949a)
 The release is up as seven files: four bundles under the `ytdlp-cli-v2.0.0-*` names, the two bare updater images and RELEASE-NOTES.md. G10 at the destination: every asset's api digest equals the numbers in README.md and RELEASE-NOTES.md; all four bundles extracted and run from the published bytes - windows-lean and windows-portable selftest 177/0 with the PE import table free of vcruntime*/msvcp* and the FR-16 version fields re-asserted; linux-lean and linux-portable launcher selftest 177/0 and
