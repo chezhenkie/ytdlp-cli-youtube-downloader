@@ -8,6 +8,7 @@ The product is `app-rust/`, a cargo workspace with three members: `cli` (the shi
 | VT enable | SetConsoleMode ENABLE_VIRTUAL_TERMINAL_PROCESSING via windows-sys | not needed |
 | shell folders | HKCU Shell Folders registry read via windows-sys (resolve.rs) | XDG user-dirs, then HOME |
 | folder dialog | SHBrowseForFolderW via windows-sys (menu.rs) | zenity/kdialog shell-out |
+| clipboard read | the Win32 clipboard, CF_UNICODETEXT via windows-sys (clipboard.rs) | the first of wl-paste/xclip/xsel/pbpaste on PATH that answers |
 | terminal size | GetConsoleScreenBufferInfoW srWindow rect | TIOCGWINSZ; any error reads as no room (`block_under_input`) |
 | process tree kill | taskkill /F /T | killpg SIGKILL |
 | sha256 | hand-rolled, streaming, NIST vectors pinned (sha256.rs) | same |

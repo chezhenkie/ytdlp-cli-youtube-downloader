@@ -993,6 +993,26 @@ def _seed_settings_file(module, settings):
     return target
 
 
+# v2.0.2 FR-17: the native menu paints the quick-paste row where the
+# oracle paints its blank box row; both project to one token so the
+# differ compares the row's position, not its bytes (the native row
+# bytes are pinned by the crate unit tests).
+QUICK_ROW_TOKEN = "{menu-quick-row}"
+QUICK_ROW_TEXT = "  0  press zero '0' to paste link and start direct download"
+
+
+def _project_quick_row(text):
+    pad = " " * (64 - len(QUICK_ROW_TEXT))
+    m = "\x1b[38;5;244m|\x1b[0m"
+    text = text.replace(
+        m + "\x1b[38;5;208m" + QUICK_ROW_TEXT + "\x1b[0m" + pad + m, QUICK_ROW_TOKEN
+    )
+    text = text.replace(m + " " * 64 + m, QUICK_ROW_TOKEN)
+    text = text.replace("|" + QUICK_ROW_TEXT + pad + "|", QUICK_ROW_TOKEN)
+    text = text.replace("|" + " " * 64 + "|", QUICK_ROW_TOKEN)
+    return text
+
+
 def _hook_menu_summary(module, args):
     try:
         value = module.menu_summary(args[0])
@@ -1098,7 +1118,7 @@ def _hook_render(module, args):
                     module.render(case["s"])
             except (TypeError, AttributeError, ValueError) as e:
                 return {"stdout": None, "shape": _shape_token(e)}
-        return {"stdout": _project(work, side.getvalue()), "shape": None}
+        return {"stdout": _project_quick_row(_project(work, side.getvalue())), "shape": None}
     finally:
         shutil.rmtree(work, ignore_errors=True)
 
@@ -1284,7 +1304,7 @@ def _hook_act(module, args):
         if target.is_file():
             file_text = _project(work, target.read_text(encoding="utf-8"))
         return {
-            "stdout": _project(work, side.getvalue()),
+            "stdout": _project_quick_row(_project(work, side.getvalue())),
             "outcome": outcome,
             "exit": None,
             "settings_after": _project_value(work, settings),
@@ -1329,7 +1349,7 @@ def _hook_main_menu(module, args):
             if target.is_file():
                 file_text = _project(work, target.read_text(encoding="utf-8"))
         return {
-            "stdout": _project(work, side.getvalue()),
+            "stdout": _project_quick_row(_project(work, side.getvalue())),
             "outcome": outcome,
             "exit": code,
             "settings_after": _project_value(work, settings),

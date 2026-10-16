@@ -9,6 +9,7 @@
 pub mod archive;
 pub mod args;
 pub mod cli_args;
+pub mod clipboard;
 pub mod config;
 pub mod exec;
 pub mod menu;

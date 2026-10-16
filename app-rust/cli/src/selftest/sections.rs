@@ -1166,6 +1166,10 @@ pub(super) fn section_lang_input(c: &mut Checker<'_>) {
     let _ = (&u1, &u2, &u3, &u4, &u5, &u5b, &u6);
 }
 
+fn no_clipboard() -> Option<String> {
+    None
+}
+
 pub(super) fn menu_world<'w>(
     version: &'w str,
     root: &'w str,
@@ -1184,6 +1188,7 @@ pub(super) fn menu_world<'w>(
         stdout_tty: false,
         terminal,
         auto,
+        clipboard: &no_clipboard,
     }
 }
 

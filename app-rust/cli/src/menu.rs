@@ -32,6 +32,8 @@ pub struct World<'a> {
     pub terminal: Option<(i64, i64)>,
     /// the auto_outdir() answer (memoized in the real glue, audit F6)
     pub auto: Option<&'a str>,
+    /// the system-clipboard read (FR-17): a seam so tests script it
+    pub clipboard: &'a dyn Fn() -> Option<String>,
 }
 
 /// The two seams for one menu session.
@@ -382,6 +384,43 @@ pub fn act(
 ) -> Result<ActOutcome, MenuErr> {
     let is_audio_only = matches!(config::get(s, "type"), Some(Value::Str(t)) if t == "audio only");
     let repaint = match choice {
+        // FR-17: the clipboard quick-paste - the same screen and result
+        // state as a pasted url plus enter
+        "0" => {
+            let link = (world.clipboard)()
+                .and_then(|text| clean_url(Some(&text)))
+                .filter(|u| !u.is_empty());
+            match link {
+                Some(url) => {
+                    if world.use_color {
+                        io.out.write(CLEAR);
+                        io.out.flush();
+                    }
+                    let outdir = outdir_of(s, world)?;
+                    print_lines(
+                        io,
+                        &ui::render_lines(
+                            world.version,
+                            s,
+                            &outdir,
+                            world.is_windows,
+                            world.use_color,
+                        )?,
+                    );
+                    print_lines(io, &ui::hint_lines(&outdir, world.use_color));
+                    download(s, &url, io);
+                    return Ok(ActOutcome::Repaint(false));
+                }
+                None => {
+                    print_line(
+                        io,
+                        &c(world.use_color, A_AMBER, "  no link on the clipboard"),
+                    );
+                    tty::hold(io.out, io.reader);
+                    return Ok(ActOutcome::Repaint(true));
+                }
+            }
+        }
         "1" => {
             let picked = pick_list(
                 "change type: video / video no audio / audio only",
@@ -790,12 +829,34 @@ mod tests {
         }
     }
 
+    fn no_link() -> Option<String> {
+        None
+    }
+
     fn world<'a>(
         config_path: &'a str,
         version: &'a str,
         use_color: bool,
         stdin_tty: bool,
         terminal: Option<(i64, i64)>,
+    ) -> World<'a> {
+        world_clip(
+            config_path,
+            version,
+            use_color,
+            stdin_tty,
+            terminal,
+            &no_link,
+        )
+    }
+
+    fn world_clip<'a>(
+        config_path: &'a str,
+        version: &'a str,
+        use_color: bool,
+        stdin_tty: bool,
+        terminal: Option<(i64, i64)>,
+        clipboard: &'a dyn Fn() -> Option<String>,
     ) -> World<'a> {
         World {
             version,
@@ -807,6 +868,7 @@ mod tests {
             stdout_tty: use_color,
             terminal,
             auto: None,
+            clipboard,
         }
     }
 
@@ -1019,6 +1081,68 @@ mod tests {
         let (text, prompts) = mega("12", vec![ScriptItem::Line(String::new())], &mut s);
         assert!(text.contains("  auto update off - checked once a day at start"));
         assert_eq!(prompts.last().unwrap(), "", "item 12 holds");
+    }
+
+    /// FR-17: zero reads the clipboard seam; a link runs the url path's
+    /// screen (Repaint(false) keeps the results on screen), and the paste
+    /// is cleaned by clean_url before the download sees it.
+    #[test]
+    fn item0_pastes_and_starts() {
+        let tmp = TempConfig::new();
+        let path = tmp.config_path();
+        let mut s = config::defaults();
+        std::fs::write(&path, config::render_settings_file(&s)).expect("seed");
+        let clip = || Some("watch https://youtu.be/abc, nice".to_string());
+        let mut got: Option<String> = None;
+        let mut rec = RecordingOut::default();
+        let mut reader = ScriptedReader::new(vec![]);
+        let mut download = |_s: &mut Obj, url: &str, _io: &mut Io| -> i32 {
+            got = Some(url.to_string());
+            0
+        };
+        let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };
+        let w = world_clip(&path, "2.0.2", false, false, None, &clip);
+        let outcome = {
+            let mut io = Io {
+                out: &mut rec,
+                reader: &mut reader,
+            };
+            act("0", &mut s, &mut io, &w, &mut download, &mut update).unwrap()
+        };
+        assert!(matches!(outcome, ActOutcome::Repaint(false)));
+        assert_eq!(got.as_deref(), Some("https://youtu.be/abc"));
+        assert!(rec.text().contains("yt-dlp cli  v2.0.2"), "menu repainted");
+        assert!(reader.prompts.is_empty(), "no extra read");
+    }
+
+    /// FR-17: no clipboard (the default world) and a paste without a
+    /// link both print one amber line and hold before the repaint.
+    #[test]
+    fn item0_reports_a_missing_link() {
+        let mut s = config::defaults();
+        let (text, prompts) = mega("0", vec![ScriptItem::Line(String::new())], &mut s);
+        assert!(text.contains("  no link on the clipboard"), "{text}");
+        assert_eq!(prompts.last().unwrap(), "", "item 0 holds");
+
+        let tmp = TempConfig::new();
+        let path = tmp.config_path();
+        let mut s = config::defaults();
+        std::fs::write(&path, config::render_settings_file(&s)).expect("seed");
+        let clip = || Some("nothing interesting".to_string());
+        let mut rec = RecordingOut::default();
+        let mut reader = ScriptedReader::new(vec![ScriptItem::Line(String::new())]);
+        let mut download = |_s: &mut Obj, _url: &str, _io: &mut Io| -> i32 { 0 };
+        let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };
+        let w = world_clip(&path, "2.0.2", false, false, None, &clip);
+        let outcome = {
+            let mut io = Io {
+                out: &mut rec,
+                reader: &mut reader,
+            };
+            act("0", &mut s, &mut io, &w, &mut download, &mut update).unwrap()
+        };
+        assert!(matches!(outcome, ActOutcome::Repaint(true)));
+        assert!(rec.text().contains("  no link on the clipboard"));
     }
 
     /// The [11,1,11] cursor dance: the ten-line language block is handed

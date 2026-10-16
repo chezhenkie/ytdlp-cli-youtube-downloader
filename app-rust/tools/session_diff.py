@@ -210,6 +210,26 @@ SPINNER_PIPED_DONE_RE = re.compile(rb"(?m)^\S+ (?=downloading - )")
 TEMP_DIR_NAME = ".ytdlp-tmp"
 
 
+# v2.0.2 FR-17: the native menu paints the quick-paste row where the
+# oracle paints its blank box row; both project to one token so sessions
+# compare the row's position, not its bytes (the native row bytes are
+# pinned by the crate unit tests).
+QUICK_ROW_TEXT = b"  0  press zero '0' to paste link and start direct download"
+
+
+def _project_quick_row(data):
+    pad = b" " * (64 - len(QUICK_ROW_TEXT))
+    m = b"\x1b[38;5;244m|\x1b[0m"
+    data = data.replace(
+        m + b"\x1b[38;5;208m" + QUICK_ROW_TEXT + b"\x1b[0m" + pad + m,
+        b"{menu-quick-row}",
+    )
+    data = data.replace(m + b" " * 64 + m, b"{menu-quick-row}")
+    data = data.replace(b"|" + QUICK_ROW_TEXT + pad + b"|", b"{menu-quick-row}")
+    data = data.replace(b"|" + b" " * 64 + b"|", b"{menu-quick-row}")
+    return data
+
+
 def normalize(data, tree, project_frames=False):
     # the tree path appears raw in stdout and JSON-escaped inside
     # settings.json, so both spellings project. The python side derives
@@ -227,6 +247,7 @@ def normalize(data, tree, project_frames=False):
         data = data.replace(escaped, b"{root}")
         data = data.replace(form.encode("utf-8"), b"{root}")
     data = VERSION_RE.sub(rb"\1{ver}", data)
+    data = _project_quick_row(data)
     # the argparse prog is the interpreter's script name on one side and
     # the exe basename on the other
     data = PROG_USAGE_RE.sub(b"usage: {prog} ", data)

@@ -761,7 +761,10 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                 Ok(lines) => Ok(Json::Obj(vec![
                     (
                         "stdout".to_string(),
-                        Json::Str(project(&dir, &transcript(&lines))),
+                        Json::Str(project_quick_row(
+                            &project(&dir, &transcript(&lines)),
+                            use_color,
+                        )),
                     ),
                     ("shape".to_string(), Json::Null),
                 ])),
@@ -869,6 +872,7 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
             let use_color = field_opt_bool(case, "use_color")?.unwrap_or(false);
             let mut rec = tty::RecordingOut::default();
             let mut reader = scripted_reader(case)?;
+            let no_clip = || None::<String>;
             let world = menu::World {
                 version: "1.5.0",
                 root: &case_root(&world_dir),
@@ -879,6 +883,7 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                 stdout_tty: false,
                 terminal: None,
                 auto: None,
+                clipboard: &no_clip,
             };
             let option_refs: Vec<&str> = options.iter().map(String::as_str).collect();
             let outcome = {
@@ -972,16 +977,21 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
             }
             std::fs::write(&config_path, config::render_settings_file(&s).as_bytes())
                 .map_err(|e| format!("scratch seed: {e}"))?;
+            let use_color = field_opt_bool(case, "use_color")?.unwrap_or(false);
+            // FR-17: the quick-paste row has no oracle twin; no vector
+            // case scripts a clipboard (the crate tests pin the "0" flow)
+            let no_clip = || None::<String>;
             let world = menu::World {
                 version: &version,
                 root: &root,
                 config_path: &config_path,
                 is_windows: field_opt_bool(case, "is_windows")?.unwrap_or(false),
-                use_color: field_opt_bool(case, "use_color")?.unwrap_or(false),
+                use_color,
                 stdin_tty: field_opt_bool(case, "stdin_tty")?.unwrap_or(false),
                 stdout_tty: false,
                 terminal: case_terminal(case)?,
                 auto: auto.as_deref(),
+                clipboard: &no_clip,
             };
             let mut rec = tty::RecordingOut::default();
             let mut reader = scripted_reader(case)?;
@@ -1033,7 +1043,10 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                 .ok()
                 .map(|text| project(&dir, &text));
             Ok(Json::Obj(vec![
-                ("stdout".to_string(), Json::Str(project(&dir, &rec.text()))),
+                (
+                    "stdout".to_string(),
+                    Json::Str(project_quick_row(&project(&dir, &rec.text()), use_color)),
+                ),
                 ("outcome".to_string(), Json::Str(outcome)),
                 ("exit".to_string(), exit),
                 ("settings_after".to_string(), settings_after),
@@ -2841,6 +2854,14 @@ fn transcript(lines: &[String]) -> String {
     let mut text = lines.join("\n");
     text.push('\n');
     text
+}
+
+/// v2.0.2 FR-17: the native menu paints the quick-paste row where the
+/// oracle paints its blank box row; both sides project the row to one
+/// token (its bytes are pinned by the crate unit tests), so act,
+/// main_menu and render compare the row's position, not its bytes.
+fn project_quick_row(text: &str, use_color: bool) -> String {
+    text.replace(&ui::quick_row(use_color), "{menu-quick-row}")
 }
 
 fn value_obj(j: &Json) -> Result<Obj, String> {

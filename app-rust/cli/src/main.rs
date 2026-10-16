@@ -12,6 +12,7 @@ use std::process::ExitCode;
 
 use ytdlp_cli::VERSION;
 use ytdlp_cli::cli_args::{self, Outcome};
+use ytdlp_cli::clipboard;
 use ytdlp_cli::config::{self, LoadOutcome, Obj, Value};
 use ytdlp_cli::exec;
 use ytdlp_cli::menu::{self, MenuErr};
@@ -455,6 +456,7 @@ fn run_menu(
         stdout_tty: use_color,
         terminal: tty::terminal_size_stdout(),
         auto: auto.as_deref(),
+        clipboard: &clipboard::read_clipboard,
     };
     let mut io = menu::Io {
         out: &mut out,

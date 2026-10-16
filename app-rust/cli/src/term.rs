@@ -14,6 +14,8 @@ use std::cell::RefCell;
 use std::sync::OnceLock;
 
 pub const A_AMBER: &str = "\x1b[38;5;214m";
+/// FR-17: the quick-paste row's amber, a little darker than the key color
+pub const A_AMBER_DARK: &str = "\x1b[38;5;208m";
 pub const A_LBLUE: &str = "\x1b[38;5;117m";
 pub const A_GREY: &str = "\x1b[38;5;250m";
 pub const A_DARKGREY: &str = "\x1b[38;5;244m";

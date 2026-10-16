@@ -8,7 +8,8 @@ use crate::args::{KNOWN_LANG_CODES, clean_url, playlist_max_items};
 use crate::config::{self, Obj, Value};
 use crate::resolve::ShapeKind;
 use crate::term::{
-    A_AMBER, A_DARKGREY, A_GREY, A_LBLUE, A_RESET, c, cut_to_width, dwidth, tail_to_width,
+    A_AMBER, A_AMBER_DARK, A_DARKGREY, A_GREY, A_LBLUE, A_RESET, c, cut_to_width, dwidth,
+    tail_to_width,
 };
 
 /// The menu box width (WIDTH in the python source; a pinned constant).
@@ -52,6 +53,24 @@ pub fn menu_line(idx: i64, label: &str, value: &str, grey: bool, use_color: bool
     }
     let m = c(use_color, A_DARKGREY, "|");
     format!("{m}{left}{}{value}{m}", " ".repeat(pad as usize))
+}
+
+/// The v2.0.2 quick-paste row (FR-17): it takes the place of the blank
+/// top box row and is a little darker than the box amber. Fixed text,
+/// no value column; the padding math is menu_line's.
+pub const QUICK_ROW_TEXT: &str = "  0  press zero '0' to paste link and start direct download";
+
+pub fn quick_row(use_color: bool) -> String {
+    let m = c(use_color, A_DARKGREY, "|");
+    let mut pad = WIDTH - dwidth(QUICK_ROW_TEXT);
+    if pad < 1 {
+        pad = 1;
+    }
+    format!(
+        "{m}{}{}{m}",
+        c(use_color, A_AMBER_DARK, QUICK_ROW_TEXT),
+        " ".repeat(pad as usize)
+    )
 }
 
 /// Path for menu item 5: always `...<sep><folder name>`.
@@ -342,8 +361,8 @@ pub fn hint_lines(outdir: &str, use_color: bool) -> Vec<String> {
     ]
 }
 
-/// `render(s)`: header, box top, the 13 rows, the escape hint, box
-/// bottom. Returns the lines; the caller prints them.
+/// `render(s)`: header, the FR-17 quick-paste row, the 13 rows, the
+/// escape hint, box bottom. Returns the lines; the caller prints them.
 pub fn render_lines(
     version: &str,
     s: &Obj,
@@ -353,7 +372,8 @@ pub fn render_lines(
 ) -> Result<Vec<String>, ShapeKind> {
     let mut lines = header_lines(version, use_color);
     let m = c(use_color, A_DARKGREY, "|");
-    lines.push(format!("{m}{}{m}", " ".repeat(WIDTH as usize)));
+    // FR-17: the quick-paste row took the blank top row's place
+    lines.push(quick_row(use_color));
     for row in menu_items(s, outdir, is_windows)? {
         lines.push(menu_line(
             row.idx, &row.label, &row.value, row.grey, use_color,
@@ -494,5 +514,43 @@ mod tests {
         assert_eq!(pick_row("mkv", "mkv", 2, false), "    [x]  2  mkv");
         assert_eq!(pick_row("mp4", "mkv", 1, false), "    [ ]  1  mp4");
         assert_eq!(pick_row("best", "mkv", 10, false), "    [ ] 10  best");
+    }
+
+    /// FR-17 pins (v2.0.2): the quick-paste row's exact bytes in both
+    /// color modes and its box width (WIDTH + 2 columns stripped).
+    #[test]
+    fn quick_row_matches_the_pins() {
+        assert_eq!(
+            quick_row(false),
+            format!("|{QUICK_ROW_TEXT}{}|", " ".repeat(5))
+        );
+        assert_eq!(
+            quick_row(true),
+            format!(
+                "\x1b[38;5;244m|\x1b[0m\x1b[38;5;208m{QUICK_ROW_TEXT}\x1b[0m{}\x1b[38;5;244m|\x1b[0m",
+                " ".repeat(5)
+            )
+        );
+        for row in [quick_row(false), quick_row(true)] {
+            assert_eq!(dwidth(&strip_ansi(&row)), WIDTH + 2, "row: {row:?}");
+        }
+    }
+
+    /// FR-17: the quick row sits where the blank top row stood - directly
+    /// after the 3 header lines, before row 1 - and no blank row remains.
+    #[test]
+    fn render_paints_the_quick_row_in_the_blank_rows_place() {
+        let s = config::defaults();
+        for use_color in [false, true] {
+            let lines = render_lines("2.0.2", &s, "/x/Downloads", false, use_color).unwrap();
+            assert_eq!(lines[3], quick_row(use_color));
+            assert!(lines[4].contains("  1  video/audio"), "{:?}", lines[4]);
+            assert_eq!(lines.len(), 19, "header 3 + quick + 13 rows + hint + rule");
+            let blank = format!("|{}|", " ".repeat(WIDTH as usize));
+            assert!(
+                !lines.iter().any(|l| strip_ansi(l) == blank),
+                "the blank top row is gone"
+            );
+        }
     }
 }

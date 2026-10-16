@@ -25,7 +25,7 @@ IF-8 CI and selftest (IF to developers): offline; every push and pull request ru
 
 ## 6. Functionality
 
-Startup journey: enable ANSI/VT where needed (tty.rs), paint the menu box (header "yt-dlp cli  v<version>" centered, blank row, 13 rows, "press escape to exit submenu", rules), print the hint block above the input line - verbatim, amber then grey then divider:
+Startup journey: enable ANSI/VT where needed (tty.rs), paint the menu box (header "yt-dlp cli  v<version>" centered, the FR-17 quick-paste row, 13 rows, "press escape to exit submenu", rules), print the hint block above the input line - verbatim, amber then grey then divider:
 
     paste url, press enter and download will start.
     enter number to change default settings
