@@ -1,12 +1,18 @@
 changelog
 =========
 
-Newest first. Current level: v2.0.0 (native port, unreleased); v1.5.0 is the shipped python line. Consolidated 2026-10-16: chapters longer than their headlines are compressed, full dated chapters live in git history.
+Newest first. Current level: v2.0.0 (native, released 2026-10-16); v1.5.0 is the final python line. Consolidated 2026-10-16: chapters longer than their headlines are compressed, full dated chapters live in git history.
 
-## v2.0.0 native port (unreleased)
+## v2.0.0 native port (released 2026-10-16)
 
-- v2.0.0 release: README switches to the native assets, digests folded, release notes staged (this commit)
-bundles.yml run 38935941248 assembled the six release binaries (linux 1m13s, windows 1m39s). Both platform bundles extracted and run from the CI bytes before upload - windows: selftest 177 checks 0 failed from the extracted tree, FR-16 version fields present; linux: launcher selftest 177/0 and `--check` resolves the bundled yt-dlp 2026.08.19 - and all six files match the CI SHA256SUMS. Digests folded into README.md (which now documents the native bundles; one line notes v1.5.0 was the final python release) and into the staged releases/v2.0.0/RELEASE-NOTES.md. The tag and the gh release upload follow the owner gate; G10 runs from the release after publish. Published asset names carry the `v` prefix (`ytdlp-cli-v2.0.0-...`), matching the v1.5.0 page; the first upload omitted it, so the four bundles were re-uploaded under the v names (same bytes, digests unchanged) and bundles.yml now names them with the prefix.
+- v2.0.0 published; G10 green; OQ-N4 live two-image dance proven (this commit)
+The release is up as seven files: four bundles under the `ytdlp-cli-v2.0.0-*` names, the two bare updater images and RELEASE-NOTES.md. G10 at the destination: every asset's api digest equals the numbers in README.md and RELEASE-NOTES.md; all four bundles extracted and run from the published bytes - windows-lean and windows-portable selftest 177/0 with the PE import table free of vcruntime*/msvcp* and the FR-16 version fields re-asserted; linux-lean and linux-portable launcher selftest 177/0 and
+`--check` resolving the bundled yt-dlp, plus the portable bundle's bundled ffmpeg (n9.0.2-27-g7e93014c5b-20261013). OQ-N4 closed: the new ignored test `live_two_image_dance_against_a_published_image` (update.rs) drove the real `<new> --selftest` spawn gate against the published linux image - placed file byte-identical to the asset, `.old` waits for the fresh-start cleanup (`remove_previous_image`), a dead staged file refused with the running image untouched; cargo rc 0, run manually with
+`YTDLP_LIVE_IMAGE` (section 13). Suite stays 176 unit tests + 2 ignored + 4 integration.
+
+- v2.0.0 release: README switches to the native assets, digests folded, release notes staged (07c1787)
+bundles.yml run 38935941248 assembled the six release binaries (linux 1m13s, windows 1m39s). Both platform bundles extracted and run from the CI bytes before upload - windows: selftest 177 checks 0 failed from the extracted tree, FR-16 version fields present; linux: launcher selftest 177/0 and `--check` resolves the bundled yt-dlp 2026.08.19 - and all six files match the CI SHA256SUMS. Digests folded into README.md (which now documents the native bundles; one line notes v1.5.0 was the final
+python release) and into the staged releases/v2.0.0/RELEASE-NOTES.md. The tag and the gh release upload follow the owner gate; G10 runs from the release after publish. Published asset names carry the `v` prefix (`ytdlp-cli-v2.0.0-...`), matching the v1.5.0 page; the first upload omitted it, so the four bundles were re-uploaded under the v names (same bytes, digests unchanged) and bundles.yml now names them with the prefix.
 
 - phase 10: bundles.yml assembly workflow + thin native launchers (this commit)
 The four v2.0.0 bundles and the two updater images assemble in `.github/workflows/bundles.yml` (workflow_dispatch only) on the native runners: windows lean + portable zips, linux lean + portable tar.gz, plus the bare `ytdlp-native-windows-x86_64.exe` / `ytdlp-native-linux-x86_64` images, each staged from the release binary (linux = the gnu target) and the pinned payloads - yt-dlp 2026.08.19 (`yt-dlp.exe`, `yt-dlp_linux`), gyan.dev 9.0.2 essentials from the versioned packages url, BtbN

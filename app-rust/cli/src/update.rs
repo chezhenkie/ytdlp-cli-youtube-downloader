@@ -1072,6 +1072,121 @@ mod tests {
         std::fs::remove_dir_all(&h.dir).unwrap();
     }
 
+    /// OQ-N4, the live two-image dance: everything above scripts the
+    /// `<new> --selftest` gate; this one runs it for real against a
+    /// published release image. Ignored by default because it needs that
+    /// artifact: run with
+    /// `YTDLP_LIVE_IMAGE=<published bare image> cargo test --lib live_two_image_dance -- --ignored`
+    #[test]
+    #[ignore = "needs a published image; set YTDLP_LIVE_IMAGE and run with --ignored"]
+    fn live_two_image_dance_against_a_published_image() {
+        let image = match std::env::var("YTDLP_LIVE_IMAGE") {
+            Ok(p) => p,
+            Err(_) => {
+                eprintln!("SKIP: YTDLP_LIVE_IMAGE is not set");
+                return;
+            }
+        };
+        let dir = scratch("live-dance");
+        let self_path = format!("{dir}/ytdlp");
+        std::fs::write(&self_path, b"the previous running image").unwrap();
+        let staged = format!("{self_path}.new");
+        std::fs::copy(&image, &staged).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&staged, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let want = crate::sha256::sha256_file(&staged).unwrap();
+
+        let lines = Arc::new(Mutex::new(Vec::new()));
+        let mut http = FakeHttp::new();
+        let mut rec = RecordingOut::default();
+        let mut reader = ScriptedReader::new(vec![]);
+        let mut probe = |_: &str| ("0".to_string(), 0);
+        // the LIVE gate: a real `<staged> --selftest` spawn, the rc
+        let mut selftest = |binary: &str| {
+            std::process::Command::new(binary)
+                .arg("--selftest")
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status()
+                .map(|st| st.code().unwrap_or(-1) as i64)
+                .unwrap_or(-1)
+        };
+        let mut call = |_: &str, _: &[String]| 0;
+        let mut now = || 1_700_000_000.0;
+        let mut which = |_: &str| None;
+        let sink = tty::SharedOut::new(LinesOut {
+            lines: Arc::clone(&lines),
+        })
+        .sink();
+        let mut ctx = UpdateCtx {
+            platform: if cfg!(windows) { "windows" } else { "linux" },
+            arch: "x86_64",
+            self_path: &self_path,
+            root: &dir,
+            is_windows: cfg!(windows),
+            stdin_tty: false,
+            use_color: false,
+            sink,
+            http: &mut http,
+            probe: &mut probe,
+            selftest: &mut selftest,
+            call: &mut call,
+            now: &mut now,
+            which: &mut which,
+            out: &mut rec,
+            reader: &mut reader,
+        };
+
+        // 1. the live dance: real spawn gate, real renames
+        let (ok, msg) = install_cli(&mut ctx, &staged);
+        assert!(ok, "install refused: {msg}");
+        assert_eq!(
+            crate::sha256::sha256_file(&self_path).unwrap(),
+            want,
+            "the placed image is the published one, byte for byte"
+        );
+        assert_eq!(
+            std::fs::read(format!("{self_path}.old")).unwrap(),
+            b"the previous running image"
+        );
+        assert!(!std::path::Path::new(&staged).exists());
+
+        // 2. the placed image really runs
+        let rc = std::process::Command::new(&self_path)
+            .arg("--selftest")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .expect("the placed image is runnable")
+            .code()
+            .unwrap_or(-1);
+        assert_eq!(rc, 0, "the placed image answers --selftest");
+
+        // 3. the fresh-start cleanup removes .old
+        remove_previous_image(&self_path);
+        assert!(!std::path::Path::new(&format!("{self_path}.old")).exists());
+
+        // 4. the live refusal: a staged file whose real spawn cannot pass
+        std::fs::write(&self_path, b"still the running image").unwrap();
+        std::fs::write(&staged, b"not a runnable image").unwrap();
+        let (ok, msg) = install_cli(&mut ctx, &staged);
+        assert!(!ok, "a dead staged file must be refused");
+        assert!(msg.contains("did not pass its own checks"), "{msg}");
+        assert_eq!(
+            std::fs::read(&self_path).unwrap(),
+            b"still the running image",
+            "refused: the running image is untouched"
+        );
+        assert!(!std::path::Path::new(&staged).exists());
+        assert!(!std::path::Path::new(&format!("{self_path}.old")).exists());
+
+        std::fs::remove_dir_all(&dir).unwrap();
+        println!("live two-image dance PASS against {image}");
+    }
+
     #[test]
     fn the_previous_image_goes_on_the_next_successful_start() {
         let h = Harness::new("old-gone");
