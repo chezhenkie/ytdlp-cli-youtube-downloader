@@ -772,7 +772,8 @@ pub(super) fn section_menu(
         &py_value(Some(&Value::Null)),
     );
 
-    // ffmpeg sources: windows gyan zip, linux BtbN tar.xz, no macos
+    // ffmpeg sources: windows BtbN zip (FR-14 amendment 2026-10-16c),
+    // linux BtbN tar.xz, no macos
     let windows_source = exec::ffmpeg_source("windows");
     let linux_source = exec::ffmpeg_source("linux");
     let macos_none = exec::ffmpeg_source("macos").is_none();
@@ -803,12 +804,15 @@ pub(super) fn section_menu(
             &bare_got(),
         );
     }
+    // owner-decided 2026-10-16c (FR-14 amendment): python asserted
+    // gyan.dev; the native offer fetches the BtbN win64 build, and the
+    // compare tools map this name back to python's (conformance map)
     let windows_well = windows_source
         .as_ref()
-        .map(|src| src.url.contains("gyan.dev"))
+        .map(|src| src.url.contains("BtbN/FFmpeg-Builds"))
         .unwrap_or(false);
     c.check(
-        "windows ffmpeg source is gyan.dev",
+        "windows ffmpeg source is BtbN",
         windows_well,
         &windows_source
             .as_ref()

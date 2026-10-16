@@ -14,11 +14,12 @@ use crate::term::{A_AMBER, ascii_safe, c};
 use crate::tty::{self, ReadOutcome, Stage};
 use crate::update;
 
-/// Where a lean install fetches ffmpeg from (python `FFMPEG_SOURCES`):
-/// the windows gyan.dev essentials zip and the linux BtbN tarball, each
-/// with the file that carries the published digest; macos has no source
-/// here (no free static build is published), so it gets instructions
-/// instead of a download (FR-14, IF-7).
+/// Where a lean install fetches ffmpeg from. The Linux side is python's
+/// BtbN tarball; the Windows side is the BtbN win64 GPL zip per the
+/// owner-decided FR-14 amendment (2026-10-16c; python kept gyan.dev) -
+/// each with the file that carries the published digest; macos has no
+/// source here (no free static build is published), so it gets
+/// instructions instead of a download (FR-14, IF-7).
 pub struct FfmpegSource {
     pub url: &'static str,
     pub sha_url: &'static str,
@@ -28,9 +29,14 @@ pub struct FfmpegSource {
 
 pub fn ffmpeg_source(platform: &str) -> Option<FfmpegSource> {
     match platform {
+        // owner-decided 2026-10-16c (FR-14 amendment): the windows offer
+        // fetches the BtbN win64 GPL build, digest-first through the
+        // provider's checksums.sha256 which is read fresh on every run,
+        // so the moving latest tag cannot go stale (gyan.dev measured
+        // ~300 KB/s on the owner's line during the OQ-N2 console pass)
         "windows" => Some(FfmpegSource {
-            url: "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip",
-            sha_url: "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip.sha256",
+            url: "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n9.0-latest-win64-gpl-9.0.zip",
+            sha_url: "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/checksums.sha256",
             binname: "ffmpeg.exe",
             how: "zip",
         }),

@@ -129,8 +129,9 @@ fn from_tar_xz(blob: &str, binname: &str, out: &str) -> Result<Option<String>, S
 // fixture builders, shipped: the packaged selftest builds the same
 // fixtures at runtime (nothing carries archive bytes through a vector)
 
-/// The gyan.dev essentials layout: one versioned folder, `bin/`
-/// inside it, the binary at `bin/ffmpeg.exe`.
+/// The published zip layout (gyan essentials and the BtbN win64 build
+/// share it): one versioned folder, `bin/` inside it, the binary at
+/// `bin/ffmpeg.exe`.
 pub(crate) fn zip_with(names: &[(&str, &[u8])]) -> Vec<u8> {
     use std::io::Cursor;
     use zip::write::SimpleFileOptions;

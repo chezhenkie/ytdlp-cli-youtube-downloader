@@ -1624,12 +1624,13 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                 &mut rec,
             );
             let report = rec.text();
-            // The two check names that carry an honest native wording
-            // (python patched a module global the port never threads;
-            // specsheet section 10, conformance map) project to the
-            // oracle names here, the same rule as the version and
-            // update-source tokens in the phase-8 records.
-            const ALIAS: [(&str, &str); 2] = [
+            // The three check names that carry an honest native wording
+            // (python patched a module global the port never threads, and
+            // the 2026-10-16c FR-14 amendment repointed the windows
+            // offer source; specsheet section 10, conformance map)
+            // project to the oracle names here, the same rule as the
+            // version and update-source tokens in the phase-8 records.
+            const ALIAS: [(&str, &str); 3] = [
                 (
                     "cli update source is the releases api",
                     "cli update url is raw main branch",
@@ -1637,6 +1638,10 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                 (
                     "install_cli refuses an image that fails its own checks",
                     "install_cli refuses a file that does not parse",
+                ),
+                (
+                    "windows ffmpeg source is BtbN",
+                    "windows ffmpeg source is gyan.dev",
                 ),
             ];
             let checks: Vec<String> = report
