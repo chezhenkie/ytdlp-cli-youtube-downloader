@@ -5,6 +5,9 @@ Newest first. Current level: v2.2.0 (native, released 2026-10-17); v2.1.1 releas
 
 ## v2.2.0 native (released 2026-10-17)
 
+- owner call: the v2.1.1 page loses the retired macOS tar (2026-10-17k)
+The macOS tar bundle (`ytdlp-cli-v2.1.1-macos-arm64-portable.tar.gz`) is pulled from the published v2.1.1 release and its RELEASE-NOTES.md refreshed in place (the file row, its checksum row and the macOS bundle lines are gone; mac readers are pointed at the v2.2.0 pkg). The page now holds five files and every live asset's api digest equals the refreshed notes.
+
 - docs: v2.2.0 G10 green at the destination (this commit)
 The published release was re-downloaded and re-checked: seven files (four bundles, the windows setup.exe, the macos arm64 pkg and RELEASE-NOTES.md), every asset's api digest equals README.md/RELEASE-NOTES.md, and every artifact re-verified from the released bytes - windows-lean/portable selftest 177/0 with the PE file description reading "ytdlp" and the 2.2.0 version fields (--check resolving the bundled yt-dlp, the portable's ffmpeg too); setup.exe silently installed and uninstalled on the dev machine, PATH entry asserted and gone again, full payload present, selftest 177/0; linux-lean/portable selftest 177/0 with 0755 modes and the ffmpeg archive-member chain (the archive digest equals the pin, its member equals the bundle's binary); macos pkg identity, 0755 modes, payload hash chain (yt-dlp 0f192b7e..., ffmpeg e7b9fcd9...) and Mach-O shape (cli thin arm64, yt-dlp_macos universal). No updater image on the page.
 
