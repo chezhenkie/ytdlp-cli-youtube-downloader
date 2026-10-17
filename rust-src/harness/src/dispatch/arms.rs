@@ -736,7 +736,7 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
             let lines = ui::hint_lines(&outdir, use_color);
             Ok(Json::Obj(vec![(
                 "stdout".to_string(),
-                Json::Str(project(&dir, &transcript(&lines))),
+                Json::Str(project_wording(&project(&dir, &transcript(&lines)))),
             )]))
         }
         "render" => {
@@ -978,7 +978,7 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
             std::fs::write(&config_path, config::render_settings_file(&s).as_bytes())
                 .map_err(|e| format!("scratch seed: {e}"))?;
             let use_color = field_opt_bool(case, "use_color")?.unwrap_or(false);
-            // FR-17: the quick-paste row has no oracle twin; no vector
+            // FR-17: the quick-paste row has no reference twin; no vector
             // case scripts a clipboard (the crate tests pin the "0" flow)
             let no_clip = || None::<String>;
             let world = menu::World {
@@ -1045,7 +1045,10 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
             Ok(Json::Obj(vec![
                 (
                     "stdout".to_string(),
-                    Json::Str(project_quick_row(&project(&dir, &rec.text()), use_color)),
+                    Json::Str(project_wording(&project_quick_row(
+                        &project(&dir, &rec.text()),
+                        use_color,
+                    ))),
                 ),
                 ("outcome".to_string(), Json::Str(outcome)),
                 ("exit".to_string(), exit),
@@ -1680,7 +1683,7 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
             // 2026-10-16c FR-14 amendment repointed the windows offer
             // source, and the 2026-10-17g amendment added the macos
             // source; specsheet section 10, conformance map) project to
-            // the oracle names here, the same rule as the version and
+            // the reference names here, the same rule as the version and
             // update-source tokens in the phase-8 records.
             const ALIAS: [(&str, &str); 5] = [
                 (
@@ -1713,11 +1716,11 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                         || line.starts_with("--")
                 })
                 .map(|line| {
-                    let mapped: Option<&str> = ALIAS.iter().find_map(|(native, oracle)| {
-                        (line == format!("PASS {native}")).then_some(*oracle)
+                    let mapped: Option<&str> = ALIAS.iter().find_map(|(native, reference)| {
+                        (line == format!("PASS {native}")).then_some(*reference)
                     });
                     match mapped {
-                        Some(oracle) => format!("PASS {oracle}"),
+                        Some(reference) => format!("PASS {reference}"),
                         None => line.to_string(),
                     }
                 })
@@ -2866,11 +2869,31 @@ fn transcript(lines: &[String]) -> String {
 }
 
 /// v2.0.2 FR-17: the native menu paints the quick-paste row where the
-/// oracle paints its blank box row; both sides project the row to one
+/// reference paints its blank box row; both sides project the row to one
 /// token (its bytes are pinned by the crate unit tests), so act,
 /// main_menu and render compare the row's position, not its bytes.
 fn project_quick_row(text: &str, use_color: bool) -> String {
     text.replace(&ui::quick_row(use_color), "{menu-quick-row}")
+}
+
+/// v2.1.1 owner text fixes (2026-10-17i): the hint line dropped its
+/// trailing period and item 12's off notice says what off means; the
+/// recorded reference transcripts still spell both old forms, so the
+/// native bytes project back before the differ compares.
+fn project_wording(text: &str) -> String {
+    let text = text
+        .replace(
+            "press enter and download will start\n",
+            "press enter and download will start.\n",
+        )
+        .replace(
+            "press enter and download will start\x1b[0m",
+            "press enter and download will start.\x1b[0m",
+        );
+    text.replace(
+        "  auto update off - no startup check",
+        "  auto update off - checked once a day at start",
+    )
 }
 
 fn value_obj(j: &Json) -> Result<Obj, String> {

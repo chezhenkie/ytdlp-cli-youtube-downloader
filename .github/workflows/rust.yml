@@ -58,7 +58,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14.4'
-      - name: instrument self-test, python oracle only (NFR-4)
+      - name: instrument self-test, python reference only (NFR-4)
         run: python rust-src/tools/harness.py selftest
       - uses: dtolnay/rust-toolchain@master
         with:
@@ -70,9 +70,9 @@ jobs:
         run: python rust-src/tools/harness.py probe-rust --rust-bin rust-src/target/release/ytdlp-harness
       - name: differential over every vector (gate 2)
         run: python rust-src/tools/harness.py run-all --rust-bin rust-src/target/release/ytdlp-harness
-      - name: east-asian width table matches the pinned oracle
+      - name: east-asian width table matches the pinned reference
         run: python rust-src/tools/gen_width_table.py --check
-      - name: printable table matches the pinned oracle
+      - name: printable table matches the pinned reference
         run: python rust-src/tools/gen_printable_table.py --check
 
   check-parity:

@@ -14,7 +14,7 @@
     {"args": ["a\u4e00b"], "note": "mixed"},
     {"args": ["e\u0301"], "note": "ascii plus combining"},
     {"args": ["\ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67"], "note": "family zwj sequence: wide, zwj one column each"},
-    {"args": ["\ud83c\udde6\ud83c\udde7"], "note": "regional indicators: whatever the oracle says"},
+    {"args": ["\ud83c\udde6\ud83c\udde7"], "note": "regional indicators: whatever the reference says"},
     {"args": ["\u001b"], "note": "escape control counts one column"},
     {"args": ["\u200b"], "note": "zero width space still counts one column here"},
     {"args": ["\ufeff"], "note": "bom counts one column"},

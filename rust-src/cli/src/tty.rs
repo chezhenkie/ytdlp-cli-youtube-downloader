@@ -5,7 +5,7 @@
 //! the session history, `KeyWatch`, `Stage`, `block_under_input`,
 //! terminal size, VT enable and `hold`.
 //!
-//! The python oracle writes to `sys.stdout` and reads through
+//! The python reference writes to `sys.stdout` and reads through
 //! `msvcrt`/`termios` directly; the port routes both through seams so
 //! the whole menu is drivable in tests and in the differential harness
 //! with recording implementations, exactly like the python selftest

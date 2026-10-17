@@ -13,7 +13,7 @@
 //! the json float spellings (`NaN`, `Infinity`, `-Infinity` for non-finite
 //! values; `repr` semantics through `py_float_repr` for finite ones).
 //!
-//! Pins recorded 2026-10-14 from CPython 3.14.4 (the pinned oracle; probe
+//! Pins recorded 2026-10-14 from CPython 3.14.4 (the pinned reference; probe
 //! output `.scratch-rust-p3-01/pins.txt`, deleted after use).
 
 use crate::config::{Obj, Value, py_float_repr, set};

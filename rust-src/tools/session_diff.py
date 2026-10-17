@@ -2,7 +2,7 @@
 """Binary-level golden-transcript differ for the ytdlp native port (G6, G7).
 
 The two implementations are staged in private trees - the python at
-`src/ytdlp.py` with a copied oracle source, the native binary beside an
+`src/ytdlp.py` with a copied reference source, the native binary beside an
 empty `bin/` and its own `config/settings.json` - and run against the
 same settings, the same stdin script and the same terminal size. The
 tool compares stdout bytes, exit code, stderr presence and the final
@@ -21,7 +21,7 @@ bin so a runner's real ffmpeg/node cannot leak in, script the stand-in
 per case, and compare the argv the wrapper handed over plus a directory
 listing. Animated stage rewrites are collapsed to `{frame}` in cases that
 declare `project_frames` (frame counts are timing, not behaviour; the
-frame content itself is digest-pinned by cli tests). The oracle's listing
+frame content itself is digest-pinned by cli tests). The reference's listing
 drops entries under the work folder before the compare: by the FR-11
 amendment (owner call 2026-10-16c) every native run end removes the work
 folder, so a work entry surviving a native run is exactly what the case
@@ -34,7 +34,7 @@ Modes:
             (posix only; the real-console windows check is OQ-N2, owner
             hands-on on the CI artifact)
 
-Oracle: CPython 3.14.4 exactly (argparse text changed in a later patch;
+Reference: CPython 3.14.4 exactly (argparse text changed in a later patch;
 see tools/harness.py).
 
 Usage:
@@ -59,7 +59,7 @@ TOOLS_DIR = Path(__file__).resolve().parent
 APP_RUST = TOOLS_DIR.parent
 REPO_ROOT = APP_RUST.parent
 PY_SRC = REPO_ROOT / "deprecated-py-src" / "src" / "ytdlp.py"
-ORACLE = (3, 14, 4)
+REFERENCE = (3, 14, 4)
 VERSION_RE = re.compile(rb"(yt-dlp cli  v)\d+\.\d+\.\d+")
 
 
@@ -77,13 +77,13 @@ def default_fake_bin():
     return APP_RUST / "target" / "release" / exe
 
 
-def require_oracle():
+def require_reference():
     # exactly 3.14.4, like tools/harness.py: argparse text changed in a
     # later patch (invalid-choice choices quoted, measured 2026-10-15)
-    if sys.version_info[:3] != ORACLE:
+    if sys.version_info[:3] != REFERENCE:
         raise InstrumentError(
-            "oracle interpreter is CPython %d.%d.%d, running %s"
-            % (ORACLE[0], ORACLE[1], ORACLE[2], sys.version.split()[0])
+            "reference interpreter is CPython %d.%d.%d, running %s"
+            % (REFERENCE[0], REFERENCE[1], REFERENCE[2], sys.version.split()[0])
         )
 
 
@@ -143,7 +143,7 @@ def stage_tree(kind, work, case, rust_bin, fake_bin):
         shutil.copyfile(PY_SRC, tree / "src" / "ytdlp.py")
         exe = None
     else:
-        # staged under the oracle's script name: argparse's help and
+        # staged under the reference's script name: argparse's help and
         # usage wrap depend on len(prog), so the two fixtures must carry
         # the same program name for a byte comparison (the real launcher
         # name is environment-dependent)
@@ -199,6 +199,11 @@ PROG_USAGE_RE = re.compile(rb"usage: (?:ytdlp\.py|ytdlp\.exe|ytdlp) ")
 PROG_ERROR_RE = re.compile(rb"(?m)^(?:ytdlp\.py|ytdlp\.exe|ytdlp): error:")
 # the usage continuation indent is len("usage: ") + len(prog) + 1
 USAGE_INDENT_RE = re.compile(rb"(?m)^ {13,16}(\S)")
+# v2.1.1 owner text fixes (2026-10-17i): the hint line dropped its
+# trailing period and item 12's off notice says what off means; the
+# recorded reference transcripts spell the old forms, so both sides
+# normalize to the shipped wording before the compare
+HINT_PERIOD_RE = re.compile(rb"(press enter and download will start)\.(?=\r?\n|\x1b\[0m)")
 # a download verdict line starts with the frozen spinner frame, which is
 # a random draw per run (python random.choice / the native PCG32)
 SPINNER_COLOR_DONE_RE = re.compile(
@@ -210,7 +215,7 @@ TEMP_DIR_NAME = ".ytdlp-tmp"
 
 
 # v2.0.2 FR-17: the native menu paints the quick-paste row where the
-# oracle paints its blank box row; both project to one token so sessions
+# reference paints its blank box row; both project to one token so sessions
 # compare the row's position, not its bytes (the native row bytes are
 # pinned by the crate unit tests).
 QUICK_ROW_TEXT = b"  0  press zero '0' to paste link and start direct download"
@@ -267,7 +272,7 @@ def normalize(data, tree, project_frames=False):
     data = PROG_ERROR_RE.sub(b"{prog}: error:", data)
     data = USAGE_INDENT_RE.sub(rb"{ind}\1", data)
     # the five selftest check names that carry an honest native wording
-    # (specsheet section 10, conformance map) project to the oracle
+    # (specsheet section 10, conformance map) project to the reference
     # names, the same rule as the version token above
     data = data.replace(
         b"PASS cli update source is the releases api",
@@ -288,6 +293,11 @@ def normalize(data, tree, project_frames=False):
     data = data.replace(
         b"PASS macos ffmpeg source is shaka-project",
         b"PASS no ffmpeg download for macos",
+    )
+    data = HINT_PERIOD_RE.sub(rb"\1", data)
+    data = data.replace(
+        b"  auto update off - checked once a day at start",
+        b"  auto update off - no startup check",
     )
     data = ARCHIVE_ERROR_RE.sub(
         b"the downloaded archive was unreadable: {archive-error}", data
@@ -319,9 +329,9 @@ def case_extras(tree, case, project_frames, native=False):
                 names.append(str(path.relative_to(root)).replace(os.sep, "/"))
         if not native:
             # FR-11 amendment (owner call 2026-10-16c): every native run
-            # end removes the work folder, so the oracle listing's kept
+            # end removes the work folder, so the reference listing's kept
             # work entries (fail-keeps-partial, subs-429-keeps-vtt) are
-            # not part of the native expectation. Only the oracle side is
+            # not part of the native expectation. Only the reference side is
             # filtered - a work entry surviving a native run still fails.
             names = [
                 n
@@ -945,7 +955,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     try:
-        require_oracle()
+        require_reference()
         rust_bin = Path(args.rust_bin) if args.rust_bin else default_rust_bin()
         if not rust_bin.exists():
             raise InstrumentError(

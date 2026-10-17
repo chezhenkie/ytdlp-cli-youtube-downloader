@@ -434,7 +434,7 @@ mod tests {
 
     // Expected strings recorded 2026-10-14 from CPython 3.14.6 (probe
     // output, .scratch-rust-p1-01/pins.txt, deleted after use); the float
-    // spellings also recorded from the 3.14.4 oracle
+    // spellings also recorded from the 3.14.4 reference
     // (.scratch-rust-p3-01/pins.txt, deleted after use):
     //   json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
     #[allow(clippy::type_complexity)]

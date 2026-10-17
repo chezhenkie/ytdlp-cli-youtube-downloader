@@ -356,10 +356,10 @@ pub const FRAME_SECS: f64 = 0.1;
 pub const DOTS: [&str; 5] = [".  ", ".. ", "...", ".. ", ".  "];
 
 // The eight waiting animations, ported from scripts-tools/spinner-demo.py
-// through the python implementation (the oracle). Each frame is six
+// through the python implementation (the reference). Each frame is six
 // (char, color) cells so one frame can mix colors; each animation carries
 // its own tick and its own settled freeze frame. The parity test below
-// pins the whole table against a digest recorded from the oracle.
+// pins the whole table against a digest recorded from the reference.
 
 const FIRE: [u8; 8] = [231, 223, 216, 214, 208, 202, 196, 88];
 const GRAY: [u8; 8] = [255, 252, 249, 246, 243, 240, 236, 232];
@@ -504,7 +504,7 @@ fn eq() -> Vec<Vec<(String, u8)>> {
         let mut m = Vec::new();
         for p in 0..6i64 {
             // python round() is banker's rounding and f64::round is half
-            // away from zero; the oracle's closest value to any .5
+            // away from zero; the reference's closest value to any .5
             // boundary is 2.2e-3 away (scratch probe 2026-10-14), so the
             // two can never disagree here.
             let raw = 4.0 + 3.6 * (t as f64 * 0.8 + p as f64 * 1.25).sin();
@@ -642,9 +642,9 @@ mod tests {
     use crate::sha256::sha256_hex;
 
     #[test]
-    fn width_table_matches_the_pinned_oracle() {
+    fn width_table_matches_the_pinned_reference() {
         // The digest is over the same serialization the generator and the
-        // oracle probe used: %08x%08x per range (`%08x` hex matches).
+        // reference probe used: %08x%08x per range (`%08x` hex matches).
         let mut blob: Vec<u8> = Vec::new();
         for &(a, b) in WIDE_RANGES {
             blob.extend_from_slice(format!("{a:08x}{b:08x}\n").as_bytes());
@@ -703,11 +703,11 @@ mod tests {
         assert_eq!(pad_speed("not a speed"), "not a speed");
     }
 
-    /// Full strings recorded from the oracle via a scratch probe
+    /// Full strings recorded from the reference via a scratch probe
     /// (USE_COLOR irrelevant: this function emits codes unconditionally)
     /// on 2026-10-14.
     #[test]
-    fn color_progress_matches_the_oracle_strings() {
+    fn color_progress_matches_the_reference_strings() {
         let cp1 = color_progress("15.2% of 198.15MiB at 2.32MiB/s ETA 01:12");
         assert_eq!(
             cp1,
@@ -797,12 +797,12 @@ mod tests {
         }
     }
 
-    /// The recorded oracle digest over the exact serialization the scratch
+    /// The recorded reference digest over the exact serialization the scratch
     /// probe used (name|tick|cells;cells;freeze\n per spinner). This is
     /// what makes "ported from spinner-demo.py" checkable: any wrong cell,
     /// color, tick or frame order moves the digest.
     #[test]
-    fn spinner_table_matches_the_oracle_digest() {
+    fn spinner_table_matches_the_reference_digest() {
         let mut blob: Vec<u8> = Vec::new();
         for sp in spinners() {
             let tick = format!("{:.6}", sp.tick);

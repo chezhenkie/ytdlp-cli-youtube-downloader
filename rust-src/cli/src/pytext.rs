@@ -2,14 +2,14 @@
 //! equivalents: the `str.strip`/`str.splitlines`/`\s` character sets,
 //! and the `repr()` of a string (quote choice and escape spellings),
 //! which the `str()` of container values renders element-wise.
-//! Shared by the layers that must split text exactly like the oracle
+//! Shared by the layers that must split text exactly like the reference
 //! (specsheet section 4 port notes: python `str.strip` whitespace
 //! includes `\x1c`-`\x1f`, `\x85` and `\xa0`; `str.splitlines` breaks on
 //! `\n`, `\r`, `\r\n`, `\v`, `\f`, `\x1c`-`\x1e`, `\x85`, U+2028, U+2029).
 
 use crate::printable_table::PRINTABLE_RANGES;
 
-/// CPython `Py_UNICODE_ISPRINTABLE` from the generated oracle table: the
+/// CPython `Py_UNICODE_ISPRINTABLE` from the generated reference table: the
 /// characters `repr()` keeps literal.
 pub fn py_printable(c: char) -> bool {
     let cp = c as u32;
@@ -161,7 +161,7 @@ mod tests {
 
     #[test]
     fn py_printable_spot_pins() {
-        // oracle edges, probed 2026-10-15
+        // reference edges, probed 2026-10-15
         assert!(py_printable(' '));
         assert!(py_printable('~'));
         assert!(!py_printable('\u{1f}')); // below space is not printable

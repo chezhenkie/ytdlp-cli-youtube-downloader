@@ -24,12 +24,12 @@ ALIAS = {
 }
 
 native = [(v, ALIAS.get(n, n)) for v, n in stream(sys.argv[1])]
-oracle = stream(sys.argv[2])
-print(f"native {len(native)} checks, oracle {len(oracle)} checks")
-if len(native) != len(oracle):
+reference = stream(sys.argv[2])
+print(f"native {len(native)} checks, reference {len(reference)} checks")
+if len(native) != len(reference):
     print("COUNT MISMATCH")
-extra = [n for n in native if n not in oracle]
+extra = [n for n in native if n not in reference]
 print("pairs differing:", extra if extra else "none")
-for i, (n, o) in enumerate(zip(native, oracle), 1):
+for i, (n, o) in enumerate(zip(native, reference), 1):
     if n != o:
-        print(f"line {i}: native={n!r} oracle={o!r}")
+        print(f"line {i}: native={n!r} reference={o!r}")

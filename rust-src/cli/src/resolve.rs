@@ -3,7 +3,7 @@
 //! folder resolution, binary discovery, version probing and the --check
 //! content.
 //!
-//! Ported one to one from `deprecated-py-src/src/ytdlp.py` (the oracle). Every
+//! Ported one to one from `deprecated-py-src/src/ytdlp.py` (the reference). Every
 //! process-state read (which answers, PATH/PATHEXT, registry values,
 //! home, env map, mtimes, subprocess outcomes) is a parameter so the
 //! differential can inject identical state on both sides; the real
@@ -49,7 +49,7 @@ pub fn py_bool(value: bool) -> &'static str {
 
 // -------------------------------------------------------- path model
 //
-// pathlib 3.14's lexical model, pinned against probed oracle matrices
+// pathlib 3.14's lexical model, pinned against probed reference matrices
 // (the parsers are C builtins; behaviour, not source, is the reference).
 
 #[cfg(windows)]
@@ -343,7 +343,7 @@ fn is_ascii_word(c: char) -> bool {
 /// `os.path.expandvars`, flavor selected by the running os like the
 /// python `os.path` module: posix `$name`/`${name}` only; windows adds
 /// `%name%`, `$$ -> $`, `%% -> %` and the single-quoted-chunk skip.
-/// Single pass; unknown names stay verbatim (probed oracle matrices).
+/// Single pass; unknown names stay verbatim (probed reference matrices).
 pub fn expandvars(text: &str, env: &EnvMap) -> String {
     expandvars_flavor(text, env, cfg!(windows))
 }
@@ -1375,7 +1375,7 @@ mod tests {
 
     #[test]
     fn path_render_spot_pins() {
-        // pinned against the probed oracle matrices (2026-10-15)
+        // pinned against the probed reference matrices (2026-10-15)
         #[cfg(windows)]
         {
             assert_eq!(path_render("//x"), "\\\\x");

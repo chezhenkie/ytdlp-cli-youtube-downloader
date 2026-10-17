@@ -3,7 +3,7 @@
   "cases": [
     {"args": [1, "x", "plain", true, false], "note": "plain rendering"},
     {"args": [1, "x", "plain", true, true], "note": "colored rendering"},
-    {"args": [5, "output folder", "...\\Downloads", true, true], "note": "the oracle pin case"},
+    {"args": [5, "output folder", "...\\Downloads", true, true], "note": "the reference pin case"},
     {"args": [5, "output folder", ".../Downloads", true, false], "note": "posix value"},
     {"args": [1, "x", "\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00", true, true], "note": "F10: wide value tail-cut, colored"},
     {"args": [1, "x", "\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00\u4e00", true, false], "note": "F10: wide value tail-cut, plain"},

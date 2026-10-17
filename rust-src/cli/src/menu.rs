@@ -671,10 +671,16 @@ pub fn act(
             config::set(s, "auto_update", Value::Bool(new_value));
             // no save here (audit F8): main_menu saves after act returns,
             // so every action has exactly one save site
+            // owner call 2026-10-17i: the off notice says what off means
+            let tail = if new_value {
+                "checked once a day at start"
+            } else {
+                "no startup check"
+            };
             print_line(
                 io,
                 &format!(
-                    "  auto update {} - checked once a day at start",
+                    "  auto update {} - {tail}",
                     ui::onoff(Some(&Value::Bool(new_value)))
                 ),
             );
@@ -1085,8 +1091,12 @@ mod tests {
         // item 12's notice
         let mut s = config::defaults();
         let (text, prompts) = mega("12", vec![ScriptItem::Line(String::new())], &mut s);
-        assert!(text.contains("  auto update off - checked once a day at start"));
+        assert!(text.contains("  auto update off - no startup check"));
         assert_eq!(prompts.last().unwrap(), "", "item 12 holds");
+        let mut s = config::defaults();
+        config::set(&mut s, "auto_update", Value::Bool(false));
+        let (text, _) = mega("12", vec![ScriptItem::Line(String::new())], &mut s);
+        assert!(text.contains("  auto update on - checked once a day at start"));
     }
 
     /// FR-17: zero reads the clipboard seam; a link runs the url path's

@@ -75,7 +75,7 @@ ASCII so any console codepage can print it. Case args may carry JSON
 floats and the NaN/Infinity constants (phase 3 settings cases), matching
 `json.loads`; generated records stay i64-only.
 
-Oracle: CPython 3.14.x is the pinned oracle interpreter (plan G2); the
+Reference: CPython 3.14.x is the pinned reference interpreter (plan G2); the
 python capture refuses every other minor version.
 
 Usage:
@@ -118,7 +118,7 @@ APP_RUST = TOOLS_DIR.parent
 REPO_ROOT = APP_RUST.parent
 PY_IMPL = REPO_ROOT / "deprecated-py-src" / "src" / "ytdlp.py"
 VECTORS_DIR = APP_RUST / "vectors"
-ORACLE = (3, 14, 4)
+REFERENCE = (3, 14, 4)
 # the dispatcher error-path fixture; it exists to prove the rust side
 # refuses unknown names and is never part of the differential.
 ERROR_PATH_FIXTURE = "no_such_function.json"
@@ -128,14 +128,14 @@ class InstrumentError(Exception):
     """The instrument itself cannot run; never a verdict."""
 
 
-def require_oracle():
-    # The oracle is pinned to the exact patch: argparse's invalid-choice
+def require_reference():
+    # The reference is pinned to the exact patch: argparse's invalid-choice
     # text renders the choices unquoted in 3.14.4 and quoted in 3.14.6
-    # (measured 2026-10-15), so "3.14.x" is not one oracle.
-    if sys.version_info[:3] != ORACLE:
+    # (measured 2026-10-15), so "3.14.x" is not one reference.
+    if sys.version_info[:3] != REFERENCE:
         raise InstrumentError(
-            "oracle interpreter is CPython %d.%d.%d, running %s"
-            % (ORACLE[0], ORACLE[1], ORACLE[2], sys.version.split()[0])
+            "reference interpreter is CPython %d.%d.%d, running %s"
+            % (REFERENCE[0], REFERENCE[1], REFERENCE[2], sys.version.split()[0])
         )
 
 
@@ -994,7 +994,7 @@ def _seed_settings_file(module, settings):
 
 
 # v2.0.2 FR-17: the native menu paints the quick-paste row where the
-# oracle paints its blank box row; both project to one token so the
+# reference paints its blank box row; both project to one token so the
 # differ compares the row's position, not its bytes (the native row
 # bytes are pinned by the crate unit tests).
 QUICK_ROW_TOKEN = "{menu-quick-row}"
@@ -1327,7 +1327,7 @@ def _hook_main_menu(module, args):
             saved_esc = module.read_esc
             module.read_esc = reader
             # the startup check is out of scope for this arm (phase 8);
-            # can_ask false keeps the oracle off the network
+            # can_ask false keeps the reference off the network
             saved_ask = module.can_ask
             module.can_ask = lambda: False
             try:
@@ -1568,7 +1568,7 @@ def _hook_cli_args(module, args):
 def _selftest_cli_replica():
     """Instrument self-check (NFR-4 spirit): the cli_args hook's parser
     replica must match the real CLI before the arm judges anything."""
-    spec = importlib.util.spec_from_file_location("ytdlp_oracle", PY_IMPL)
+    spec = importlib.util.spec_from_file_location("ytdlp_reference", PY_IMPL)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     problems = []
@@ -2186,13 +2186,13 @@ PY_CALL_HOOKS.update(
 
 
 def capture_python(fn, vectors_path):
-    require_oracle()
+    require_reference()
     doc = load_vectors(vectors_path)
     if doc["fn"] != fn:
         raise InstrumentError("%s is for %s, requested %s" % (vectors_path, doc["fn"], fn))
     if fn.startswith("_"):
         raise InstrumentError("private names are outside the harness surface: %r" % fn)
-    spec = importlib.util.spec_from_file_location("ytdlp_oracle", PY_IMPL)
+    spec = importlib.util.spec_from_file_location("ytdlp_reference", PY_IMPL)
     if spec is None or spec.loader is None:
         raise InstrumentError("cannot load %s" % PY_IMPL)
     module = importlib.util.module_from_spec(spec)
@@ -2296,7 +2296,7 @@ def cmd_selftest(args):
     doc = load_vectors(vectors)
     if doc["fn"] != fn:
         raise InstrumentError("%s is for %s, requested %s" % (vectors, doc["fn"], fn))
-    print("instrument: oracle CPython %s, fn %s, %d cases, vectors %s" % (sys.version.split()[0], fn, len(doc["cases"]), vectors))
+    print("instrument: reference CPython %s, fn %s, %d cases, vectors %s" % (sys.version.split()[0], fn, len(doc["cases"]), vectors))
     checks = []
 
     first = capture_python(fn, vectors)

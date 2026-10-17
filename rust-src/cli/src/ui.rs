@@ -346,7 +346,7 @@ pub fn header_lines(version: &str, use_color: bool) -> Vec<String> {
 /// resolves it here; the port takes the phase-4 answer as a parameter).
 pub fn hint_lines(outdir: &str, use_color: bool) -> Vec<String> {
     let div = "-".repeat((WIDTH + 2) as usize);
-    let l1 = "paste url, press enter and download will start.";
+    let l1 = "paste url, press enter and download will start";
     let l2 = "enter number to change default settings";
     let l3 = "change download location by choosing menu item: 5";
     let l3b = "download several urls at once by choosing menu item: 9";
@@ -414,10 +414,10 @@ mod tests {
         out
     }
 
-    /// Full strings recorded from the oracle with USE_COLOR forced
+    /// Full strings recorded from the reference with USE_COLOR forced
     /// (scratch probe, 2026-10-14).
     #[test]
-    fn menu_line_matches_the_oracle_strings() {
+    fn menu_line_matches_the_reference_strings() {
         assert_eq!(
             menu_line(1, "x", "plain", true, true),
             format!(
@@ -485,9 +485,9 @@ mod tests {
         assert!(sub_lang_lines(24).iter().all(|l| l.chars().count() <= 24));
     }
 
-    /// Strings recorded from the oracle (scratch probe, 2026-10-14).
+    /// Strings recorded from the reference (scratch probe, 2026-10-14).
     #[test]
-    fn batch_row_matches_the_oracle_strings() {
+    fn batch_row_matches_the_reference_strings() {
         assert_eq!(
             batch_row(2, "nope", true),
             "\x1b[38;5;250m  2  \x1b[0m\x1b[38;5;214merror in url\x1b[0m"
@@ -503,10 +503,10 @@ mod tests {
         assert_eq!(batch_row(3, "https://,,,", false), "  3  https://");
     }
 
-    /// Rows recorded from the oracle's pick_list with a stubbed
+    /// Rows recorded from the reference's pick_list with a stubbed
     /// read_esc, colored and plain (scratch probe, 2026-10-14).
     #[test]
-    fn pick_rows_match_the_oracle_strings() {
+    fn pick_rows_match_the_reference_strings() {
         assert_eq!(
             pick_row("mkv", "mkv", 2, true),
             "    \x1b[38;5;214m[x]\x1b[0m  2  mkv"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate cli/src/printable_table.rs from the pinned CPython oracle.
+"""Generate cli/src/printable_table.rs from the pinned CPython reference.
 
 The table is the set of code points where CPython `str.isprintable()` is
 true (Py_UNICODE_ISPRINTABLE), as contiguous `[start, end)` runs. The
@@ -9,12 +9,12 @@ the way CPython `repr()` does, so settings values that reach `str()` /
 exact same escapes.
 
 Modes:
-    --write   regenerate cli/src/printable_table.rs (refuses on oracle drift)
-    --check   re-walk the oracle and compare against the committed table
+    --write   regenerate cli/src/printable_table.rs (refuses on reference drift)
+    --check   re-walk the reference and compare against the committed table
               and the pinned digest; exits nonzero on any mismatch
 
 The pin was recorded 2026-10-15 on CPython 3.14.6 (windows) and 3.14.4
-(wsl), both Unicode 16.0.0, with identical bytes. The oracle for the
+(wsl), both Unicode 16.0.0, with identical bytes. The reference for the
 differential harness is CPython 3.14.x; CI pins python 3.14, so a newer
 interpreter with a newer Unicode database fails --check loudly instead of
 silently regenerating the table.
@@ -47,7 +47,7 @@ pub const PRINTABLE_RANGES: &[(u32, u32)] = &[
 """
 
 
-def oracle_ranges():
+def reference_ranges():
     ranges = []
     start = None
     for cp in range(MAX_CP):
@@ -101,10 +101,10 @@ def parse_committed(path):
 
 
 def cmd_write():
-    ranges = oracle_ranges()
+    ranges = reference_ranges()
     d = digest(ranges)
     if PRINTABLE_PIN != "PIN_PLACEHOLDER" and d != PRINTABLE_PIN:
-        print("FAIL oracle drift: walk digest %s != pinned %s" % (d, PRINTABLE_PIN))
+        print("FAIL reference drift: walk digest %s != pinned %s" % (d, PRINTABLE_PIN))
         return 1
     with open(TABLE_PATH, "w", encoding="utf-8", newline="\n") as fh:
         fh.write(render(ranges))
@@ -114,18 +114,18 @@ def cmd_write():
 
 
 def cmd_check():
-    ranges = oracle_ranges()
+    ranges = reference_ranges()
     d = digest(ranges)
     ok = True
     if d != PRINTABLE_PIN:
-        print("FAIL oracle walk digest %s != pinned %s (unicode %s)"
+        print("FAIL reference walk digest %s != pinned %s (unicode %s)"
               % (d, PRINTABLE_PIN, unicodedata.unidata_version))
         ok = False
     committed = parse_committed(TABLE_PATH)
     if committed is None:
         ok = False
     elif committed != ranges:
-        print("FAIL committed table differs from the oracle walk "
+        print("FAIL committed table differs from the reference walk "
               "(%d vs %d ranges)" % (len(committed), len(ranges)))
         ok = False
     count = sum(b - a for a, b in ranges)

@@ -12,7 +12,7 @@
 //! positional, the consume rules (`expected one argument`, `ignored
 //! explicit argument`, `ambiguous option`, choice validation), the usage
 //! wrapping algorithm and the action-help wrapping (a `textwrap.wrap`
-//! port; the width sweep 11..=200 is digest-pinned against the oracle).
+//! port; the width sweep 11..=200 is digest-pinned against the reference).
 //!
 //! Schema in `_actions` order: help, url, audio, format, resolution, af,
 //! outdir, template, subs, playlist, menu, check, update, selftest.
@@ -306,9 +306,9 @@ fn action_name(def: &OptionDef) -> String {
 }
 
 fn invalid_choice(def: &OptionDef, value: &str) -> String {
-    // the pinned 3.14.4 oracle renders the choices with str(); 3.14.6
+    // the pinned 3.14.4 reference renders the choices with str(); 3.14.6
     // switched to repr (measured 2026-10-15) - the port follows the
-    // pinned oracle and CI pins 3.14.4
+    // pinned reference and CI pins 3.14.4
     let choices: Vec<&str> = def.choices.unwrap_or(&[]).to_vec();
     format!(
         "argument {}: invalid choice: {} (choose from {})",
@@ -501,7 +501,7 @@ mod tests {
     }
 
     #[test]
-    fn help_at_78_matches_the_oracle_capture() {
+    fn help_at_78_matches_the_reference_capture() {
         let expected = concat!(
             "usage: ytdlp.py [-h] [-a] [-f {mp4,mkv,webm,best}]\n",
             "                [-r {2160,1440,1080,720,480,360,best}]\n",
@@ -537,7 +537,7 @@ mod tests {
     }
 
     #[test]
-    fn help_at_38_matches_the_oracle_capture() {
+    fn help_at_38_matches_the_reference_capture() {
         let expected = concat!(
             "usage: ytdlp.py [-h] [-a]\n",
             "                [-f {mp4,mkv,webm,best}]\n",
@@ -586,18 +586,18 @@ mod tests {
         assert_eq!(format_help("ytdlp.py", 38), expected);
     }
 
-    /// The full width sweep digest: the oracle's `-h` output for every
+    /// The full width sweep digest: the reference's `-h` output for every
     /// formatter width 11..=200, LF-normalized, separated by `==W==\n`;
     /// probed from the real CLI 2026-10-15 (CPython 3.14.6 COLUMNS=w+2,
     /// `\r\n` normalized to `\n`).
     #[test]
-    fn help_width_sweep_matches_the_oracle_digest() {
+    fn help_width_sweep_matches_the_reference_digest() {
         let mut blob: Vec<u8> = Vec::new();
         for w in 11..=200i64 {
             blob.extend_from_slice(format_help("ytdlp.py", w).as_bytes());
             blob.extend_from_slice(format!("=={w}==\n").as_bytes());
         }
-        // dev aid: dump the local blob to diff against the oracle probe
+        // dev aid: dump the local blob to diff against the reference probe
         if let Ok(path) = std::env::var("SWEEP_BLOB_OUT") {
             let _ = std::fs::write(path, &blob);
         }
@@ -624,7 +624,7 @@ mod tests {
     }
 
     #[test]
-    fn error_texts_match_the_oracle_probes() {
+    fn error_texts_match_the_reference_probes() {
         assert_eq!(
             error_of(&["-f", "junk"]).trim_end(),
             "ytdlp.py: error: argument -f/--format: invalid choice: 'junk' \
@@ -682,7 +682,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_results_match_the_oracle_probes() {
+    fn parse_results_match_the_reference_probes() {
         // hostile argv: argparse rejects before any url is taken
         assert_eq!(
             error_of(&["--nope", "notaurl"]).trim_end(),
