@@ -1,6 +1,7 @@
-Smart menu CLI around [yt-dlp](https://github.com/yt-dlp/yt-dlp). open, type '0' youtube download runs with the saved defaults. This project is only the menu, the launchers and the defaults; actual download is performed by yt-dlp, and this is not affiliated with or endorsed by the yt-dlp project. 
+Smart menu CLI around [yt-dlp](https://github.com/yt-dlp/yt-dlp). Built in Rust, zippy execution.
+Copy youtube link, open app, type '0' and download starts. This project is only the menu, the launchers and the defaults; actual download is performed by yt-dlp, and this is not affiliated with or endorsed by the yt-dlp project. 
 
-The yt-dlp runtime is used exactly as published - nothing in it is patched or rebuilt by this project. bit for bit.
+The yt-dlp runtime is used exactly as published - nothing in it is patched or rebuilt by this project. Bit for bit.
 
 **Updates.** The updater covers the yt-dlp runtime: menu item 11 runs yt-dlp's own update on demand and menu item 12 toggles the daily update check. The cli never replaces itself; a newer cli comes from this page. The check runs only at the start of the interactive menu, in a real console window.
 
