@@ -5,6 +5,9 @@ Newest first. Current level: v2.0.3 (native, released 2026-10-17); v2.0.2 releas
 
 ## v2.0.3 native (released 2026-10-17)
 
+- docs: v2.0.3 G10 green at the destination (this commit)
+Every asset downloaded from the published release: the six digest rows in RELEASE-NOTES.md hash-match the downloaded bytes and the api digests equal README's numbers. All four bundles extracted and run from the published bytes on their target platform - windows-lean/portable selftest 177/0 with PE imports clean and the 2.0.3 version fields; linux-lean/portable launcher selftest 177/0, --check resolving the bundled yt-dlp 2026.08.19 and the portable bundle's ffmpeg (n9.0.2-27-g7e93014c5b-20261013), 0755 modes in the extract check. Measured sizes: windows lean 19478570, windows portable 59488064, linux lean 41989870, linux portable 110064827, updater images 3968512 (windows) and 4946336 (linux).
+
 - v2.0.3 published (this commit)
 A behavior-fix release on the native line: the keypress-0 quick paste and the probe-timeout orphan hardening (entries below). CI run 39008046558 assembled the six binaries; both platform bundles were extracted and run from the CI bytes before upload (windows-lean/portable selftest 177/0 from the extracted tree with the 2.0.3 version fields and the import table free of vcruntime*/msvcp*; linux-lean/portable launcher selftest 177/0 and --check resolving the bundled yt-dlp 2026.08.19 and, in the portable bundle, the bundled ffmpeg n9.0.2-27-g7e93014c5b-20261013) and all six match the CI SHA256SUMS. Digests folded into README.md and the staged releases/v2.0.3/RELEASE-NOTES.md; the tag and the gh release upload follow; G10 runs from the release after publish. Bundle payload pins stay as published (gyan 9.0.2 windows portable, BtbN n9.0.2 linux).
 
