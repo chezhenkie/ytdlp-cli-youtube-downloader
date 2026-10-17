@@ -1,7 +1,12 @@
 changelog
 =========
 
-Newest first. Current level: v2.0.2 (native, released 2026-10-17); v1.5.0 is the final python line. Consolidated 2026-10-16: chapters longer than their headlines are compressed, full dated chapters live in git history.
+Newest first. Current level: v2.0.3 (native, in development); v2.0.2 released 2026-10-17; v1.5.0 is the final python line. Consolidated 2026-10-16: chapters longer than their headlines are compressed, full dated chapters live in git history.
+
+## v2.0.3 native (in development)
+
+- fix: pressing 0 fires the clipboard quick paste at once (this commit)
+Owner pass on the published v2.0.2: the row's "press zero '0'" was read as a keypress, and a bare 0 just echoed on the input line (probe scratch-fr17/probe-key0.py on the published binary: one echoed byte back, nothing else; 0+enter ran the download). On a real tty the main prompt now acts on the bare 0 at the keypress - no enter, no echo, not remembered in history; a 0 typed later inside a line stays a character. The 0-then-enter line path still works for scripted and piped runs (the defaulted Reader::read_line_quick0 seam); submenu and hold reads are untouched. Pinned by tty.rs unit tests (the quick0_fires rule and the scripted default) plus the probe on the fixed build.
 
 ## v2.0.2 native (released 2026-10-17)
 

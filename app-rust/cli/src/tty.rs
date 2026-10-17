@@ -55,6 +55,19 @@ pub trait Reader {
         below: Option<&[String]>,
         out: &mut dyn Out,
     ) -> ReadOutcome;
+
+    /// The main prompt's read (FR-17): on a real tty a bare "0" on the
+    /// empty line fires the quick paste at once - no enter. Defaults to
+    /// `read_line`, so scripted readers and piped stdin keep the plain
+    /// line contract, where 0 still acts when the line is submitted.
+    fn read_line_quick0(
+        &mut self,
+        prompt: &str,
+        below: Option<&[String]>,
+        out: &mut dyn Out,
+    ) -> ReadOutcome {
+        self.read_line(prompt, below, out)
+    }
 }
 
 /// The output side: write plus flush, mirroring the python pairs
@@ -401,6 +414,10 @@ impl LineEdit {
         self.buf.iter().collect()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.buf.is_empty()
+    }
+
     pub fn add(&mut self, ch: char, out: &mut dyn Out) {
         self.buf.push(ch);
         let mut tmp = [0u8; 4];
@@ -622,12 +639,14 @@ impl TtyReader {
     }
 
     /// The tty branch: prompt first, then the `below` block, then the
-    /// raw loop (python read_esc lines 244-314).
+    /// raw loop (python read_esc lines 244-314); `quick0` arms the
+    /// FR-17 bare-0 fire for the main prompt.
     fn read_tty(
         &mut self,
         prompt: &str,
         below: Option<&[String]>,
         out: &mut dyn Out,
+        quick0: bool,
     ) -> ReadOutcome {
         if !prompt.is_empty() {
             out.write(prompt);
@@ -642,11 +661,11 @@ impl TtyReader {
         }
         #[cfg(unix)]
         {
-            read_esc_tty_unix(prompt, out, &mut self.history, &mut self.raw)
+            read_esc_tty_unix(prompt, out, &mut self.history, &mut self.raw, quick0)
         }
         #[cfg(windows)]
         {
-            read_esc_tty_windows(prompt, out, &mut self.history)
+            read_esc_tty_windows(prompt, out, &mut self.history, quick0)
         }
     }
 }
@@ -659,7 +678,20 @@ impl Reader for TtyReader {
         out: &mut dyn Out,
     ) -> ReadOutcome {
         if stdin_is_tty() {
-            self.read_tty(prompt, below, out)
+            self.read_tty(prompt, below, out, false)
+        } else {
+            read_esc_piped(prompt, below, &mut self.lines, out)
+        }
+    }
+
+    fn read_line_quick0(
+        &mut self,
+        prompt: &str,
+        below: Option<&[String]>,
+        out: &mut dyn Out,
+    ) -> ReadOutcome {
+        if stdin_is_tty() {
+            self.read_tty(prompt, below, out, true)
         } else {
             read_esc_piped(prompt, below, &mut self.lines, out)
         }
@@ -888,12 +920,20 @@ fn csi_final(fd: i32) -> Option<char> {
     }
 }
 
+/// FR-17: the quick-paste trigger - only the main prompt's read asks for
+/// it (`quick0`), only on a bare 0 keypress, only on an empty line. A 0
+/// typed later inside a line stays an ordinary character.
+fn quick0_fires(quick0: bool, ch: char, ed: &LineEdit) -> bool {
+    quick0 && ch == '0' && ed.is_empty()
+}
+
 #[cfg(unix)]
 fn read_esc_tty_unix(
     prompt: &str,
     out: &mut dyn Out,
     history: &mut History,
     input: &mut RawInput,
+    quick0: bool,
 ) -> ReadOutcome {
     let fd = 0;
     let Some(_raw) = RawMode::enter(fd) else {
@@ -934,6 +974,11 @@ fn read_esc_tty_unix(
             },
             '\x08' | '\x7f' => ed.back(out),
             '\x03' => return ReadOutcome::Interrupted,
+            ch if quick0_fires(quick0, ch, &ed) => {
+                out.write("\n");
+                out.flush();
+                return ReadOutcome::Line("0".to_string());
+            }
             ch if ch >= ' ' => {
                 ed.add(ch, out);
             }
@@ -956,7 +1001,12 @@ unsafe extern "C" {
 /// lone surrogate half (a non-BMP key) maps to U+FFFD because a rust
 /// String cannot carry it (recorded deviation).
 #[cfg(windows)]
-fn read_esc_tty_windows(prompt: &str, out: &mut dyn Out, history: &mut History) -> ReadOutcome {
+fn read_esc_tty_windows(
+    prompt: &str,
+    out: &mut dyn Out,
+    history: &mut History,
+    quick0: bool,
+) -> ReadOutcome {
     let mut ed = LineEdit::new(prompt, history);
     loop {
         let w = unsafe { _getwch() };
@@ -982,6 +1032,11 @@ fn read_esc_tty_windows(prompt: &str, out: &mut dyn Out, history: &mut History) 
                 }
             }
             0x0003 => return ReadOutcome::Interrupted,
+            c if quick0_fires(quick0, char::from_u32(c as u32).unwrap_or('\u{fffd}'), &ed) => {
+                out.write("\n");
+                out.flush();
+                return ReadOutcome::Line("0".to_string());
+            }
             c if c >= 0x20 => {
                 let ch = char::from_u32(c as u32).unwrap_or('\u{fffd}');
                 ed.add(ch, out);
@@ -1412,6 +1467,34 @@ mod tests {
         assert_eq!(h.entries.len(), 100);
         assert_eq!(h.entries[0], "line1");
         assert_eq!(h.entries.last().unwrap(), "newest");
+    }
+
+    /// FR-17: the bare 0 fires the quick paste only for the main prompt's
+    /// read, only on an empty line; a 0 inside a typed line (or any other
+    /// read) stays an ordinary character.
+    #[test]
+    fn quick0_fires_only_for_the_bare_zero_on_the_main_prompt() {
+        let h = History::new();
+        let mut ed = LineEdit::new("> ", &h);
+        assert!(quick0_fires(true, '0', &ed));
+        assert!(!quick0_fires(false, '0', &ed));
+        assert!(!quick0_fires(true, '1', &ed));
+        let mut out = RecordingOut::default();
+        ed.add('1', &mut out);
+        assert!(!quick0_fires(true, '0', &ed));
+    }
+
+    /// Scripted and piped reads keep the line contract: 0 acts when the
+    /// line is submitted, exactly as before FR-17 armed the tty key.
+    #[test]
+    fn quick0_read_defaults_to_the_plain_line_read() {
+        let mut reader = ScriptedReader::new(vec![ScriptItem::Line("0".to_string())]);
+        let mut out = RecordingOut::default();
+        assert_eq!(
+            reader.read_line_quick0("> ", None, &mut out),
+            ReadOutcome::Line("0".to_string())
+        );
+        assert_eq!(reader.prompts, vec!["> ".to_string()]);
     }
 
     /// The piped contract measured against python 3.14 (universal

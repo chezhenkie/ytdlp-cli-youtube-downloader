@@ -67,6 +67,12 @@ fn read(io: &mut Io, prompt: &str, below: Option<&[String]>) -> ReadOutcome {
     io.reader.read_line(prompt, below, io.out)
 }
 
+/// The main prompt's read (FR-17): on a real tty a bare "0" acts on the
+/// keypress; every other call site keeps the plain line contract.
+fn read_quick0(io: &mut Io, prompt: &str, below: Option<&[String]>) -> ReadOutcome {
+    io.reader.read_line_quick0(prompt, below, io.out)
+}
+
 /// python `print(...)`: the line plus its newline, flushed (the extra
 /// flush is unobservable in bytes; python's print flushes a tty line
 /// buffer the same way).
@@ -730,7 +736,7 @@ pub fn main_menu(
             quiet_check(s, io)?;
             save(s, world)?;
         }
-        match read(io, "> ", None) {
+        match read_quick0(io, "> ", None) {
             ReadOutcome::Eof | ReadOutcome::Interrupted => {
                 io.out.write("\n");
                 io.out.flush();
