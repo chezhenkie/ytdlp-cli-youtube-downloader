@@ -124,7 +124,10 @@ jobs:
           $m = [regex]::Match((Get-Content rust-src/Cargo.toml -Raw), '(?m)^version = "([^"]+)"')
           $ver = $m.Groups[1].Value
           $setup = "dist/ytdlp-cli-v$ver-windows-setup.exe"
-          $tdir = "$PWD/inst-test/ytdlp-cli"
+          $tdir = "$PWD\inst-test\ytdlp-cli"
+          # canonical separator form for the registry-value comparisons below;
+          # the registry may carry either form (found in run 39055610868)
+          $tdirN = $tdir.Replace('/', '\')
           Start-Process -FilePath $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/DIR=$tdir" -Wait
           if (-not (Test-Path "$tdir/ytdlp.exe")) { throw "installed ytdlp.exe missing" }
           $report = & "$tdir/ytdlp.exe" --selftest | Out-String
@@ -139,13 +142,13 @@ jobs:
             if (-not (Test-Path "$tdir/$f")) { throw "installed file missing: $f" }
           }
           $pathNow = (Get-ItemProperty -Path "HKCU:\Environment" -Name Path).Path
-          if ($pathNow -notlike "*$tdir*") { throw "PATH entry missing after install" }
+          if ($pathNow.Replace('/', '\') -notlike "*$tdirN*") { Write-Host "HKCU Path after install: $pathNow"; throw "PATH entry missing after install" }
           Start-Process -FilePath "$tdir/unins000.exe" -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait
           $deadline = (Get-Date).AddSeconds(20)
           while ((Test-Path $tdir) -and ((Get-Date) -lt $deadline)) { Start-Sleep -Milliseconds 500 }
           if (Test-Path $tdir) { throw "uninstall left files behind" }
           $pathAfter = (Get-ItemProperty -Path "HKCU:\Environment" -Name Path).Path
-          if ($pathAfter -like "*$tdir*") { throw "PATH entry survived uninstall" }
+          if ($pathAfter.Replace('/', '\') -like "*$tdirN*") { Write-Host "HKCU Path after uninstall: $pathAfter"; throw "PATH entry survived uninstall" }
           Remove-Item -Recurse -Force "$PWD/inst-test" -ErrorAction SilentlyContinue
           Write-Host "installer proof passed: install, selftest 177/0, PE fields, PATH add/remove, clean uninstall"
       - name: checksums and sizes
