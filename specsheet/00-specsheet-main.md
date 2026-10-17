@@ -9,7 +9,7 @@
 - Approvers: chezhenkie approves every gate.
 - Status: implemented. The product is the native line in `app-rust/` - one self-contained binary per platform - shipped as v2.0.0 and v2.0.1 (2026-10-16); the earlier v1.x releases were the predecessor line and are history. Cutover to native at v2.0.1 (owner call 2026-10-16). This spec was restructured into specsheet/ on 2026-10-15 and rewritten 2026-10-16 to describe the native product only.
 - Reference oracle (the single exception): the stdlib python line in `app-python/` is frozen at v1.5.0 - final, no further development, never deleted. It stays in-repo as the reference oracle for the rust.yml differential, parity and session jobs (oracle pinned to CPython 3.14.4 exactly) and as the legacy folder. It is not the product; nothing in this spec beyond this note describes it.
-- Related documents: README.md (published usage), CHANGELOG.md (history with hashes), THIRD-PARTY-NOTICES.md (bundle licensing), LICENSE (MIT), .github/workflows/rust.yml + bundles.yml (CI), RUST-PORT-PLAN.md (the historical port plan), python-to-rust-refactor-pitfalls.md (language-rule background).
+- Related documents: README.md (published usage), CHANGELOG.md (history with hashes), THIRD-PARTY-NOTICES.md (bundle licensing), LICENSE (MIT), .github/workflows/rust.yml + bundles.yml (CI).
 - Evidence pin: cites in this spec name native source locations (files and functions under `app-rust/`); the dated decision trail lives in git history and CHANGELOG chapters. Cites are written against the code state at the citing commit - re-pin at release time only, when the cited file changes.
 
 ## Short description
