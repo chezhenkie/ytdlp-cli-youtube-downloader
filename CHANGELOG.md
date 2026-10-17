@@ -5,6 +5,9 @@ Newest first. Current level: v2.0.3 (native, in development); v2.0.2 released 20
 
 ## v2.0.3 native (in development)
 
+- fix: the probe timeout kills the whole process tree (this commit)
+OQ-P1 hardening, owner-ordered after the repro session (record scratch-oqp1/OQ-P1-REPRO-SESSION.md; the four exit-path runs were clean and the leak itself was not reproduced): the 60 s `--version` probe timeout used `child.kill()`, which terminates only the direct child - the PyInstaller bootloader - so a hung probe could orphan its python grandchild and keep `yt-dlp.exe` locked. The timeout now removes the whole tree (windows: `taskkill /F /T /PID`; posix: the probe runs in its own process group and the group takes SIGKILL), then reaps. The public message is unchanged; the deviation from the frozen python line's direct-child-only kill is recorded. Covered by the new unix test `a_probe_timeout_kills_the_whole_tree` (a shim forks a sleepy grandchild; the timeout must take both).
+
 - fix: pressing 0 fires the clipboard quick paste at once (this commit)
 Owner pass on the published v2.0.2: the row's "press zero '0'" was read as a keypress, and a bare 0 just echoed on the input line (probe scratch-fr17/probe-key0.py on the published binary: one echoed byte back, nothing else; 0+enter ran the download). On a real tty the main prompt now acts on the bare 0 at the keypress - no enter, no echo, not remembered in history; a 0 typed later inside a line stays a character. The 0-then-enter line path still works for scripted and piped runs (the defaulted Reader::read_line_quick0 seam); submenu and hold reads are untouched. Pinned by tty.rs unit tests (the quick0_fires rule and the scripted default) plus the probe on the fixed build.
 

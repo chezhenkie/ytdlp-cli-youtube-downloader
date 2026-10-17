@@ -1136,20 +1136,69 @@ pub fn mtime_seconds(path: &str) -> Option<f64> {
     }
 }
 
+/// Remove a timed-out probe's whole tree: `child.kill()` would take only
+/// the direct child (the PyInstaller bootloader) and could orphan its
+/// python grandchild holding the exe lock; taskkill /F /T on windows,
+/// killpg on posix (the probe gets its own process group at spawn
+/// below), then reap.
+fn kill_probe_tree(child: &mut std::process::Child) {
+    #[cfg(windows)]
+    {
+        use std::process::Stdio;
+        let _ = std::process::Command::new("taskkill")
+            .args(["/F", "/T", "/PID", &child.id().to_string()])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+    #[cfg(unix)]
+    unsafe {
+        let pgid = libc::getpgid(child.id() as i32);
+        if pgid >= 0 {
+            libc::killpg(pgid, libc::SIGKILL);
+        }
+    }
+    #[cfg(not(any(windows, unix)))]
+    {
+        let _ = &child;
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
 /// One `subprocess.run([binary, flag], capture_output=True, text=True,
-/// timeout=60)`; a timeout kills the child and lands in the `error:`
-/// shape branch like python's `TimeoutExpired`.
+/// timeout=60)`; a timeout kills the whole child tree and lands in the
+/// `error:` shape branch like python's `TimeoutExpired`. The tree kill
+/// is the OQ-P1 hardening (2026-10-17): python's run() timeout kills
+/// only the direct child, which for a PyInstaller yt-dlp would orphan
+/// the python grandchild holding the exe lock (recorded deviation).
 pub fn spawn_version_probe(binary: &str, flag: &str) -> Result<SpawnOutcome, String> {
+    spawn_version_probe_within(binary, flag, std::time::Duration::from_secs(60))
+}
+
+/// The probe with an injectable deadline (the tree-kill test drives it);
+/// the public form pins python's 60 s.
+fn spawn_version_probe_within(
+    binary: &str,
+    flag: &str,
+    timeout: std::time::Duration,
+) -> Result<SpawnOutcome, String> {
     use std::io::Read;
     use std::process::{Command, Stdio};
 
-    let mut child = Command::new(binary)
-        .arg(flag)
+    let mut cmd = Command::new(binary);
+    cmd.arg(flag)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| e.to_string())?;
+        .stderr(Stdio::piped());
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        // own process group, so the timeout kill takes the probe's whole
+        // tree and never signals the app's own group
+        cmd.process_group(0);
+    }
+    let mut child = cmd.spawn().map_err(|e| e.to_string())?;
     let mut stdout_pipe = child.stdout.take().ok_or("no stdout pipe")?;
     let mut stderr_pipe = child.stderr.take().ok_or("no stderr pipe")?;
     let stdout_thread = std::thread::spawn(move || {
@@ -1162,15 +1211,18 @@ pub fn spawn_version_probe(binary: &str, flag: &str) -> Result<SpawnOutcome, Str
         let _ = stderr_pipe.read_to_end(&mut buf);
         buf
     });
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    let deadline = std::time::Instant::now() + timeout;
     let status = loop {
         match child.try_wait() {
             Ok(Some(status)) => break status,
             Ok(None) => {
                 if std::time::Instant::now() >= deadline {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return Err(format!("Command '{}' timed out after 60 seconds", binary));
+                    kill_probe_tree(&mut child);
+                    return Err(format!(
+                        "Command '{}' timed out after {} seconds",
+                        binary,
+                        timeout.as_secs()
+                    ));
                 }
                 std::thread::sleep(std::time::Duration::from_millis(10));
             }
@@ -1783,6 +1835,63 @@ mod tests {
         let again = probe_version(&path, Some(1.0), &mut cache, &mut spawn);
         assert_eq!(again, probe);
         assert_eq!(cache.len(), 1, "the successful answer is memoized");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// OQ-P1 hardening (2026-10-17): a probe timeout must take the whole
+    /// tree. The shim forks a sleepy grandchild (its pid goes to a file)
+    /// and hangs; after the timeout both the shim and the grandchild
+    /// must be gone - the old `child.kill()` left the grandchild alive.
+    #[cfg(unix)]
+    #[test]
+    fn a_probe_timeout_kills_the_whole_tree() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = scratch("timeout-tree");
+        let pidfile = dir.join("grandchild.pid");
+        let shim = dir.join("hang");
+        let script = format!(
+            "#!/bin/sh\nsleep 30 &\necho $! > \"{}\"\nsleep 30\n",
+            pidfile.to_string_lossy()
+        );
+        std::fs::write(&shim, script).expect("shim");
+        std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+        let path = shim.to_string_lossy().to_string();
+
+        let started = std::time::Instant::now();
+        let res = spawn_version_probe_within(&path, "--version", std::time::Duration::from_secs(1));
+        let err = res.expect_err("the shim must time out");
+        assert!(err.contains("timed out after 1 seconds"), "{err}");
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(15),
+            "the timeout must not hang"
+        );
+
+        // the grandchild's pid lands in the file before the hang
+        let mut pid_text = String::new();
+        for _ in 0..40 {
+            if let Ok(text) = std::fs::read_to_string(&pidfile) {
+                pid_text = text;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        assert!(
+            !pid_text.trim().is_empty(),
+            "the shim wrote its grandchild pid"
+        );
+        let gc_pid: i32 = pid_text.trim().parse().expect("pid");
+        // killpg SIGKILL takes the group; init reaps the orphan shortly
+        // after, so poll instead of racing the reap
+        let mut dead = false;
+        for _ in 0..100 {
+            let alive = unsafe { libc::kill(gc_pid, 0) } == 0;
+            if !alive {
+                dead = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        assert!(dead, "grandchild {gc_pid} survived the probe timeout");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
