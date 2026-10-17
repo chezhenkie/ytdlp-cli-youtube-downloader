@@ -23,6 +23,10 @@ One-shot URL runs, scripts, CI and piped runs never trigger it: no network conta
 | `ytdlp-cli-v2.2.0-macos-arm64.pkg` | 54.1 MB | macOS installer for Apple silicon (yt-dlp and ffmpeg). Nothing else to install. |
 The lean bundles skip ffmpeg, on a machine with no ffmpeg at all it also offers to fetch the published build for the platform, with the checksum checked before it is installed.
 
+![ytdlp-cli process flow](resources/archify%20flow%20ytdlp-cli.png)
+
+The live, interactive flow can be found in the [ytdlp process flow archify](https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/tree/main/ytdlp%20process%20flow%20archify) folder.
+
 ## Requirements
 
 None beyond the bundle, the Windows binary is statically linked.
