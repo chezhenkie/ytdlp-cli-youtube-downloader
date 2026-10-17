@@ -1,7 +1,21 @@
 changelog
 =========
 
-Newest first. Current level: v2.0.3 (native, released 2026-10-17); v2.0.2 released 2026-10-17; v1.5.0 is the final python line. Consolidated 2026-10-16: chapters longer than their headlines are compressed, full dated chapters live in git history.
+Newest first. Current level: v2.0.4 (native, released 2026-10-17); v2.0.3 released 2026-10-17; v1.5.0 is the final python line. Consolidated 2026-10-16: chapters longer than their headlines are compressed, full dated chapters live in git history.
+
+## v2.0.4 native (released 2026-10-17)
+
+- v2.0.4 published (this commit)
+A presentation release on the native line: the app icon is embedded in the Windows exe and the README names the exe as the normal entry with its own launcher chapter (entries below). CI run 39011403570 assembled the six binaries; both platform bundles were extracted and run from the CI bytes before upload (windows-lean/portable selftest 177/0 from the extracted tree with the 2.0.4 version fields, the import table free of vcruntime*/msvcp* and the icon resource extracted; linux-lean/portable launcher selftest 177/0, --check resolving the bundled yt-dlp 2026.08.19 and, in the portable bundle, the bundled ffmpeg dir, 0755 modes from the tar listing) and all six match the CI SHA256SUMS. Digests folded into README.md and the staged releases/v2.0.4/RELEASE-NOTES.md; the tag and the gh release upload follow; G10 runs from the release after publish. Bundle payload pins stay as published (gyan 9.0.2 windows portable, BtbN n9.0.2 linux).
+
+- feat: the Windows exe carries the app icon (f1907d1)
+Drawn once as app-rust/packaging/icon.svg (terminal caret + download arrow in the menu's amber palette), embedded as app-rust/packaging/icon.ico (16/32/48/256) through the FR-16 resource script. Explorer, the taskbar and Windows Terminal tabs now show it; the exe grows about 16 KB and nothing else changes. The Linux binary is unaffected (no ELF icon resource).
+
+- docs: README names the exe as the normal entry; launchers get their own chapter (2206fbc)
+"Exe or launcher" states plainly that ytdlp.exe / ./ytdlp is the whole program and that run-ytdlp.bat / run-ytdlp.sh are optional thin wrappers (double-click pause on error; folder-resolving entry that works under sh/dash). Requirements and the one-shot example now list the exe first.
+
+- cleanup: historical root docs and the process-flow exports dropped (d5491c0)
+RUST-PORT-PLAN.md, python-to-rust-refactor-pitfalls.md and the archify exports removed by owner pass; the two specsheet references they left behind were repointed at the recorded evidence trail. Git history keeps the full texts.
 
 ## v2.0.3 native (released 2026-10-17)
 

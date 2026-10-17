@@ -6,10 +6,10 @@ For lean download only: on an OS with no ffmpeg installed the CLI offers to fetc
 
 | file | size | contains |
 |---|---|---|
-| `ytdlp-cli-v2.0.3-windows-lean.zip` | 19.5 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
-| `ytdlp-cli-v2.0.3-windows-portable.zip` | 59.5 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
-| `ytdlp-cli-v2.0.3-linux-lean.tar.gz` | 42.0 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
-| `ytdlp-cli-v2.0.3-linux-portable.tar.gz` | 110.1 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
+| `ytdlp-cli-v2.0.4-windows-lean.zip` | 19.5 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
+| `ytdlp-cli-v2.0.4-windows-portable.zip` | 59.5 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
+| `ytdlp-cli-v2.0.4-linux-lean.tar.gz` | 42.0 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
+| `ytdlp-cli-v2.0.4-linux-portable.tar.gz` | 110.1 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
 The two portable bundles are the larger downloads and the ones most people want. The lean bundles skip ffmpeg, and the CLI says so and falls back to a single best file rather than failing. On a machine with no ffmpeg at all it also offers to fetch the published build, with the checksum checked before it is installed.
 
 ## Requirements
@@ -55,12 +55,12 @@ They change nothing else: same arguments, same settings, same output. The update
 ## Checksums
 
 ```
-5382393c8661b420897301837921eb7b27202dd9f6c555b460667ca001f7288f  ytdlp-cli-v2.0.3-windows-lean.zip
-f3a1fae4e98d5f95823b07cdb0e3a27d5a0dca9f4f71f1a7e6f2ffd748fb29fb  ytdlp-cli-v2.0.3-windows-portable.zip
-02e3122eb2f2b6abf5daf965bd23fd3c29291927136dc405ce07cc12ae59c4d8  ytdlp-cli-v2.0.3-linux-lean.tar.gz
-4acec13f6dc5e3a6c9ac3021370c920383b178f04db4d12d335f35057dede571  ytdlp-cli-v2.0.3-linux-portable.tar.gz
-5bd67a2c18b7ecd844183bd518f6a084617a5bc3e4acf34c355bdf875400e94f  ytdlp-native-windows-x86_64.exe
-3d058d255d5332ba2f2062a3a9c52d1e767c3db4ea3e7470229655db889f8e80  ytdlp-native-linux-x86_64
+7943c5d001303c6f7c81c1106263e556d53e710f9911133f9ad1383fe7ce92ea  ytdlp-cli-v2.0.4-windows-lean.zip
+52f0562d1a672e590ef482eeaa242f109800ebe3abaa139a4153776a31709d91  ytdlp-cli-v2.0.4-windows-portable.zip
+d2718f3203ed279e649c753634e1b1e4a252423274ee144782c9812dc801b489  ytdlp-cli-v2.0.4-linux-lean.tar.gz
+aff8588fb3ae3c13f300e54a6712c9181538eb4463a00c42d7c56b1b70437f01  ytdlp-cli-v2.0.4-linux-portable.tar.gz
+2aa6d46363295dcaa06c64e2bdb77c238bf7694d8a800259d2d7b5773ba34748  ytdlp-native-windows-x86_64.exe
+46ef0bdda9ee3c01b13f10521bf0597d683a2ef6b97017dead5cc72b97754a98  ytdlp-native-linux-x86_64
 ```
 
 The last two are the updater images the built-in updater fetches; their digests are published so every update is verified against them.
