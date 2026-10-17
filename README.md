@@ -23,7 +23,7 @@ The lean bundles skip ffmpeg, on a machine with no ffmpeg at all it also offers 
 
 ## Requirements
 
-None beyond the bundle: no Python, no runtime, no redistributable. The Windows binary is statically linked.
+None beyond the bundle, the Windows binary is statically linked.
 
 - Windows: `ytdlp.exe` (or the setup.exe below, which installs it for your user and puts it on your PATH)
 - Linux: `./ytdlp`
