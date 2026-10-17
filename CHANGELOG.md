@@ -1,7 +1,18 @@
 changelog
 =========
 
-Newest first. Current level: v2.1.0 (native, released 2026-10-17); v2.0.4 released 2026-10-17; v2.0.3 released 2026-10-17; v1.5.0 is the final python line. Consolidated 2026-10-16: chapters longer than their headlines are compressed, full dated chapters live in git history.
+Newest first. Current level: v2.1.1 (native, released 2026-10-17); v2.1.0 released 2026-10-17; v2.0.4 released 2026-10-17; v2.0.3 released 2026-10-17; v1.5.0 is the final python line. Consolidated 2026-10-16: chapters longer than their headlines are compressed, full dated chapters live in git history.
+
+## v2.1.1 native (released 2026-10-17)
+
+- v2.1.1 published (this commit)
+A text-fix release on the native line: the amber hint line loses its trailing period and menu item 12's notice tells the truth when the daily check is off (entries below). CI run 39044177617 (16 jobs) green; bundles.yml run 39044455339 assembled the seven binaries, all three jobs green; every bundle extracted and checked from the CI bytes before upload - windows-lean/portable selftest 177/0 with the PE file description reading "ytdlp" and the 2.1.1 version fields, the updater image 177/0; linux-lean/portable selftest 177/0, tar modes 0755, payload pins (yt-dlp 58162f9b..., ffmpeg a573011f...), --check resolving the bundled yt-dlp and the portable bundle's ffmpeg directory plus the no-ffmpeg single-file fallback; macos structure, 0755 modes, payload hash chain and Mach-O shape - and all seven files match the CI SHA256SUMS. Digests folded into README.md and the staged releases/v2.1.1/RELEASE-NOTES.md; eight release files (five bundles, two updater images, the notes). Measured sizes: windows lean 19499744, windows portable 59509238, linux lean 41992653, linux portable 110073184, macos arm64 portable 54084212, updater images 3983360 (windows), 4947544 (linux). G10 runs from the release after publish.
+
+- fix: the amber hint line loses its trailing period; item 12's off notice says what off means (this commit)
+Owner calls 2026-10-17i. The hint line now reads "paste url, press enter and download will start" without the period (ui.rs `hint_lines`), and menu item 12's line reads "auto update off - no startup check" when the daily check is off, stating what off means; the on wording "checked once a day at start" is unchanged. Both are recorded native-only wording changes: `project_wording()` (arms.rs) and `normalize()` (tools/session_diff.py) map them so the differential compares against the shipped wording, and the item-12 crate test asserts both branches. Local gate before push: fmt + clippy clean, run-all 69 functions / 978 records / 0 mismatches, sessions piped 32/32 and pty 14/14, tables pinned, G4 --check byte compare clean, report parity 177/177.
+
+- docs: the owner-banned term is gone from the repo (this commit)
+The term is replaced with "reference" across every tracked file (28 swept, double-word collisions repaired), covering the specsheet, README, CHANGELOG, workflows, vector note fields and tool strings; zero occurrences remain. The frozen python source keeps its exact bytes and is reference-only; the off-limits archify export folder is untouched. The term stays banned as a standing owner rule.
 
 ## v2.1.0 native (released 2026-10-17)
 

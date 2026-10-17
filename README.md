@@ -12,11 +12,11 @@ One-shot URL runs, scripts, CI and piped runs never trigger it: no network conta
 
 | file | size | contains |
 |---|---|---|
-| `ytdlp-cli-v2.1.0-windows-lean.zip` | 19.5 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
-| `ytdlp-cli-v2.1.0-windows-portable.zip` | 59.5 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
-| `ytdlp-cli-v2.1.0-linux-lean.tar.gz` | 42.0 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
-| `ytdlp-cli-v2.1.0-linux-portable.tar.gz` | 110.1 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
-| `ytdlp-cli-v2.1.0-macos-arm64-portable.tar.gz` | 54.1 MB | yt-dlp **and** ffmpeg, Apple silicon. Nothing else to install. |
+| `ytdlp-cli-v2.1.1-windows-lean.zip` | 19.5 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
+| `ytdlp-cli-v2.1.1-windows-portable.zip` | 59.5 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
+| `ytdlp-cli-v2.1.1-linux-lean.tar.gz` | 42.0 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
+| `ytdlp-cli-v2.1.1-linux-portable.tar.gz` | 110.1 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
+| `ytdlp-cli-v2.1.1-macos-arm64-portable.tar.gz` | 54.1 MB | yt-dlp **and** ffmpeg, Apple silicon. Nothing else to install. |
 The three portable bundles are the larger downloads and the ones most people want. The lean bundles skip ffmpeg, and the CLI says so and falls back to a single best file rather than failing; on a machine with no ffmpeg at all it also offers to fetch the published build for the platform, with the checksum checked before it is installed.
 
 ## Requirements
@@ -63,13 +63,13 @@ They change nothing else: same arguments, same settings, same output. The update
 ## Checksums
 
 ```
-5df3cb6876c154ac55efa29f949d89a714df6b076804a73f73ca07a269cce93d  ytdlp-cli-v2.1.0-windows-lean.zip
-3e124c5a7c71fa3d7b3e59386825af867b9237bff06051b7a90c618305a209da  ytdlp-cli-v2.1.0-windows-portable.zip
-71d539285420fe77d2db8d59a68f5af41712fd1e58ba2aab34c582bd6721e2bf  ytdlp-cli-v2.1.0-linux-lean.tar.gz
-b98b0eb9443b0b85605bd0980de65fe3703a61a323b2b4aca7c426c2944dab73  ytdlp-cli-v2.1.0-linux-portable.tar.gz
-a319330847cac73c6d437f048d7d2f291e12862d685814ca2ece4b539be6fc45  ytdlp-cli-v2.1.0-macos-arm64-portable.tar.gz
-15e0ac33c2d9edd01d7f31e370d897ddc1ed82ce98e57b626928119222a10990  ytdlp-native-windows-x86_64.exe
-51d93571f4043524187f71f8a816cf1e0c8451e1abecf082d48ef1c23ec71f59  ytdlp-native-linux-x86_64
+61805b2e3513b9c51e8cc35052147a0169bbdd31a69bf185e3fe998b660e9a5c  ytdlp-cli-v2.1.1-windows-lean.zip
+380d4b472e9a58f98809fed6a5681f9bac5c339ab5e7920c3c3ec15ac8f4fa29  ytdlp-cli-v2.1.1-windows-portable.zip
+f22330ad58b70c9f89df331524f07469176aa8408ef6b5eb7c28ed4c990f1d01  ytdlp-cli-v2.1.1-linux-lean.tar.gz
+397b5a587ce7e5e98dee924460f3780b06947f949739beb5347f8c2b6f70fddf  ytdlp-cli-v2.1.1-linux-portable.tar.gz
+30c8bf5c89e411c3a3b92ff5eff48481eebd28bf45dca7ca1728689113dee5b5  ytdlp-cli-v2.1.1-macos-arm64-portable.tar.gz
+8a5992383eb2ad873a2f35032cf4202b2729c38f0bb4fcb29c797734466c3ebd  ytdlp-native-windows-x86_64.exe
+3e32675fa7a61a7edbec8c70a823e8a45d4901a51f153cc5d97e3161867b4b74  ytdlp-native-linux-x86_64
 ```
 
 The last two are the updater images the built-in updater fetches; their digests are published so every update is verified against them.
