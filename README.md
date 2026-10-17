@@ -16,8 +16,10 @@ The two portable bundles are the larger downloads and the ones most people want.
 
 None beyond the bundle: no Python, no runtime, no redistributable. The Windows binary is statically linked.
 
-- Windows: `run-ytdlp.bat`, or `ytdlp.exe`
-- Linux: `./run-ytdlp.sh`, which also works under `sh` and `dash`, or `./ytdlp`
+- Windows: `ytdlp.exe`
+- Linux: `./ytdlp`
+
+The bundle also carries `run-ytdlp.bat` and `run-ytdlp.sh`; they are optional, the chapter below explains when they help.
 
 Linux builds are x86_64 glibc. On any other architecture put `yt-dlp` on PATH or set `yt_dlp_path` in `config/settings.json`.
 
@@ -28,7 +30,7 @@ v1.5.0 was the final Python release; its bundles remain on the v1.5.0 release pa
 Start it and paste a URL, or press 0 to download the link already on your clipboard. Or skip the menu:
 
 ```
-run-ytdlp.bat https://youtu.be/xxxx
+ytdlp.exe https://youtu.be/xxxx
 ```
 
 One-shot overrides look like `-f mkv -r 720 --subs`, also `-a`, `--af`, `-o`, `--template`, `--playlist`. Overrides apply to that run only and are never written to your settings.
@@ -36,6 +38,19 @@ One-shot overrides look like `-f mkv -r 720 --subs`, also `-a`, `--af`, `-o`, `-
 The menu itself is where the defaults live: type/video mode, container, resolution, audio format, output folder, filename template, subtitles, playlists, and reset. Item 9 takes several URLs and downloads them one after another. Escape stops a running download and removes the partial files.
 
 Output goes to your desktop by default, falling back to your downloads folder. Change it with menu item 5.
+
+## Exe or launcher
+
+Normally you use the exe: `ytdlp.exe` on Windows, `./ytdlp` on Linux. It is the whole program - one static binary, no runtime, no install step, and every feature and setting lives inside it.
+
+`run-ytdlp.bat` and `run-ytdlp.sh` are optional thin wrappers around that exe:
+
+| file | what it adds |
+|---|---|
+| `run-ytdlp.bat` | Windows double-click entry. Runs `ytdlp.exe` from the bundle folder, forwards arguments, and pauses on a nonzero exit so the console does not close before you can read the error. |
+| `run-ytdlp.sh` | Linux entry that finds its own folder, so it runs from any directory and under `sh`/`dash`. |
+
+They change nothing else: same arguments, same settings, same output. The updater replaces the exe only and never touches them, so deleting them is safe. The bare updater image (`ytdlp-native-*`) runs without any launcher too.
 
 ## Checksums
 
