@@ -19,7 +19,6 @@ One-shot URL runs, scripts, CI and piped runs never trigger it: no network conta
 | `ytdlp-cli-v2.2.0-linux-lean.tar.gz` | 42.0 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
 | `ytdlp-cli-v2.2.0-linux-portable.tar.gz` | 110.1 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
 | `ytdlp-cli-v2.2.0-macos-arm64.pkg` | 54.1 MB | macOS installer for Apple silicon (yt-dlp and ffmpeg). Nothing else to install. |
-The portable bundles and the two installers are the larger downloads are preferred.
 The lean bundles skip ffmpeg, on a machine with no ffmpeg at all it also offers to fetch the published build for the platform, with the checksum checked before it is installed.
 
 ## Requirements
