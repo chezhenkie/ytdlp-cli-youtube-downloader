@@ -5,6 +5,9 @@ Newest first. Current level: v2.0.4 (native, released 2026-10-17); v2.0.3 releas
 
 ## v2.0.4 native (released 2026-10-17)
 
+- docs: v2.0.4 G10 green at the destination (this commit)
+Every asset downloaded from the published release: the six digest rows in RELEASE-NOTES.md hash-match the downloaded bytes and the api digests equal README's numbers. All four bundles extracted and run from the published bytes on their target platform - windows-lean/portable selftest 177/0 with PE imports clean, the 2.0.4 version fields and the icon resource extracted; linux-lean/portable launcher selftest 177/0, --check resolving the bundled yt-dlp 2026.08.19 and the portable bundle's ffmpeg dir, tar modes 0755. Measured sizes: windows lean 19493997, windows portable 59503491, linux lean 41990246, linux portable 110065489, updater images 3984384 (windows) and 4946400 (linux).
+
 - v2.0.4 published (this commit)
 A presentation release on the native line: the app icon is embedded in the Windows exe and the README names the exe as the normal entry with its own launcher chapter (entries below). CI run 39011403570 assembled the six binaries; both platform bundles were extracted and run from the CI bytes before upload (windows-lean/portable selftest 177/0 from the extracted tree with the 2.0.4 version fields, the import table free of vcruntime*/msvcp* and the icon resource extracted; linux-lean/portable launcher selftest 177/0, --check resolving the bundled yt-dlp 2026.08.19 and, in the portable bundle, the bundled ffmpeg dir, 0755 modes from the tar listing) and all six match the CI SHA256SUMS. Digests folded into README.md and the staged releases/v2.0.4/RELEASE-NOTES.md; the tag and the gh release upload follow; G10 runs from the release after publish. Bundle payload pins stay as published (gyan 9.0.2 windows portable, BtbN n9.0.2 linux).
 
