@@ -6,17 +6,19 @@ The yt-dlp runtime is used exactly as published - nothing in it is patched or re
 
 One-shot URL runs, scripts, CI and piped runs never trigger it: no network contact, nothing written. There is no background process either - the check is a single event when you open the menu yourself. If updates have not happened for a while, start the program normally, or run menu item 11 to update on demand.
 
-**ffmpeg.** The lean bundles ship without it: when none is found on the machine, the CLI offers to fetch a published build - BtbN/FFmpeg-Builds on Windows and Linux - and checks it against the provider's published checksum before installing. FFmpeg's own repository is source code only and publishes no binaries, so that is not where a binary can come from.
+**ffmpeg.** The lean bundles ship without it: when none is found on the machine, the CLI offers to fetch a published build - BtbN/FFmpeg-Builds on Windows and Linux, shaka-project/static-ffmpeg-binaries on macOS - and checks it against the provider's published checksum or digest before installing. FFmpeg's own repository is source code only and publishes no binaries, so that is not where a binary can come from.
 
 ## Pick your download
 
 | file | size | contains |
 |---|---|---|
-| `ytdlp-cli-v2.0.4-windows-lean.zip` | 19.5 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
-| `ytdlp-cli-v2.0.4-windows-portable.zip` | 59.5 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
-| `ytdlp-cli-v2.0.4-linux-lean.tar.gz` | 42.0 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
-| `ytdlp-cli-v2.0.4-linux-portable.tar.gz` | 110.1 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
-The two portable bundles are the larger downloads and the ones most people want. The lean bundles skip ffmpeg, and the CLI says so and falls back to a single best file rather than failing. On a machine with no ffmpeg at all it also offers to fetch the published build, with the checksum checked before it is installed.
+| `ytdlp-cli-v2.1.0-windows-lean.zip` | 19.5 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
+| `ytdlp-cli-v2.1.0-windows-portable.zip` | 59.5 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
+| `ytdlp-cli-v2.1.0-linux-lean.tar.gz` | 42.0 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
+| `ytdlp-cli-v2.1.0-linux-portable.tar.gz` | 110.1 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
+| `ytdlp-cli-v2.1.0-macos-arm64-lean.tar.gz` | 38.5 MB | yt-dlp, Apple silicon. Install ffmpeg yourself for merge and audio conversion. |
+| `ytdlp-cli-v2.1.0-macos-arm64-portable.tar.gz` | 54.1 MB | yt-dlp **and** ffmpeg, Apple silicon. Nothing else to install. |
+The three portable bundles are the larger downloads and the ones most people want. The lean bundles skip ffmpeg, and the CLI says so and falls back to a single best file rather than failing; on a machine with no ffmpeg at all it also offers to fetch the published build for the platform, with the checksum checked before it is installed.
 
 ## Requirements
 
@@ -24,10 +26,11 @@ None beyond the bundle: no Python, no runtime, no redistributable. The Windows b
 
 - Windows: `ytdlp.exe`
 - Linux: `./ytdlp`
+- macOS (Apple silicon): `./ytdlp`
 
 The bundle also carries `run-ytdlp.bat` and `run-ytdlp.sh`; they are optional, the chapter below explains when they help.
 
-Linux builds are x86_64 glibc. On any other architecture put `yt-dlp` on PATH or set `yt_dlp_path` in `config/settings.json`.
+Linux builds are x86_64 glibc and the macOS bundles are arm64 (Apple silicon). On any other architecture put `yt-dlp` on PATH or set `yt_dlp_path` in `config/settings.json`. The macOS binaries are not signed or notarized; if a browser download attaches a quarantine flag, clear it once with `xattr -d com.apple.quarantine ./ytdlp` (same for files under `bin/`).
 
 v1.5.0 was the final Python release; its bundles remain on the v1.5.0 release page.
 
@@ -47,31 +50,34 @@ Output goes to your desktop by default, falling back to your downloads folder. C
 
 ## Exe or launcher
 
-Normally you use the exe: `ytdlp.exe` on Windows, `./ytdlp` on Linux. It is the whole program - one static binary, no runtime, no install step, and every feature and setting lives inside it.
+Normally you use the exe: `ytdlp.exe` on Windows, `./ytdlp` on Linux and macOS. It is the whole program - one static binary, no runtime, no install step, and every feature and setting lives inside it.
 
 `run-ytdlp.bat` and `run-ytdlp.sh` are optional thin wrappers around that exe:
 
 | file | what it adds |
 |---|---|
 | `run-ytdlp.bat` | Windows double-click entry. Runs `ytdlp.exe` from the bundle folder, forwards arguments, and pauses on a nonzero exit so the console does not close before you can read the error. |
-| `run-ytdlp.sh` | Linux entry that finds its own folder, so it runs from any directory and under `sh`/`dash`. |
+| `run-ytdlp.sh` | Posix entry that finds its own folder, so it runs from any directory and under `sh`/`dash` (Linux and macOS). |
 
 They change nothing else: same arguments, same settings, same output. The updater replaces the exe only and never touches them, so deleting them is safe. The bare updater image (`ytdlp-native-*`) runs without any launcher too.
 
 ## Checksums
 
 ```
-7943c5d001303c6f7c81c1106263e556d53e710f9911133f9ad1383fe7ce92ea  ytdlp-cli-v2.0.4-windows-lean.zip
-52f0562d1a672e590ef482eeaa242f109800ebe3abaa139a4153776a31709d91  ytdlp-cli-v2.0.4-windows-portable.zip
-d2718f3203ed279e649c753634e1b1e4a252423274ee144782c9812dc801b489  ytdlp-cli-v2.0.4-linux-lean.tar.gz
-aff8588fb3ae3c13f300e54a6712c9181538eb4463a00c42d7c56b1b70437f01  ytdlp-cli-v2.0.4-linux-portable.tar.gz
-2aa6d46363295dcaa06c64e2bdb77c238bf7694d8a800259d2d7b5773ba34748  ytdlp-native-windows-x86_64.exe
-46ef0bdda9ee3c01b13f10521bf0597d683a2ef6b97017dead5cc72b97754a98  ytdlp-native-linux-x86_64
+5df3cb6876c154ac55efa29f949d89a714df6b076804a73f73ca07a269cce93d  ytdlp-cli-v2.1.0-windows-lean.zip
+3e124c5a7c71fa3d7b3e59386825af867b9237bff06051b7a90c618305a209da  ytdlp-cli-v2.1.0-windows-portable.zip
+71d539285420fe77d2db8d59a68f5af41712fd1e58ba2aab34c582bd6721e2bf  ytdlp-cli-v2.1.0-linux-lean.tar.gz
+b98b0eb9443b0b85605bd0980de65fe3703a61a323b2b4aca7c426c2944dab73  ytdlp-cli-v2.1.0-linux-portable.tar.gz
+18005fc92bab1383cda47b3439be4fc2c865ae809f3fb206e57aef592256d40a  ytdlp-cli-v2.1.0-macos-arm64-lean.tar.gz
+a319330847cac73c6d437f048d7d2f291e12862d685814ca2ece4b539be6fc45  ytdlp-cli-v2.1.0-macos-arm64-portable.tar.gz
+15e0ac33c2d9edd01d7f31e370d897ddc1ed82ce98e57b626928119222a10990  ytdlp-native-windows-x86_64.exe
+51d93571f4043524187f71f8a816cf1e0c8451e1abecf082d48ef1c23ec71f59  ytdlp-native-linux-x86_64
+6ced65692302d1b70306660ab2b0e460cf261bde570e4edc8b33190b8c3d2947  ytdlp-native-macos-arm64
 ```
 
-The last two are the updater images the built-in updater fetches; their digests are published so every update is verified against them.
+The last three are the updater images the built-in updater fetches; their digests are published so every update is verified against them.
 
-The bundled yt-dlp is the official 2026.08.19 release and matches the SHA-256 sums published with it. The Windows ffmpeg is the gyan.dev 9.0.2 essentials build and the Linux one is the BtbN n9.0.2 build; both matched their providers' published checksums, and `THIRD-PARTY-NOTICES.md` in each bundle names the exact archive and its digest.
+The bundled yt-dlp is the official 2026.08.19 release and matches the SHA-256 sums published with it. The Windows ffmpeg is the gyan.dev 9.0.2 essentials build, the Linux one is the BtbN n9.0.2 build and the macOS one is the shaka-project 8.1.2 static arm64 build; each matched its provider's published checksum or digest, and `THIRD-PARTY-NOTICES.md` in each bundle names the exact archive and its digest.
 
 ## Licensing
 

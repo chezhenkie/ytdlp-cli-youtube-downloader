@@ -4,8 +4,8 @@ name: bundles
 # native runners. workflow_dispatch only. This workflow builds artifacts; it does
 # not tag or publish anything. The release commit carries the digests, the tag
 # follows, and gh release upload places exactly these bytes. macos joined in the
-# 2026-10-17g owner pass: five bundles (windows/linux lean+portable,
-# macos-arm64 lean+portable), three bare updater images and RELEASE-NOTES.md.
+# 2026-10-17g owner pass: six bundles (windows/linux/macos-arm64, lean+portable
+# each), three bare updater images and RELEASE-NOTES.md - ten release files.
 #
 # Payload pins:
 #   yt-dlp 2026.08.19: yt-dlp.exe (windows), yt-dlp_linux (linux),
