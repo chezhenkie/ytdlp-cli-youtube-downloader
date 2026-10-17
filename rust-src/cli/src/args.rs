@@ -2,7 +2,7 @@
 //! JS-runtime detection mapping, subtitle language input, and the yt-dlp
 //! argv builders for the download and subtitle passes.
 //!
-//! Ported one to one from `app-python/src/ytdlp.py` (the oracle for the
+//! Ported one to one from `deprecated-py-src/src/ytdlp.py` (the oracle for the
 //! differential harness). Where the python original reads process state
 //! (`shutil.which`) it takes it as a parameter so the pure layer stays
 //! pure; the impure lookup lands in its own layer. Settings values that

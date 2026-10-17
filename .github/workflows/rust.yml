@@ -22,7 +22,7 @@ jobs:
         os: [windows-latest, ubuntu-latest, macos-latest]
     defaults:
       run:
-        working-directory: app-rust
+        working-directory: rust-src
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
@@ -59,21 +59,21 @@ jobs:
         with:
           python-version: '3.14.4'
       - name: instrument self-test, python oracle only (NFR-4)
-        run: python app-rust/tools/harness.py selftest
+        run: python rust-src/tools/harness.py selftest
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.98.0
       - name: build the dispatcher
-        working-directory: app-rust
+        working-directory: rust-src
         run: cargo build --release -p ytdlp-harness
       - name: dispatcher error-path probe
-        run: python app-rust/tools/harness.py probe-rust --rust-bin app-rust/target/release/ytdlp-harness
+        run: python rust-src/tools/harness.py probe-rust --rust-bin rust-src/target/release/ytdlp-harness
       - name: differential over every vector (gate 2)
-        run: python app-rust/tools/harness.py run-all --rust-bin app-rust/target/release/ytdlp-harness
+        run: python rust-src/tools/harness.py run-all --rust-bin rust-src/target/release/ytdlp-harness
       - name: east-asian width table matches the pinned oracle
-        run: python app-rust/tools/gen_width_table.py --check
+        run: python rust-src/tools/gen_width_table.py --check
       - name: printable table matches the pinned oracle
-        run: python app-rust/tools/gen_printable_table.py --check
+        run: python rust-src/tools/gen_printable_table.py --check
 
   check-parity:
     name: check parity ${{ matrix.os }}
@@ -92,22 +92,22 @@ jobs:
         with:
           toolchain: 1.98.0
       - name: build the cli (release)
-        working-directory: app-rust
+        working-directory: rust-src
         run: cargo build --release -p ytdlp-cli
       - name: byte-compare --check, python vs native (G4)
         shell: bash
         run: |
           set -euo pipefail
-          src=app-rust/target/release/ytdlp
-          native=app-python/ytdlp-native
+          src=rust-src/target/release/ytdlp
+          native=deprecated-py-src/ytdlp-native
           if [ "${RUNNER_OS}" = "Windows" ]; then
-            src=app-rust/target/release/ytdlp.exe
-            native=app-python/ytdlp-native.exe
+            src=rust-src/target/release/ytdlp.exe
+            native=deprecated-py-src/ytdlp-native.exe
           fi
           # the binary sits beside a config/bin tree so both implementations
           # resolve the same root from their own rules (specsheet IF-1)
           cp "$src" "$native"
-          python app-python/src/ytdlp.py --check > py-check.txt
+          python deprecated-py-src/src/ytdlp.py --check > py-check.txt
           "./$native" --check > rs-check.txt
           rm -f "$native"
           echo "--- python ---"
@@ -134,10 +134,10 @@ jobs:
         with:
           toolchain: 1.98.0
       - name: build the cli and the scripted stand-in (release)
-        working-directory: app-rust
+        working-directory: rust-src
         run: cargo build --release -p ytdlp-cli -p fake-ytdlp
       - name: piped golden transcripts, python vs native (G6, G7)
-        run: python app-rust/tools/session_diff.py piped
+        run: python rust-src/tools/session_diff.py piped
 
   pty-session-transcripts:
     name: pty session transcripts ${{ matrix.os }}
@@ -156,10 +156,10 @@ jobs:
         with:
           toolchain: 1.98.0
       - name: build the cli and the scripted stand-in (release)
-        working-directory: app-rust
+        working-directory: rust-src
         run: cargo build --release -p ytdlp-cli -p fake-ytdlp
       - name: pty golden transcripts, python vs native (G6, G7)
-        run: python app-rust/tools/session_diff.py pty
+        run: python rust-src/tools/session_diff.py pty
 
   windows-build:
     name: windows release and PE import assertions
@@ -167,7 +167,7 @@ jobs:
     timeout-minutes: 20
     defaults:
       run:
-        working-directory: app-rust
+        working-directory: rust-src
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
@@ -210,12 +210,12 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ytdlp-windows-x86_64-msvc
-          path: app-rust/target/release/ytdlp.exe
+          path: rust-src/target/release/ytdlp.exe
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: ytdlp-harness-windows-x86_64-msvc
-          path: app-rust/target/release/ytdlp-harness.exe
+          path: rust-src/target/release/ytdlp-harness.exe
           if-no-files-found: error
 
   linux-build:
@@ -224,7 +224,7 @@ jobs:
     timeout-minutes: 20
     defaults:
       run:
-        working-directory: app-rust
+        working-directory: rust-src
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
@@ -246,10 +246,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ytdlp-linux-x86_64-gnu
-          path: app-rust/target/release/ytdlp
+          path: rust-src/target/release/ytdlp
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: ytdlp-linux-x86_64-musl
-          path: app-rust/target/x86_64-unknown-linux-musl/release/ytdlp
+          path: rust-src/target/x86_64-unknown-linux-musl/release/ytdlp
           if-no-files-found: error

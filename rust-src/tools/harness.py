@@ -8,7 +8,7 @@ Acceptance rule (specsheet NFR-4): the instrument is proven against
 known answers from the python implementation before it judges any native
 code; `selftest` does exactly that, python only.
 
-Vector format (app-rust/vectors/<fn>.json):
+Vector format (rust-src/vectors/<fn>.json):
 
     {"fn": "clean_url",
      "cases": [{"args": [...], "note": "optional"}]}
@@ -69,7 +69,7 @@ Interchange format: one line per case carrying exactly the bytes of
     json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
 
 which the rust dispatcher reproduces byte for byte
-(app-rust/harness/src/json.rs). Every record is newline-terminated; an
+(rust-src/harness/src/json.rs). Every record is newline-terminated; an
 empty case list means zero bytes. All display output here is forced
 ASCII so any console codepage can print it. Case args may carry JSON
 floats and the NaN/Infinity constants (phase 3 settings cases), matching
@@ -116,7 +116,7 @@ from pathlib import Path
 TOOLS_DIR = Path(__file__).resolve().parent
 APP_RUST = TOOLS_DIR.parent
 REPO_ROOT = APP_RUST.parent
-PY_IMPL = REPO_ROOT / "app-python" / "src" / "ytdlp.py"
+PY_IMPL = REPO_ROOT / "deprecated-py-src" / "src" / "ytdlp.py"
 VECTORS_DIR = APP_RUST / "vectors"
 ORACLE = (3, 14, 4)
 # the dispatcher error-path fixture; it exists to prove the rust side

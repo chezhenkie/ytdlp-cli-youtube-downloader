@@ -14,7 +14,7 @@ fn repo_root() -> PathBuf {
 #[test]
 fn tracked_settings_json_roundtrips_byte_exact() {
     let source = repo_root()
-        .join("app-python")
+        .join("deprecated-py-src")
         .join("config")
         .join("settings.json");
     if !source.exists() {

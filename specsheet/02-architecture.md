@@ -1,6 +1,6 @@
 ## 4. Architecture
 
-The product is `app-rust/`, a cargo workspace with three members: `cli` (the shipped binary, crate name ytdlp-cli), `harness` (the differential dispatcher that drives the same functions against the reference oracle; dev-only, never shipped) and `fake-ytdlp` (the scripted yt-dlp stand-in; dev-only, never shipped). One binary per platform, split into modules along seven layers (term, config, resolve, args, exec, update, ui; layer names followed by the specsheet citations in code comments). The layer boundaries are the constraint that matters; the module count is an implementation detail.
+The product is `rust-src/`, a cargo workspace with three members: `cli` (the shipped binary, crate name ytdlp-cli), `harness` (the differential dispatcher that drives the same functions against the reference oracle; dev-only, never shipped) and `fake-ytdlp` (the scripted yt-dlp stand-in; dev-only, never shipped). One binary per platform, split into modules along seven layers (term, config, resolve, args, exec, update, ui; layer names followed by the specsheet citations in code comments). The layer boundaries are the constraint that matters; the module count is an implementation detail.
 
 | capability | windows | posix |
 |---|---|---|
@@ -37,4 +37,4 @@ Third-party and licensing: the CLI invokes yt-dlp and ffmpeg as separate process
 
 Alternatives and decisions (record): console background control was tried and reverted by user call (CHANGELOG v1.2 "navy background reverted"); console resize was implemented and reverted (v1.1); the old single-stage download line was replaced by the stage/spinner design (v1.2 "staged download flow"); subtitle work moved from the video run to a separate pass after 429 aborts killed downloads (FR-9 rationale); ffprobe was deleted after its last consumers were removed (non-goals); the release bundles ship one tag rather than per-platform releases: four bundles plus, from v2.0.0, the two bare-binary updater assets FR-13 defines and the attached RELEASE-NOTES.md (README asset table).
 
-Per-phase decision record: the binding decisions, recorded deviations and evidence method (phases 2-9 plus the size pass) live in 04-port-notes.md, which is still section 4 for every citation; this file keeps the spec itself.
+Per-phase decision record: the binding decisions, recorded deviations and evidence method (phases 2-9 plus the size pass) live in 03-native-decisions.md, which is still section 4 for every citation; this file keeps the spec itself.

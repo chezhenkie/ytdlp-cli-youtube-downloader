@@ -3,7 +3,7 @@
 //! folder resolution, binary discovery, version probing and the --check
 //! content.
 //!
-//! Ported one to one from `app-python/src/ytdlp.py` (the oracle). Every
+//! Ported one to one from `deprecated-py-src/src/ytdlp.py` (the oracle). Every
 //! process-state read (which answers, PATH/PATHEXT, registry values,
 //! home, env map, mtimes, subprocess outcomes) is a parameter so the
 //! differential can inject identical state on both sides; the real

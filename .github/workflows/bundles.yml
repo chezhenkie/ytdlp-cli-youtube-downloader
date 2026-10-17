@@ -11,7 +11,7 @@ name: bundles
 #           autobuild-2026-10-13 (linux; the dated tag, so the pin cannot move
 #           under CI the way the moving "latest" tag did)
 # Every payload is checked against its pinned digest before anything is staged.
-# The GPL license texts are not fetched: they ship from app-rust/packaging/ (the
+# The GPL license texts are not fetched: they ship from rust-src/packaging/ (the
 # same bytes the v1.5.0 bundles carried) because the first dispatch showed
 # www.gnu.org unreachable from the windows runners. Their digests are asserted
 # here all the same.
@@ -44,7 +44,7 @@ jobs:
         with:
           toolchain: 1.98.0
       - name: build the release binary (crt-static from repo .cargo/config.toml)
-        working-directory: app-rust
+        working-directory: rust-src
         run: cargo build --release -p ytdlp-cli
       - name: verify payload pins and assemble
         shell: pwsh
@@ -57,21 +57,21 @@ jobs:
             if ($got -ne $want) { throw "digest mismatch: $url`n  want $want`n  got  $got" }
             Write-Host "pin ok: $out $got"
           }
-          $m = [regex]::Match((Get-Content app-rust/Cargo.toml -Raw), '(?m)^version = "([^"]+)"')
-          if (-not $m.Success) { throw "version not found in app-rust/Cargo.toml" }
+          $m = [regex]::Match((Get-Content rust-src/Cargo.toml -Raw), '(?m)^version = "([^"]+)"')
+          if (-not $m.Success) { throw "version not found in rust-src/Cargo.toml" }
           $ver = $m.Groups[1].Value
           Write-Host "assembling v$ver"
           New-Item -ItemType Directory -Force payload, dist | Out-Null
           Get-Pinned "$env:YTDLP_URL_BASE/yt-dlp.exe" payload/yt-dlp.exe $env:YTDLP_WINDOWS_SHA256
           Get-Pinned $env:FFMPEG_WINDOWS_URL payload/ffmpeg-windows.zip $env:FFMPEG_WINDOWS_SHA256
-          $g2 = (Get-FileHash -Algorithm SHA256 app-rust/packaging/GPL-2.0.txt).Hash.ToLower()
+          $g2 = (Get-FileHash -Algorithm SHA256 rust-src/packaging/GPL-2.0.txt).Hash.ToLower()
           if ($g2 -ne $env:GPL2_SHA256) { throw "GPL-2.0.txt digest mismatch: $g2" }
-          $g3 = (Get-FileHash -Algorithm SHA256 app-rust/packaging/GPL-3.0.txt).Hash.ToLower()
+          $g3 = (Get-FileHash -Algorithm SHA256 rust-src/packaging/GPL-3.0.txt).Hash.ToLower()
           if ($g3 -ne $env:GPL3_SHA256) { throw "GPL-3.0.txt digest mismatch: $g3" }
           $stage = "dist/ytdlp-cli-v$ver"
           New-Item -ItemType Directory -Force "$stage/bin" | Out-Null
-          Copy-Item app-rust/target/release/ytdlp.exe "$stage/ytdlp.exe"
-          Copy-Item app-rust/packaging/run-ytdlp.bat, app-rust/packaging/run-ytdlp.sh "$stage/"
+          Copy-Item rust-src/target/release/ytdlp.exe "$stage/ytdlp.exe"
+          Copy-Item rust-src/packaging/run-ytdlp.bat, rust-src/packaging/run-ytdlp.sh "$stage/"
           Copy-Item README.md, CHANGELOG.md, LICENSE, THIRD-PARTY-NOTICES.md "$stage/"
           Copy-Item payload/yt-dlp.exe "$stage/bin/yt-dlp.exe"
           Compress-Archive -Path $stage -DestinationPath "dist/ytdlp-cli-v$ver-windows-lean.zip"
@@ -79,9 +79,9 @@ jobs:
           $ff = Get-ChildItem payload/ffmpeg-windows -Recurse -Filter ffmpeg.exe | Where-Object { $_.Directory.Name -eq "bin" } | Select-Object -First 1
           if (-not $ff) { throw "ffmpeg.exe not found in the gyan archive" }
           Copy-Item $ff.FullName "$stage/bin/ffmpeg.exe"
-          Copy-Item app-rust/packaging/GPL-2.0.txt, app-rust/packaging/GPL-3.0.txt "$stage/"
+          Copy-Item rust-src/packaging/GPL-2.0.txt, rust-src/packaging/GPL-3.0.txt "$stage/"
           Compress-Archive -Path $stage -DestinationPath "dist/ytdlp-cli-v$ver-windows-portable.zip"
-          Copy-Item app-rust/target/release/ytdlp.exe dist/ytdlp-native-windows-x86_64.exe
+          Copy-Item rust-src/target/release/ytdlp.exe dist/ytdlp-native-windows-x86_64.exe
           cd dist
           Get-ChildItem *.zip, *.exe | Sort-Object Name | ForEach-Object {
             "$((Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLower())  $($_.Name)"
@@ -107,12 +107,12 @@ jobs:
         with:
           toolchain: 1.98.0
       - name: build the release binary
-        working-directory: app-rust
+        working-directory: rust-src
         run: cargo build --release -p ytdlp-cli
       - name: verify payload pins and assemble
         run: |
           set -euo pipefail
-          ver=$(sed -n 's/^version = "\(.*\)"$/\1/p' app-rust/Cargo.toml | head -n1)
+          ver=$(sed -n 's/^version = "\(.*\)"$/\1/p' rust-src/Cargo.toml | head -n1)
           echo "assembling v$ver"
           mkdir -p payload dist
           get_pinned() { # url out want
@@ -121,23 +121,23 @@ jobs:
           }
           get_pinned "$YTDLP_URL_BASE/yt-dlp_linux" payload/yt-dlp_linux "$YTDLP_LINUX_SHA256"
           get_pinned "$FFMPEG_LINUX_URL" payload/btbn.tar.xz "$FFMPEG_LINUX_SHA256"
-          echo "$GPL2_SHA256  app-rust/packaging/GPL-2.0.txt" | sha256sum -c -
-          echo "$GPL3_SHA256  app-rust/packaging/GPL-3.0.txt" | sha256sum -c -
+          echo "$GPL2_SHA256  rust-src/packaging/GPL-2.0.txt" | sha256sum -c -
+          echo "$GPL3_SHA256  rust-src/packaging/GPL-3.0.txt" | sha256sum -c -
           tar -xJf payload/btbn.tar.xz -C payload
           ff=$(find payload -path '*/bin/ffmpeg' -type f -print -quit)
           test -n "$ff"
           stage="dist/ytdlp-cli-v$ver"
           mkdir -p "$stage/bin"
-          install -m 0755 app-rust/target/release/ytdlp "$stage/ytdlp"
-          install -m 0755 app-rust/packaging/run-ytdlp.sh "$stage/run-ytdlp.sh"
-          install -m 0644 app-rust/packaging/run-ytdlp.bat "$stage/run-ytdlp.bat"
+          install -m 0755 rust-src/target/release/ytdlp "$stage/ytdlp"
+          install -m 0755 rust-src/packaging/run-ytdlp.sh "$stage/run-ytdlp.sh"
+          install -m 0644 rust-src/packaging/run-ytdlp.bat "$stage/run-ytdlp.bat"
           install -m 0644 README.md CHANGELOG.md LICENSE THIRD-PARTY-NOTICES.md "$stage/"
           install -m 0755 payload/yt-dlp_linux "$stage/bin/yt-dlp"
           tar -czf "dist/ytdlp-cli-v$ver-linux-lean.tar.gz" -C dist "ytdlp-cli-v$ver"
           install -m 0755 "$ff" "$stage/bin/ffmpeg"
-          install -m 0644 app-rust/packaging/GPL-2.0.txt app-rust/packaging/GPL-3.0.txt "$stage/"
+          install -m 0644 rust-src/packaging/GPL-2.0.txt rust-src/packaging/GPL-3.0.txt "$stage/"
           tar -czf "dist/ytdlp-cli-v$ver-linux-portable.tar.gz" -C dist "ytdlp-cli-v$ver"
-          install -m 0755 app-rust/target/release/ytdlp dist/ytdlp-native-linux-x86_64
+          install -m 0755 rust-src/target/release/ytdlp dist/ytdlp-native-linux-x86_64
           cd dist
           sha256sum *.tar.gz ytdlp-native-linux-x86_64 > SHA256SUMS
           cat SHA256SUMS

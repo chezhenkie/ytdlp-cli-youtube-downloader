@@ -8,6 +8,5 @@ __pycache__/
 *.log
 *.tmp
 .vscode/
-scripts-tools/
 releases/
 agents.md

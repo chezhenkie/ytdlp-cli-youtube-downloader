@@ -17,7 +17,7 @@ like the harness's {scratch}:
     phase 6 notes).
 
 Phase 7 adds executable cases: a case may stage the scripted yt-dlp
-stand-in (`app-rust/fake-ytdlp`) into the tree's `bin/`, pin PATH to that
+stand-in (`rust-src/fake-ytdlp`) into the tree's `bin/`, pin PATH to that
 bin so a runner's real ffmpeg/node cannot leak in, script the stand-in
 per case, and compare the argv the wrapper handed over plus a directory
 listing. Animated stage rewrites are collapsed to `{frame}` in cases that
@@ -59,7 +59,7 @@ from pathlib import Path
 TOOLS_DIR = Path(__file__).resolve().parent
 APP_RUST = TOOLS_DIR.parent
 REPO_ROOT = APP_RUST.parent
-PY_SRC = REPO_ROOT / "app-python" / "src" / "ytdlp.py"
+PY_SRC = REPO_ROOT / "deprecated-py-src" / "src" / "ytdlp.py"
 ORACLE = (3, 14, 4)
 VERSION_RE = re.compile(rb"(yt-dlp cli  v)\d+\.\d+\.\d+")
 

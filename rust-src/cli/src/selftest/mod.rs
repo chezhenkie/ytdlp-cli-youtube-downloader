@@ -2,7 +2,7 @@
 //! command.
 //!
 //! Check names, order and count follow the python selftest one to one
-//! (177 checks), so `app-rust/tools/selftest_compare.py` can run both
+//! (177 checks), so `rust-src/tools/selftest_compare.py` can run both
 //! reports and diff the decoded name/verdict stream. Where python
 //! monkeypatched a module global this module injects the seam the
 //! ported function already takes - the same rule the crate tests and

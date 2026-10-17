@@ -1,7 +1,7 @@
 //! CPython-faithful JSON codec for the settings file (phase 3, state layer).
 //!
 //! Distinct from the harness interchange codec
-//! (`app-rust/harness/src/json.rs`; ensure_ascii=False, records only):
+//! (`rust-src/harness/src/json.rs`; ensure_ascii=False, records only):
 //! this one mirrors the `json` module as the settings file sees it.
 //! Read: `json.loads` semantics - floats, the `NaN`/`Infinity`/`-Infinity`
 //! constants, last-wins duplicate keys; integers saturate at i64 per the
