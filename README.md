@@ -16,7 +16,6 @@ One-shot URL runs, scripts, CI and piped runs never trigger it: no network conta
 | `ytdlp-cli-v2.1.0-windows-portable.zip` | 59.5 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
 | `ytdlp-cli-v2.1.0-linux-lean.tar.gz` | 42.0 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
 | `ytdlp-cli-v2.1.0-linux-portable.tar.gz` | 110.1 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
-| `ytdlp-cli-v2.1.0-macos-arm64-lean.tar.gz` | 38.5 MB | yt-dlp, Apple silicon. Install ffmpeg yourself for merge and audio conversion. |
 | `ytdlp-cli-v2.1.0-macos-arm64-portable.tar.gz` | 54.1 MB | yt-dlp **and** ffmpeg, Apple silicon. Nothing else to install. |
 The three portable bundles are the larger downloads and the ones most people want. The lean bundles skip ffmpeg, and the CLI says so and falls back to a single best file rather than failing; on a machine with no ffmpeg at all it also offers to fetch the published build for the platform, with the checksum checked before it is installed.
 
@@ -30,7 +29,7 @@ None beyond the bundle: no Python, no runtime, no redistributable. The Windows b
 
 The bundle also carries `run-ytdlp.bat` and `run-ytdlp.sh`; they are optional, the chapter below explains when they help.
 
-Linux builds are x86_64 glibc and the macOS bundles are arm64 (Apple silicon). On any other architecture put `yt-dlp` on PATH or set `yt_dlp_path` in `config/settings.json`. The macOS binaries are not signed or notarized; if a browser download attaches a quarantine flag, clear it once with `xattr -d com.apple.quarantine ./ytdlp` (same for files under `bin/`).
+Linux builds are x86_64 glibc and the macOS bundles are arm64 (Apple silicon). On any other architecture put `yt-dlp` on PATH or set `yt_dlp_path` in `config/settings.json`. The macOS binaries are not signed or notarized; if a browser download attaches a quarantine flag, clear it once with `xattr -d com.apple.quarantine ./ytdlp` (same for files under `bin/`). There is no lean macOS bundle and the updater publishes no macOS image, so on macOS menu item 11 updates yt-dlp and a newer cli comes from this page.
 
 v1.5.0 was the final Python release; its bundles remain on the v1.5.0 release page.
 
@@ -68,14 +67,12 @@ They change nothing else: same arguments, same settings, same output. The update
 3e124c5a7c71fa3d7b3e59386825af867b9237bff06051b7a90c618305a209da  ytdlp-cli-v2.1.0-windows-portable.zip
 71d539285420fe77d2db8d59a68f5af41712fd1e58ba2aab34c582bd6721e2bf  ytdlp-cli-v2.1.0-linux-lean.tar.gz
 b98b0eb9443b0b85605bd0980de65fe3703a61a323b2b4aca7c426c2944dab73  ytdlp-cli-v2.1.0-linux-portable.tar.gz
-18005fc92bab1383cda47b3439be4fc2c865ae809f3fb206e57aef592256d40a  ytdlp-cli-v2.1.0-macos-arm64-lean.tar.gz
 a319330847cac73c6d437f048d7d2f291e12862d685814ca2ece4b539be6fc45  ytdlp-cli-v2.1.0-macos-arm64-portable.tar.gz
 15e0ac33c2d9edd01d7f31e370d897ddc1ed82ce98e57b626928119222a10990  ytdlp-native-windows-x86_64.exe
 51d93571f4043524187f71f8a816cf1e0c8451e1abecf082d48ef1c23ec71f59  ytdlp-native-linux-x86_64
-6ced65692302d1b70306660ab2b0e460cf261bde570e4edc8b33190b8c3d2947  ytdlp-native-macos-arm64
 ```
 
-The last three are the updater images the built-in updater fetches; their digests are published so every update is verified against them.
+The last two are the updater images the built-in updater fetches; their digests are published so every update is verified against them.
 
 The bundled yt-dlp is the official 2026.08.19 release and matches the SHA-256 sums published with it. The Windows ffmpeg is the gyan.dev 9.0.2 essentials build, the Linux one is the BtbN n9.0.2 build and the macOS one is the shaka-project 8.1.2 static arm64 build; each matched its provider's published checksum or digest, and `THIRD-PARTY-NOTICES.md` in each bundle names the exact archive and its digest.
 

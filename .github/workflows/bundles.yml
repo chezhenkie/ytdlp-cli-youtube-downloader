@@ -4,8 +4,10 @@ name: bundles
 # native runners. workflow_dispatch only. This workflow builds artifacts; it does
 # not tag or publish anything. The release commit carries the digests, the tag
 # follows, and gh release upload places exactly these bytes. macos joined in the
-# 2026-10-17g owner pass: six bundles (windows/linux/macos-arm64, lean+portable
-# each), three bare updater images and RELEASE-NOTES.md - ten release files.
+# 2026-10-17g owner pass; the 2026-10-17h owner call made the mac line
+# portable-only (the lean mac bundle was pulled) and pulled the bare macos
+# image: five bundles (windows/linux lean+portable each, macos-arm64 portable),
+# two bare updater images and RELEASE-NOTES.md - eight release files.
 #
 # Payload pins:
 #   yt-dlp 2026.08.19: yt-dlp.exe (windows), yt-dlp_linux (linux),
@@ -161,7 +163,7 @@ jobs:
           if-no-files-found: error
 
   macos-bundles:
-    name: macos lean + portable + updater image
+    name: macos portable
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
@@ -193,21 +195,18 @@ jobs:
           install -m 0644 rust-src/packaging/run-ytdlp.bat "$stage/run-ytdlp.bat"
           install -m 0644 README.md CHANGELOG.md LICENSE THIRD-PARTY-NOTICES.md "$stage/"
           install -m 0755 payload/yt-dlp_macos "$stage/bin/yt-dlp"
-          file "$stage/ytdlp" "$stage/bin/yt-dlp" payload/ffmpeg-osx-arm64
-          tar -czf "dist/ytdlp-cli-v$ver-macos-arm64-lean.tar.gz" -C dist "ytdlp-cli-v$ver"
           install -m 0755 payload/ffmpeg-osx-arm64 "$stage/bin/ffmpeg"
           install -m 0644 rust-src/packaging/GPL-2.0.txt rust-src/packaging/GPL-3.0.txt "$stage/"
+          file "$stage/ytdlp" "$stage/bin/yt-dlp" "$stage/bin/ffmpeg"
           tar -czf "dist/ytdlp-cli-v$ver-macos-arm64-portable.tar.gz" -C dist "ytdlp-cli-v$ver"
-          install -m 0755 rust-src/target/release/ytdlp dist/ytdlp-native-macos-arm64
           cd dist
-          shasum -a 256 *.tar.gz ytdlp-native-macos-arm64 > SHA256SUMS
+          shasum -a 256 *.tar.gz > SHA256SUMS
           cat SHA256SUMS
-          ls -l ytdlp-cli-*.tar.gz ytdlp-native-macos-arm64
+          ls -l ytdlp-cli-*.tar.gz
       - uses: actions/upload-artifact@v4
         with:
           name: macos-bundles
           path: |
             dist/ytdlp-cli-*.tar.gz
-            dist/ytdlp-native-macos-arm64
             dist/SHA256SUMS
           if-no-files-found: error

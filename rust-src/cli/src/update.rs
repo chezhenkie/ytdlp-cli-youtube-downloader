@@ -228,12 +228,12 @@ pub struct Release {
 
 /// The bare-binary release asset for a platform and architecture
 /// (FR-13; the names the release publishes alongside the bundles).
+/// macOS deliberately has none (owner call 2026-10-17h): the mac line
+/// is the portable bundle only, so there is no cli self-update image.
 pub fn release_asset(platform: &str, arch: &str) -> Option<&'static str> {
     match (platform, arch) {
         ("windows", "x86_64") => Some("ytdlp-native-windows-x86_64.exe"),
         ("linux", "x86_64") => Some("ytdlp-native-linux-x86_64"),
-        ("macos", "aarch64" | "arm64") => Some("ytdlp-native-macos-arm64"),
-        ("macos", "x86_64") => Some("ytdlp-native-macos-x86_64"),
         _ => None,
     }
 }
@@ -244,7 +244,7 @@ pub fn release_asset(platform: &str, arch: &str) -> Option<&'static str> {
 /// from the API response that names the asset - the same single-request
 /// property, one layer up.
 pub fn fetch_cli(ctx: &mut UpdateCtx, timeout: u64) -> Result<Release, String> {
-    let asset = release_asset(ctx.platform, ctx.arch).unwrap_or("");
+    let asset = release_asset(ctx.platform, ctx.arch);
     let body = ctx.http.text(RELEASES_API, timeout)?;
     let root = settings_json::parse(&body)
         .map_err(|e| format!("the release metadata did not parse: {e}"))?;
@@ -259,13 +259,13 @@ pub fn fetch_cli(ctx: &mut UpdateCtx, timeout: u64) -> Result<Release, String> {
         },
         ..Release::default()
     };
-    if let Some(Json::Arr(assets)) = config::get(obj, "assets") {
+    if let (Some(asset), Some(Json::Arr(assets))) = (asset, config::get(obj, "assets")) {
         for item in assets {
             let Json::Obj(fields) = item else { continue };
             let Some(Json::Str(name)) = config::get(fields, "name") else {
                 continue;
             };
-            if !asset.is_empty() && name != asset {
+            if name != asset {
                 continue;
             }
             let Some(Json::Str(url)) = config::get(fields, "browser_download_url") else {
@@ -792,14 +792,9 @@ mod tests {
             release_asset("linux", "x86_64"),
             Some("ytdlp-native-linux-x86_64")
         );
-        assert_eq!(
-            release_asset("macos", "aarch64"),
-            Some("ytdlp-native-macos-arm64")
-        );
-        assert_eq!(
-            release_asset("macos", "x86_64"),
-            Some("ytdlp-native-macos-x86_64")
-        );
+        // macOS has no bare image (owner call 2026-10-17h)
+        assert_eq!(release_asset("macos", "aarch64"), None);
+        assert_eq!(release_asset("macos", "x86_64"), None);
         assert_eq!(release_asset("linux", "riscv64"), None);
         assert_eq!(release_asset("freebsd", "x86_64"), None);
     }
