@@ -5,6 +5,9 @@ Newest first. Current level: v2.1.1 (native, released 2026-10-17); v2.1.0 releas
 
 ## v2.1.1 native (released 2026-10-17)
 
+- docs: v2.1.1 G10 green at the destination (this commit)
+The published release was re-downloaded and re-checked: six files (five bundles and RELEASE-NOTES.md), every asset's api digest equals README.md/RELEASE-NOTES.md, and all five bundles re-verified from the released bytes - windows-lean/portable selftest 177/0, linux-lean/portable selftest 177/0 with 0755 modes, macos-portable structure, 0755 modes, payload hash chain (yt-dlp 0f192b7e..., ffmpeg e7b9fcd9...) and Mach-O shape (cli thin arm64). No updater image on the page.
+
 - owner call: no bare updater images in the release (2026-10-17j)
 The two remaining bare updater images (`ytdlp-native-windows-x86_64.exe`, `ytdlp-native-linux-x86_64`) are pulled from the release and from bundles.yml: the release is five bundles and RELEASE-NOTES.md - six files. The updater lookup keeps its FR-13 GET (the per-platform name, the api digest in the same response); with no image published the fetch resolves to the missing-asset refusal ("no published cli build for <platform>", silent in the daily check, printed by --update; yt-dlp -U untouched) on every platform now, macOS since 2026-10-17h. README, release notes and specsheet updated.
 
