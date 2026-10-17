@@ -15,12 +15,13 @@ One-shot URL runs, scripts, CI and piped runs never trigger it: no network conta
 
 | file | size | contains |
 |---|---|---|
-| `ytdlp-cli-v2.2.0-windows-lean.zip` | 19.5 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
-| `ytdlp-cli-v2.2.0-windows-portable.zip` | 59.5 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
-| `ytdlp-cli-v2.2.0-windows-setup.exe` | 48.9 MB | Windows installer, same content as the portable zip: per-user install, no admin prompt, `ytdlp` on your PATH, with an uninstaller. |
-| `ytdlp-cli-v2.2.0-linux-lean.tar.gz` | 42.0 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
-| `ytdlp-cli-v2.2.0-linux-portable.tar.gz` | 110.1 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
-| `ytdlp-cli-v2.2.0-macos-arm64.pkg` | 54.1 MB | macOS installer for Apple silicon (yt-dlp and ffmpeg). Nothing else to install. |
+| `ytdlp-cli-v2.3.0-windows-lean.zip` | 19.5 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
+| `ytdlp-cli-v2.3.0-windows-portable.zip` | 59.5 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
+| `ytdlp-cli-v2.3.0-windows-setup.exe` | 48.9 MB | Windows installer, same content as the portable zip: per-user install, no admin prompt, `ytdlp` on your PATH, with an uninstaller. |
+| `ytdlp-cli-v2.3.0-linux-lean.tar.gz` | 42.0 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
+| `ytdlp-cli-v2.3.0-linux-portable.tar.gz` | 110.1 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
+| `ytdlp-cli-v2.3.0-linux-musl.tar.gz` | 2.1 MB | Alpine and other musl systems: the cli only. Get the runtime with `apk add yt-dlp`; that package pulls ffmpeg and the JS runtime with it. |
+| `ytdlp-cli-v2.3.0-macos-arm64.pkg` | 54.1 MB | macOS installer for Apple silicon (yt-dlp and ffmpeg). Nothing else to install. |
 The lean bundles skip ffmpeg, on a machine with no ffmpeg at all it also offers to fetch the published build for the platform, with the checksum checked before it is installed.
 
 ![ytdlp-cli process flow](resources/archify%20flow%20ytdlp-cli.png)
@@ -29,21 +30,22 @@ The live, interactive flow can be found in the [ytdlp process flow archify](http
 
 ## Requirements
 
-None beyond the bundle, the Windows binary is statically linked.
+None beyond the bundle, the Windows binary is statically linked. The musl bundle is cli-only: its runtime is the system's own yt-dlp (see the Alpine bullet below).
 
 - Windows: `ytdlp.exe` (or the setup.exe below, which installs it for your user and puts it on your PATH)
 - Linux: `./ytdlp`
+- Alpine and other musl Linux: `./ytdlp` plus the system runtime - `apk add yt-dlp` (that package pulls ffmpeg and the JS runtime with it); no musl yt-dlp or ffmpeg builds are published, so the musl bundle ships the cli only
 - macOS (Apple silicon): `ytdlp` (the .pkg below installs it and puts it on your PATH)
 
 Every bundle also carries `run-ytdlp.bat` and `run-ytdlp.sh`; they are optional, the chapter below explains when they help (the installers install those files too).
 
 ### Installing on Windows
 
-Download `ytdlp-cli-v2.2.0-windows-setup.exe` and double-click it. It needs no administrator rights and installs for your user only. The file is unsigned, so Windows SmartScreen may caution you: click More info, then Run anyway. The installer puts the program in `%LOCALAPPDATA%\Programs\ytdlp-cli`, adds that folder to your PATH and adds a Start Menu entry. Open a new terminal window and type `ytdlp` to start. To remove it later: Windows Settings > Apps, or the Start Menu uninstaller.
+Download `ytdlp-cli-v2.3.0-windows-setup.exe` and double-click it. It needs no administrator rights and installs for your user only. The file is unsigned, so Windows SmartScreen may caution you: click More info, then Run anyway. The installer puts the program in `%LOCALAPPDATA%\Programs\ytdlp-cli`, adds that folder to your PATH and adds a Start Menu entry. Open a new terminal window and type `ytdlp` to start. To remove it later: Windows Settings > Apps, or the Start Menu uninstaller.
 
 ### Installing on macOS
 
-Download `ytdlp-cli-v2.2.0-macos-arm64.pkg` and double-click it. The package is not signed, so macOS refuses the first open: open System Settings, then Privacy & Security, click Open Anyway next to the blocked ytdlp-cli message and confirm with your password or Touch ID. That is all the install needs - no terminal. The package puts the program in `/usr/local/ytdlp-cli`, with the portable layout (settings and downloads of extras live inside that folder), and links it onto your PATH as `/usr/local/bin/ytdlp`, so a new Terminal window can just run `ytdlp`. To remove it later: `sudo /usr/local/ytdlp-cli/uninstall-macos.sh` removes the program, the PATH link and the package receipt.
+Download `ytdlp-cli-v2.3.0-macos-arm64.pkg` and double-click it. The package is not signed, so macOS refuses the first open: open System Settings, then Privacy & Security, click Open Anyway next to the blocked ytdlp-cli message and confirm with your password or Touch ID. That is all the install needs - no terminal. The package puts the program in `/usr/local/ytdlp-cli`, with the portable layout (settings and downloads of extras live inside that folder), and links it onto your PATH as `/usr/local/bin/ytdlp`, so a new Terminal window can just run `ytdlp`. To remove it later: `sudo /usr/local/ytdlp-cli/uninstall-macos.sh` removes the program, the PATH link and the package receipt.
 
 ### Installing on Linux
 
@@ -53,9 +55,11 @@ Download a tar.gz from the table and unpack it, or let the script do it: it fetc
 curl -fsSL https://raw.githubusercontent.com/chezhenkie/ytdlp-cli-youtube-downloader/main/install.sh | sh
 ```
 
-The portable bundle (with ffmpeg) is the default; `sh -s -- --lean` installs the smaller bundle without ffmpeg instead, `sh -s -- --version v2.2.0` pins a release, and `sh -s -- --uninstall` removes the install and the link.
+The portable bundle (with ffmpeg) is the default; `sh -s -- --lean` installs the smaller bundle without ffmpeg instead, `sh -s -- --version v2.3.0` pins a release, and `sh -s -- --uninstall` removes the install and the link.
 
-Linux builds are x86_64 glibc and the macOS build is arm64 (Apple silicon). On any other architecture put `yt-dlp` on PATH or set `yt_dlp_path` in `config/settings.json`. No release publishes a bare cli image on any platform, so menu item 11 updates yt-dlp and a newer cli always comes from this page.
+On Alpine and other musl systems the script installs the musl bundle automatically - the cli only; get the runtime with `apk add yt-dlp`, which pulls ffmpeg and the JS runtime with it. `--lean` and `--portable` name the glibc bundles and are refused on musl.
+
+Linux builds are x86_64: glibc bundles plus a musl bundle for Alpine (cli only, the runtime comes from apk), and the macOS build is arm64 (Apple silicon). On any other architecture put `yt-dlp` on PATH or set `yt_dlp_path` in `config/settings.json`. No release publishes a bare cli image on any platform, so menu item 11 updates yt-dlp and a newer cli always comes from this page.
 
 v1.5.0 was the final Python release; its bundles remain on the v1.5.0 release page.
 
@@ -89,17 +93,18 @@ They change nothing else: same arguments, same settings, same output. The update
 ## Checksums
 
 ```
-ace4e1e0405d7339c98c85f5dfb889f288ed3335729b85975fba4ad5be3fda44  ytdlp-cli-v2.2.0-windows-lean.zip
-3d542d11b0c5044ab0bd04fb897583bb52df7b12062de9d52ccb5cb1e83270fb  ytdlp-cli-v2.2.0-windows-portable.zip
-0d911aaddcc731cbb2fde01824ce3268e5fe549f3854cb2dd9ef3190ba7036b6  ytdlp-cli-v2.2.0-windows-setup.exe
-3cdcc3d42c0082a2790bb4fd711bb502cdab416482891dfeb49637329b600cf2  ytdlp-cli-v2.2.0-linux-lean.tar.gz
-8ebad27012398df4dad474faf05f6208556e75c598f88cf0856c910140e46477  ytdlp-cli-v2.2.0-linux-portable.tar.gz
-3334e3c44721909964c23d304a36f8eb4d9955205d1d854a5490c56b86a7c910  ytdlp-cli-v2.2.0-macos-arm64.pkg
+c8e35559b587d236f8b41100d47a7aa6a23f77b032aa3118cded598ce72c6a82  ytdlp-cli-v2.3.0-windows-lean.zip
+7498f073a8b97e02825cb5ebbfb2e540ff9a906df73520fac458b0840620c101  ytdlp-cli-v2.3.0-windows-portable.zip
+ce94dcfcdf097162770679a8adf758545a6e60a637d46a7ea1881256afb73859  ytdlp-cli-v2.3.0-windows-setup.exe
+21c6b0f15a016d6b469633c3e748d4ae4529c46e01ae7033b3369158e97f4896  ytdlp-cli-v2.3.0-linux-lean.tar.gz
+bfa5217801c9d24cbaf7a0a0b74f71bea0f44a6240bd730b4c58f32483de4952  ytdlp-cli-v2.3.0-linux-portable.tar.gz
+eacb84e94c1ce313ff30392332edd31d0bcc7d19104deb498e215be06b6499c4  ytdlp-cli-v2.3.0-linux-musl.tar.gz
+0cea1bfecf334c6e11aa08fbe412b6606222191e432e7a90d4b492a69bce712c  ytdlp-cli-v2.3.0-macos-arm64.pkg
 ```
 
 No release publishes a bare cli image, so the built-in updater never replaces the cli; a newer cli always comes from this page.
 
-The bundled yt-dlp is the official 2026.08.19 release and matches the SHA-256 sums published with it. The Windows ffmpeg is the gyan.dev 9.0.2 essentials build, the Linux one is the BtbN n9.0.2 build and the macOS one is the shaka-project 8.1.2 static arm64 build; each matched its provider's published checksum or digest, and `THIRD-PARTY-NOTICES.md` in each bundle and installer names the exact archive and its digest.
+The bundled yt-dlp is the official 2026.08.19 release and matches the SHA-256 sums published with it. The Windows ffmpeg is the gyan.dev 9.0.2 essentials build, the Linux one is the BtbN n9.0.2 build and the macOS one is the shaka-project 8.1.2 static arm64 build; each matched its provider's published checksum or digest, and `THIRD-PARTY-NOTICES.md` in each bundle and installer names the exact archive and its digest. The linux-musl bundle ships neither: its yt-dlp and ffmpeg are the system's own packages.
 
 ## Licensing
 
@@ -108,6 +113,8 @@ The menu, the launchers and the defaults are **MIT**. See `LICENSE` in the bundl
 yt-dlp, which does all the downloading, is **Unlicense**, a public domain dedication. It ships its own `THIRD_PARTY_LICENSES.txt` listing every library inside it.
 
 The portable bundles and the installers also contain **ffmpeg**, built `--enable-gpl --enable-version3`, so it is distributed under the GNU General Public License version 2 or later and includes components under GPL version 3 or later. Both license texts ship with it as `GPL-2.0.txt` and `GPL-3.0.txt`, and `THIRD-PARTY-NOTICES.md` points at the corresponding source for each build.
+
+The `linux-musl` bundle contains no third-party binaries: its yt-dlp and ffmpeg are the system's own Alpine packages, under the licenses named above.
 
 ffmpeg is free software and you may use, study, modify and redistribute it under the terms of the GPL, exactly as its authors intend. Nothing here adds to, limits or restricts the rights the GPL grants you for it.
 
