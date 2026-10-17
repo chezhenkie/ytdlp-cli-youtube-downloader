@@ -1,13 +1,17 @@
 #!/bin/sh
-# ytdlp-cli installer for Linux x86_64 (glibc) - no system package, no root.
+# ytdlp-cli installer for Linux x86_64 - no system package, no root.
 #
 #   curl -fsSL https://raw.githubusercontent.com/chezhenkie/ytdlp-cli-youtube-downloader/main/install.sh | sh
 #
 # Options (when piped, pass them after sh -s --):
-#   --portable    bundle with ffmpeg (default)
-#   --lean        smaller bundle without ffmpeg
-#   --version V   install release V (like v2.2.0) instead of the latest
+#   --portable    bundle with ffmpeg (default; glibc)
+#   --lean        smaller bundle without ffmpeg (glibc)
+#   --version V   install release V (like v2.3.0) instead of the latest
 #   --uninstall   remove the tree and the ytdlp link
+#
+# On musl systems (Alpine) the musl bundle is installed automatically: the
+# cli only - yt-dlp and ffmpeg come from the system (apk add yt-dlp; the
+# Alpine package pulls ffmpeg and the JS runtime with it).
 #
 # It downloads the bundle from the GitHub release, verifies its sha256 against
 # the Checksums block of that release's RELEASE-NOTES.md, unpacks it to
@@ -20,6 +24,7 @@ repo=chezhenkie/ytdlp-cli-youtube-downloader
 github=https://github.com/$repo
 version=latest
 flavour=portable
+flavour_set=no
 uninstall=no
 
 usage() {
@@ -30,6 +35,9 @@ usage: install.sh [--portable | --lean] [--version vX.Y.Z] [--uninstall]
   --lean       install the smaller bundle without ffmpeg
   --version V  install release V instead of the latest one
   --uninstall  remove ~/.local/share/ytdlp-cli and the ~/.local/bin/ytdlp link
+
+On musl (Alpine) the cli-only musl bundle is installed and yt-dlp comes from
+apk; --portable/--lean name the glibc bundles and are refused there.
 EOF
 }
 
@@ -37,10 +45,10 @@ die() { echo "install.sh: $*" >&2; exit 1; }
 
 while [ $# -gt 0 ]; do
 	case $1 in
-		--portable) flavour=portable ;;
-		--lean) flavour=lean ;;
+		--portable) flavour=portable; flavour_set=yes ;;
+		--lean) flavour=lean; flavour_set=yes ;;
 		--version)
-			[ $# -ge 2 ] || die "--version needs a value like v2.2.0"
+			[ $# -ge 2 ] || die "--version needs a value like v2.3.0"
 			version=$2
 			shift
 			;;
@@ -71,8 +79,11 @@ case $(uname -m) in
 	x86_64|amd64) ;;
 	*) die "no bundle for $(uname -m) - releases carry Linux x86_64 builds only" ;;
 esac
-if command -v ldd >/dev/null 2>&1 && ldd --version 2>&1 | grep -qi musl; then
-	die "musl systems (Alpine) are not supported - the bundles are glibc builds"
+if { command -v ldd >/dev/null 2>&1 && ldd --version 2>&1 | grep -qi musl; } \
+	|| ls /lib/ld-musl-*.so.1 >/dev/null 2>&1; then
+	[ "$flavour_set" = no ] \
+		|| die "--$flavour names a glibc bundle; on musl (Alpine) install.sh fetches the linux-musl bundle - drop the flag"
+	flavour=musl
 fi
 command -v curl >/dev/null 2>&1 || die "curl is required"
 command -v tar >/dev/null 2>&1 || die "tar is required"
@@ -150,6 +161,11 @@ ln -sf "$target/ytdlp" "$link"
 echo "installed $asset"
 echo "  tree: $target"
 echo "  link: $link"
+if [ "$flavour" = musl ] && ! command -v yt-dlp >/dev/null 2>&1; then
+	echo "note: yt-dlp is not on PATH yet; on Alpine install it with:"
+	echo "  apk add yt-dlp"
+	echo "  (the Alpine package pulls ffmpeg and the JS runtime with it)"
+fi
 case :$PATH: in
 	*:$HOME/.local/bin:*) ;;
 	*) echo "note: $HOME/.local/bin is not on PATH yet; add this to your shell rc:"

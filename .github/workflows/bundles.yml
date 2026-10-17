@@ -10,6 +10,13 @@ name: bundles
 # pkg and RELEASE-NOTES.md - seven release files. No bare cli image is
 # published on any platform (owner calls 2026-10-17h and j).
 #
+# Owner call 2026-10-17n adds the linux musl bundle (FR-19): a fifth release
+# file, the cli built for x86_64-unknown-linux-musl, cli-only (no yt-dlp, no
+# ffmpeg - the system package manager provides them; apk add yt-dlp pulls
+# ffmpeg and the JS runtime along on Alpine). Its job builds, assembles and
+# proves it here: static link, extract, packaged selftest 177/0, and no
+# bin/yt-dlp inside the tar. The release is eight files.
+#
 # The installers are built here and proven here, not just assembled: the
 # windows job silently installs the setup.exe, runs the installed binary's
 # selftest (177 checks, 0 failed), checks the PATH entry and uninstalls again;
@@ -219,6 +226,66 @@ jobs:
           name: linux-bundles
           path: |
             dist/ytdlp-cli-*.tar.gz
+            dist/SHA256SUMS
+          if-no-files-found: error
+
+  linux-musl-bundle:
+    name: linux musl (alpine) bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+          targets: x86_64-unknown-linux-musl
+      - name: musl C toolchain (ring compiles C for the target)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+      - name: build the musl release binary
+        working-directory: rust-src
+        run: cargo build --release -p ytdlp-cli --target x86_64-unknown-linux-musl
+      - name: assemble the bundle (cli only - no yt-dlp, no ffmpeg)
+        run: |
+          set -euo pipefail
+          ver=$(sed -n 's/^version = "\(.*\)"$/\1/p' rust-src/Cargo.toml | head -n1)
+          echo "assembling v$ver (linux musl)"
+          mkdir -p dist
+          stage="dist/ytdlp-cli-v$ver"
+          mkdir -p "$stage"
+          install -m 0755 rust-src/target/x86_64-unknown-linux-musl/release/ytdlp "$stage/ytdlp"
+          install -m 0755 rust-src/packaging/run-ytdlp.sh "$stage/run-ytdlp.sh"
+          install -m 0644 rust-src/packaging/run-ytdlp.bat "$stage/run-ytdlp.bat"
+          install -m 0644 README.md CHANGELOG.md LICENSE THIRD-PARTY-NOTICES.md "$stage/"
+          tar -czf "dist/ytdlp-cli-v$ver-linux-musl.tar.gz" -C dist "ytdlp-cli-v$ver"
+          cd dist
+          sha256sum ytdlp-cli-v$ver-linux-musl.tar.gz > SHA256SUMS
+          cat SHA256SUMS
+          ls -l ytdlp-cli-v$ver-linux-musl.tar.gz
+      - name: run proof - static link, packaged selftest, cli-only payload
+        run: |
+          set -euo pipefail
+          ver=$(sed -n 's/^version = "\(.*\)"$/\1/p' rust-src/Cargo.toml | head -n1)
+          mkdir -p dist/run
+          tar -xzf "dist/ytdlp-cli-v$ver-linux-musl.tar.gz" -C dist/run
+          bin="dist/run/ytdlp-cli-v$ver/ytdlp"
+          file "$bin"
+          if ! file "$bin" | grep -Eq 'statically linked|static-pie'; then
+            echo "not a static build - refusing"; exit 1
+          fi
+          if tar -tzf "dist/ytdlp-cli-v$ver-linux-musl.tar.gz" | grep -q 'bin/yt-dlp'; then
+            echo "the musl bundle must not carry yt-dlp"; exit 1
+          fi
+          report=$("$bin" --selftest)
+          echo "$report" | grep -q "selftest: 177 checks, 0 failed"
+          echo "$report" | tail -n 3
+          echo "musl run proof passed: static, selftest 177/0, cli-only"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-musl-bundle
+          path: |
+            dist/ytdlp-cli-v*-linux-musl.tar.gz
             dist/SHA256SUMS
           if-no-files-found: error
 

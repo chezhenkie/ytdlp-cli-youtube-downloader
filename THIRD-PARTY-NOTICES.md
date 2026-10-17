@@ -5,6 +5,12 @@ This bundle contains three independently licensed projects. They are separate
 programs that work together because one invokes the other; each keeps its own
 license.
 
+Which of the three are inside a given artifact: the platform bundles carry
+yt-dlp (the portable ones also ffmpeg), the macOS pkg carries all three, and
+the linux-musl bundle carries ytdlp-cli only - there yt-dlp and ffmpeg come
+from the system package manager (on Alpine, apk add yt-dlp pulls ffmpeg with
+it).
+
 1. ytdlp-cli - the menu, the launchers and the defaults
    MIT License. See LICENSE in this bundle.
 
@@ -13,10 +19,11 @@ license.
    https://github.com/yt-dlp/yt-dlp
    The bundled yt-dlp ships its own THIRD_PARTY_LICENSES.txt listing every
    library inside it. That file is part of yt-dlp's own distribution and is not
-   reproduced here.
+   reproduced here. In the linux-musl bundle yt-dlp is not bundled at all; the
+   system's own copy and its license file apply.
 
 3. ffmpeg - merging, audio extraction and subtitle conversion
-   Present in the portable bundles and the macOS pkg; the lean bundles do not contain it.
+   Present in the portable bundles and the macOS pkg; the lean and linux-musl bundles do not contain it.
    Copyright (c) 2000-2026 the FFmpeg developers.
    The builds shipped here are configured --enable-gpl --enable-version3, so
    they are distributed under the GNU General Public License version 2 or later,
