@@ -45,6 +45,7 @@ Every requirement's acceptance criterion is an executable, offline check; the pa
 | FR-14 | extract_member fixtures, probe shim; `windows ffmpeg source is BtbN` and `macos ffmpeg source is shaka-project` (FR-14; the third and fifth recorded comparator mappings) |
 | FR-15 | --check output byte-identical to the reference on all three OS |
 | FR-16 | PE VersionInfo fields asserted on the built exe in CI and repeated on the extracted bundle at G10 |
+| FR-18 | installers built on their native runners in bundles.yml and proven there: windows silent install + installed-exe PE fields + selftest 177/0 + PATH add/remove + clean uninstall; macos `installer -pkg` + selftest 177/0 + payload digests + tree writability + launcher + the shipped uninstall script (symlink, tree, receipt); G10 repeats the windows install/uninstall on the shipped setup.exe and digest-chains the pkg |
 | NFR-1 | PE import table free of vcruntime*.dll and msvcp*.dll; asserted on the build output in CI (G1) and repeated on the extracted bundle at release (G10) |
 | NFR-4 | rust.yml: fmt, clippy warnings denied, tests, differential harness, session suites |
 

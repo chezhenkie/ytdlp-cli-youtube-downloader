@@ -91,7 +91,7 @@ checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 
 [[package]]
 name = "fake-ytdlp"
-version = "2.1.1"
+version = "2.2.0"
 
 [[package]]
 name = "filetime"
@@ -610,7 +610,7 @@ dependencies = [
 
 [[package]]
 name = "ytdlp-cli"
-version = "2.1.1"
+version = "2.2.0"
 dependencies = [
  "libc",
  "lzma-rust2",
@@ -623,7 +623,7 @@ dependencies = [
 
 [[package]]
 name = "ytdlp-harness"
-version = "2.1.1"
+version = "2.2.0"
 dependencies = [
  "lzma-rust2",
  "tar",

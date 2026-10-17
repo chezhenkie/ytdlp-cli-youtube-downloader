@@ -3,12 +3,20 @@ name: bundles
 # Phase 10 (owner call 2026-10-16): assemble the release files on the
 # native runners. workflow_dispatch only. This workflow builds artifacts; it does
 # not tag or publish anything. The release commit carries the digests, the tag
-# follows, and gh release upload places exactly these bytes. macos joined in the
-# 2026-10-17g owner pass; the 2026-10-17h owner call made the mac line
-# portable-only (the lean mac bundle was pulled) and pulled the bare macos
-# image. The 2026-10-17j owner call pulled the two remaining bare updater
-# images: the release is five bundles (windows/linux lean+portable each,
-# macos-arm64 portable) and RELEASE-NOTES.md - six release files.
+# follows, and gh release upload places exactly these bytes. The 2026-10-17k
+# owner call adds installers and moves macos from the tar bundle to a pkg (the
+# tar is gone - it was the confusing twin): the release is four bundles
+# (windows/linux lean+portable each), the windows setup.exe, the macos-arm64
+# pkg and RELEASE-NOTES.md - seven release files. No bare cli image is
+# published on any platform (owner calls 2026-10-17h and j).
+#
+# The installers are built here and proven here, not just assembled: the
+# windows job silently installs the setup.exe, runs the installed binary's
+# selftest (177 checks, 0 failed), checks the PATH entry and uninstalls again;
+# the macos job installs the pkg with `installer -pkg` on the runner, runs the
+# installed binary, checks writability, the launcher and the shipped uninstall
+# script. Both installers carry the same portable payload the zip/tar bundles
+# carry.
 #
 # Payload pins:
 #   yt-dlp 2026.08.19: yt-dlp.exe (windows), yt-dlp_linux (linux),
@@ -47,7 +55,7 @@ env:
 
 jobs:
   windows-bundles:
-    name: windows lean + portable
+    name: windows lean + portable + setup
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -93,17 +101,69 @@ jobs:
           Copy-Item $ff.FullName "$stage/bin/ffmpeg.exe"
           Copy-Item rust-src/packaging/GPL-2.0.txt, rust-src/packaging/GPL-3.0.txt "$stage/"
           Compress-Archive -Path $stage -DestinationPath "dist/ytdlp-cli-v$ver-windows-portable.zip"
+      - name: install Inno Setup (the setup.exe it builds needs nothing at run time)
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+      - name: build the windows installer (per-user, no admin prompt, portable payload)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $m = [regex]::Match((Get-Content rust-src/Cargo.toml -Raw), '(?m)^version = "([^"]+)"')
+          if (-not $m.Success) { throw "version not found in rust-src/Cargo.toml" }
+          $ver = $m.Groups[1].Value
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { throw "ISCC.exe not found at $iscc" }
+          $stage = "$PWD/dist/ytdlp-cli-v$ver"
+          & $iscc "/DVer=$ver" "/DStage=$stage" "/O$PWD/dist" "rust-src/packaging/windows-installer.iss"
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with $LASTEXITCODE" }
+          if (-not (Test-Path "dist/ytdlp-cli-v$ver-windows-setup.exe")) { throw "setup.exe not produced" }
+      - name: installer proof - silent install, selftest 177/0, PATH add/remove, uninstall
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $m = [regex]::Match((Get-Content rust-src/Cargo.toml -Raw), '(?m)^version = "([^"]+)"')
+          $ver = $m.Groups[1].Value
+          $setup = "dist/ytdlp-cli-v$ver-windows-setup.exe"
+          $tdir = "$PWD/inst-test/ytdlp-cli"
+          Start-Process -FilePath $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/DIR=$tdir" -Wait
+          if (-not (Test-Path "$tdir/ytdlp.exe")) { throw "installed ytdlp.exe missing" }
+          $report = & "$tdir/ytdlp.exe" --selftest | Out-String
+          $rc = $LASTEXITCODE
+          if ($rc -ne 0) { throw "installed selftest rc $rc" }
+          if ($report -notmatch "selftest: 177 checks, 0 failed") { throw "selftest report mismatch: $report" }
+          $pe = (Get-Item "$tdir/ytdlp.exe").VersionInfo
+          if ($pe.FileDescription -ne "ytdlp") { throw "FileDescription: $($pe.FileDescription)" }
+          if ($pe.ProductName -ne "yt-dlp cli") { throw "ProductName: $($pe.ProductName)" }
+          if ($pe.FileVersion -notlike "$ver*") { throw "FileVersion: $($pe.FileVersion)" }
+          foreach ($f in @("bin/yt-dlp.exe", "bin/ffmpeg.exe", "run-ytdlp.bat", "README.md", "GPL-2.0.txt", "GPL-3.0.txt")) {
+            if (-not (Test-Path "$tdir/$f")) { throw "installed file missing: $f" }
+          }
+          $pathNow = (Get-ItemProperty -Path "HKCU:\Environment" -Name Path).Path
+          if ($pathNow -notlike "*$tdir*") { throw "PATH entry missing after install" }
+          Start-Process -FilePath "$tdir/unins000.exe" -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait
+          $deadline = (Get-Date).AddSeconds(20)
+          while ((Test-Path $tdir) -and ((Get-Date) -lt $deadline)) { Start-Sleep -Milliseconds 500 }
+          if (Test-Path $tdir) { throw "uninstall left files behind" }
+          $pathAfter = (Get-ItemProperty -Path "HKCU:\Environment" -Name Path).Path
+          if ($pathAfter -like "*$tdir*") { throw "PATH entry survived uninstall" }
+          Remove-Item -Recurse -Force "$PWD/inst-test" -ErrorAction SilentlyContinue
+          Write-Host "installer proof passed: install, selftest 177/0, PE fields, PATH add/remove, clean uninstall"
+      - name: checksums and sizes
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
           cd dist
-          Get-ChildItem *.zip | Sort-Object Name | ForEach-Object {
+          Get-ChildItem *.zip, *.exe | Sort-Object Name | ForEach-Object {
             "$((Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLower())  $($_.Name)"
           } | Set-Content -Encoding ascii SHA256SUMS
           Get-Content SHA256SUMS
-          Get-ChildItem *.zip | Sort-Object Name | ForEach-Object { "size: $($_.Name) $($_.Length)" }
+          Get-ChildItem *.zip, *.exe | Sort-Object Name | ForEach-Object { "size: $($_.Name) $($_.Length)" }
       - uses: actions/upload-artifact@v4
         with:
           name: windows-bundles
           path: |
             dist/ytdlp-cli-*.zip
+            dist/ytdlp-cli-*.exe
             dist/SHA256SUMS
           if-no-files-found: error
 
@@ -159,8 +219,8 @@ jobs:
             dist/SHA256SUMS
           if-no-files-found: error
 
-  macos-bundles:
-    name: macos portable
+  macos-pkg:
+    name: macos pkg
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
@@ -171,7 +231,7 @@ jobs:
       - name: build the release binary
         working-directory: rust-src
         run: cargo build --release -p ytdlp-cli
-      - name: verify payload pins and assemble
+      - name: verify payload pins, assemble the tree and build the pkg
         run: |
           set -euo pipefail
           ver=$(sed -n 's/^version = "\(.*\)"$/\1/p' rust-src/Cargo.toml | head -n1)
@@ -185,25 +245,68 @@ jobs:
           get_pinned "$FFMPEG_MACOS_URL" payload/ffmpeg-osx-arm64 "$FFMPEG_MACOS_SHA256"
           echo "$GPL2_SHA256  rust-src/packaging/GPL-2.0.txt" | shasum -a 256 -c -
           echo "$GPL3_SHA256  rust-src/packaging/GPL-3.0.txt" | shasum -a 256 -c -
-          stage="dist/ytdlp-cli-v$ver"
-          mkdir -p "$stage/bin"
-          install -m 0755 rust-src/target/release/ytdlp "$stage/ytdlp"
-          install -m 0755 rust-src/packaging/run-ytdlp.sh "$stage/run-ytdlp.sh"
-          install -m 0644 rust-src/packaging/run-ytdlp.bat "$stage/run-ytdlp.bat"
-          install -m 0644 README.md CHANGELOG.md LICENSE THIRD-PARTY-NOTICES.md "$stage/"
-          install -m 0755 payload/yt-dlp_macos "$stage/bin/yt-dlp"
-          install -m 0755 payload/ffmpeg-osx-arm64 "$stage/bin/ffmpeg"
-          install -m 0644 rust-src/packaging/GPL-2.0.txt rust-src/packaging/GPL-3.0.txt "$stage/"
-          file "$stage/ytdlp" "$stage/bin/yt-dlp" "$stage/bin/ffmpeg"
-          tar -czf "dist/ytdlp-cli-v$ver-macos-arm64-portable.tar.gz" -C dist "ytdlp-cli-v$ver"
+          # the payload tree, shaped for the pkg's --install-location /:
+          # /usr/local/ytdlp-cli is the app (portable layout), /usr/local/bin/ytdlp
+          # is the symlink that puts it on PATH
+          root=dist/pkg-root
+          app="$root/usr/local/ytdlp-cli"
+          mkdir -p "$app/bin" "$root/usr/local/bin"
+          install -m 0755 rust-src/target/release/ytdlp "$app/ytdlp"
+          install -m 0755 rust-src/packaging/run-ytdlp.sh "$app/run-ytdlp.sh"
+          install -m 0644 rust-src/packaging/run-ytdlp.bat "$app/run-ytdlp.bat"
+          install -m 0755 rust-src/packaging/uninstall-macos.sh "$app/uninstall-macos.sh"
+          install -m 0644 README.md CHANGELOG.md LICENSE THIRD-PARTY-NOTICES.md "$app/"
+          install -m 0755 payload/yt-dlp_macos "$app/bin/yt-dlp"
+          install -m 0755 payload/ffmpeg-osx-arm64 "$app/bin/ffmpeg"
+          install -m 0644 rust-src/packaging/GPL-2.0.txt rust-src/packaging/GPL-3.0.txt "$app/"
+          ln -s ../ytdlp-cli/ytdlp "$root/usr/local/bin/ytdlp"
+          file "$app/ytdlp" "$app/bin/yt-dlp" "$app/bin/ffmpeg"
+          mkdir -p dist/pkg-scripts
+          install -m 0755 rust-src/packaging/macos-pkg-postinstall.sh dist/pkg-scripts/postinstall
+          pkgbuild --root "$root" --install-location / --scripts dist/pkg-scripts \
+            --identifier com.github.chezhenkie.ytdlp-cli --version "$ver" \
+            "dist/ytdlp-cli-v$ver-macos-arm64.pkg"
+          pkgutil --payload-files "dist/ytdlp-cli-v$ver-macos-arm64.pkg" | head -40
+      - name: installer proof - install the pkg, run it, uninstall via the shipped script
+        run: |
+          set -euo pipefail
+          ver=$(sed -n 's/^version = "\(.*\)"$/\1/p' rust-src/Cargo.toml | head -n1)
+          pkg="dist/ytdlp-cli-v$ver-macos-arm64.pkg"
+          sudo installer -pkg "$pkg" -target /
+          test -L /usr/local/bin/ytdlp
+          report=$(/usr/local/bin/ytdlp --selftest)
+          echo "$report" | tail -3
+          echo "$report" | grep -q "selftest: 177 checks, 0 failed"
+          # the tree must be writable by the user running it (settings.json,
+          # yt-dlp -U and the ffmpeg offer all write into the tree)
+          touch /usr/local/ytdlp-cli/.wtest && rm /usr/local/ytdlp-cli/.wtest
+          echo "$YTDLP_MACOS_SHA256  /usr/local/ytdlp-cli/bin/yt-dlp" | shasum -a 256 -c -
+          echo "$FFMPEG_MACOS_SHA256  /usr/local/ytdlp-cli/bin/ffmpeg" | shasum -a 256 -c -
+          /usr/local/ytdlp-cli/run-ytdlp.sh --check > dist/installed-check.txt
+          grep -q "ffmpeg dir" dist/installed-check.txt
+          grep -q "yt-dlp" dist/installed-check.txt
+          sudo /usr/local/ytdlp-cli/uninstall-macos.sh
+          if [ -L /usr/local/bin/ytdlp ] || [ -e /usr/local/bin/ytdlp ]; then
+            echo "PATH symlink survived the uninstall" >&2
+            exit 1
+          fi
+          test ! -e /usr/local/ytdlp-cli
+          if pkgutil --pkg-info com.github.chezhenkie.ytdlp-cli >/dev/null 2>&1; then
+            echo "pkg receipt survived the uninstall" >&2
+            exit 1
+          fi
+          echo "pkg proof passed: install, selftest 177/0, pins, writability, launcher, uninstall"
+      - name: checksums and sizes
+        run: |
+          set -euo pipefail
           cd dist
-          shasum -a 256 *.tar.gz > SHA256SUMS
+          shasum -a 256 *.pkg > SHA256SUMS
           cat SHA256SUMS
-          ls -l ytdlp-cli-*.tar.gz
+          ls -l ytdlp-cli-*.pkg
       - uses: actions/upload-artifact@v4
         with:
-          name: macos-bundles
+          name: macos-pkg
           path: |
-            dist/ytdlp-cli-*.tar.gz
+            dist/ytdlp-cli-*.pkg
             dist/SHA256SUMS
           if-no-files-found: error

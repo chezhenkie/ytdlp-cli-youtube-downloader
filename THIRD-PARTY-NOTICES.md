@@ -16,7 +16,7 @@ license.
    reproduced here.
 
 3. ffmpeg - merging, audio extraction and subtitle conversion
-   Present in the portable bundles only; the lean bundles do not contain it.
+   Present in the portable bundles and the macOS pkg; the lean bundles do not contain it.
    Copyright (c) 2000-2026 the FFmpeg developers.
    The builds shipped here are configured --enable-gpl --enable-version3, so
    they are distributed under the GNU General Public License version 2 or later,
@@ -50,7 +50,7 @@ license.
      sha256: e7b9fcd97f95f333512d6e8b8ac24d9dbc08f189f36047695499bd7b57214b22
      Release page: https://github.com/shaka-project/static-ffmpeg-binaries/releases
      The build script and the CI workflow that produce these binaries live in
-     that same repository. Present in the macos portable bundle only.
+     that same repository. Present in the macOS pkg.
 
    ffmpeg is free software. You may use, study, modify and redistribute it under
    the terms of the GNU General Public License, exactly as its authors intend.
