@@ -1,6 +1,6 @@
 //! ytdlp cli - native binary.
 //!
-//! Phase 8 (RUST-PORT-PLAN.md) wires the updaters: `--update` runs
+//! Phase 8 wires the updaters: `--update` runs
 //! python's `update_all`, menu item 11 runs it inside the session, the
 //! menu start runs the once-a-day auto-update check, and the self-update
 //! gates the new image on its own `--selftest` (which refuses until

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Dump the PE import table of a windows executable and assert patterns.
 
-The crt-static flag fails silently when lost (RUST-PORT-PLAN.md 2.1), so
+The crt-static flag fails silently when lost, so
 the rust CI asserts the built exe's import table contains no
 vcruntime*/msvcp* entry, and proves the checker with a deliberately
 dynamic-CRT build that must show vcruntime. Prints one "import: <DLL>"

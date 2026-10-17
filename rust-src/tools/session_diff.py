@@ -13,8 +13,7 @@ like the harness's {scratch}:
     so resolved output folders differ only by that prefix);
   - the header version `yt-dlp cli  vX.Y.Z` as `v{ver}`: the native
     product version tracks its own release line while the ported
-    behaviour carries python v1.5.0's transcripts (RUST-PORT-PLAN.md
-    phase 6 notes).
+    behaviour carries python v1.5.0's transcripts.
 
 Phase 7 adds executable cases: a case may stage the scripted yt-dlp
 stand-in (`rust-src/fake-ytdlp`) into the tree's `bin/`, pin PATH to that
@@ -147,7 +146,7 @@ def stage_tree(kind, work, case, rust_bin, fake_bin):
         # staged under the oracle's script name: argparse's help and
         # usage wrap depend on len(prog), so the two fixtures must carry
         # the same program name for a byte comparison (the real launcher
-        # names are environment, RUST-PORT-PLAN phase 7 notes)
+        # name is environment-dependent)
         exe = tree / "ytdlp.py"
         shutil.copyfile(rust_bin, exe)
         if os.name != "nt":

@@ -1,5 +1,5 @@
 //! Scripted yt-dlp stand-in for the offline differential and session
-//! tests (RUST-PORT-PLAN.md phase 7 evidence: fake yt-dlp binaries in
+//! tests (phase 7 evidence: fake yt-dlp binaries in
 //! the harness and session trees, never the network). Development tool
 //! only: it is never part of a release bundle and nothing in `cli/`
 //! depends on it.

@@ -1761,7 +1761,7 @@ mod tests {
 
     #[test]
     fn f4_success_probes_memoize_but_failures_never_do() {
-        // audit F4 (RUST-PORT-PLAN named regression)
+        // audit F4 (named regression)
         let mut cache = VersionCache::default();
         let spawns = std::cell::Cell::new(0);
         let mut ok_spawn = |_b: &str, _f: &str| {

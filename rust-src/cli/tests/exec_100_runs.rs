@@ -1,5 +1,5 @@
 //! Phase-7 download hygiene: 100 consecutive `run_download` runs against
-//! the scripted stand-in (RUST-PORT-PLAN G7: "100 consecutive runs leave
+//! the scripted stand-in (G7: "100 consecutive runs leave
 //! no lingering processes, temp files, or handles"). Each run must exit
 //! cleanly, its child must be gone afterwards, the argv handed over must
 //! be identical every time, no work folder may survive and the test

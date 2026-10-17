@@ -1,4 +1,4 @@
-# One pinned toolchain for local builds and CI (RUST-PORT-PLAN.md 2.2).
+# One pinned toolchain for local builds and CI.
 # Local WSL and local rustup resolve this channel; CI installs it too.
 [toolchain]
 channel = "1.98.0"

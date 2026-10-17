@@ -5,8 +5,7 @@
 //! which is the interchange format `tools/harness.py` produces, and the
 //! parser mirrors `json.loads`, so phase-3 vector inputs may carry floats
 //! and the `NaN`/`Infinity`/`-Infinity` constants. Generated records stay
-//! i64-only, enforced on both sides. Traps and rules:
-//! python-to-rust-refactor-pitfalls.md items 4 and 5.
+//! i64-only, enforced on both sides.
 
 use std::fmt;
 use ytdlp_cli::config::py_float_repr;

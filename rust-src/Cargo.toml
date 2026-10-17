@@ -1,4 +1,4 @@
-# Native port workspace (RUST-PORT-PLAN.md). Three members: the product
+# Native workspace (specsheet section 4). Three members: the product
 # binary (cli/), the differential harness dispatcher (harness/) and the
 # scripted yt-dlp stand-in (fake-ytdlp/), the latter two development
 # tools that are never shipped in a bundle.
@@ -15,6 +15,6 @@ repository = "https://github.com/chezhenkie/ytdlp-cli-youtube-downloader"
 
 # Python ints are arbitrary precision, Rust ints are not; a ported line
 # that relied on that silently wraps in release builds unless overflow
-# checks stay on (python-to-rust-refactor-pitfalls.md item 4).
+# checks stay on.
 [profile.release]
 overflow-checks = true

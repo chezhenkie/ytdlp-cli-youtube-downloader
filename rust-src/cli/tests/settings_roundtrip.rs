@@ -1,4 +1,4 @@
-//! G3 addition (RUST-PORT-PLAN.md phase 3): the tracked settings.json
+//! G3 addition (phase 3): the tracked settings.json
 //! round-trips through the rust state layer byte-exact. The tracked file
 //! itself is only read; a copy in a temp dir carries the load plus no-op
 //! save cycle, which is the mechanical meaning of "no-op save leaves

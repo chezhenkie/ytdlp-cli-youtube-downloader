@@ -2,8 +2,7 @@
 //!
 //! Ported layer by layer from `deprecated-py-src/src/ytdlp.py`, which stays the
 //! behavioural oracle: every ported function is byte-compared through
-//! `rust-src/tools/harness.py` before it counts (RUST-PORT-PLAN.md,
-//! specsheet NFR-4). Layer names follow specsheet section 4: term,
+//! `rust-src/tools/harness.py` before it counts (specsheet NFR-4). Layer names follow specsheet section 4: term,
 //! config, resolve, args, exec, update, ui.
 
 pub mod archive;

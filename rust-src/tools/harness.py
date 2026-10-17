@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Differential harness driver and differ for the ytdlp native port.
 
-Plan contract (RUST-PORT-PLAN.md phase 1): a tool that takes a function
+Plan contract (phase 1): a tool that takes a function
 name plus a JSON fixture vector and calls it identically in the python
 and the rust implementation, plus a differ asserting byte equality.
 Acceptance rule (specsheet NFR-4): the instrument is proven against
@@ -244,8 +244,8 @@ def _hook_short_path(module, args):
 # The settings cases carry their fixture in the vector itself. Each side
 # materializes it in its own private scratch dir (never a shared path),
 # binds CONFIG_PATH and USE_COLOR for the call, and reports a record with
-# port-domain shape tokens: python's exception payloads stay shape-gated
-# (RUST-PORT-PLAN.md port rules), so the record carries only the token.
+# port-domain shape tokens: python's exception payloads stay shape-gated,
+# so the record carries only the token.
 
 # must match dispatch.rs SENTINEL
 SENTINEL_BYTES = b"ytdlp-sentinel"

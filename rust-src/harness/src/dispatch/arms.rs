@@ -141,7 +141,7 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
         // Phase 3, state layer: the case carries the fixture, the arm
         // materializes it in a private scratch dir and drives the state
         // functions over it. Outcome tokens are port-domain shapes
-        // (payloads stay shape-gated, RUST-PORT-PLAN.md port rules).
+        // (payloads stay shape-gated).
         "load_settings" => {
             let case = arg(args, 0, "settings case")?;
             let dir = TempCaseDir::new("load")?;

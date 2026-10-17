@@ -332,8 +332,7 @@ pub enum LoadOutcome {
 
 /// The shapes where python raises out of `load_settings` (a settings file
 /// whose JSON is not an object). Carries the python exception class name
-/// as the shape token for the harness record; messages stay shape-gated
-/// (RUST-PORT-PLAN.md port rules).
+/// as the shape token for the harness record; messages stay shape-gated.
 #[derive(Debug)]
 pub struct ShapeError {
     pub class_name: &'static str,

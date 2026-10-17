@@ -1,4 +1,4 @@
-//! G2 addition (RUST-PORT-PLAN.md phase 2): the README-pinned bundle
+//! G2 addition (phase 2): the README-pinned bundle
 //! digests are checked with the hand-rolled sha256 whenever the release
 //! artifacts exist locally. `releases/` is gitignored, so this test
 //! skips silently in CI and on fresh clones.
