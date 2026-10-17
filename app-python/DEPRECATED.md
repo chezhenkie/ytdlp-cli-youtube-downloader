@@ -1,6 +1,6 @@
-# app-python is deprecated - frozen at v1.5.0
+# Pre-Rust python source - deprecated
 
-The native line in app-rust/ is the product. This folder is the final python release (v1.5.0, 2026-10-15) and receives no further development, fixes or releases.
+This folder is the pre-Rust python source, frozen at v1.5.0 (2026-10-15). The native line in app-rust/ is the product, and this folder receives no further development, fixes or releases.
 
 It stays in the repo for one reason: it is the reference oracle the CI differential, check-parity and session jobs compare the native build against (CPython 3.14.4 exactly). Changing anything here would change the oracle and invalidate those jobs - do not edit it.
 
