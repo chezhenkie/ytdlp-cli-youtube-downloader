@@ -5,6 +5,9 @@ Newest first. Current level: v2.2.0 (native, released 2026-10-17); v2.1.1 releas
 
 ## v2.2.0 native (released 2026-10-17)
 
+- install: the curl installer for Linux (owner call 2026-10-17l; this commit)
+`install.sh` (repo root, served from main) installs the latest release - or `--version vX.Y.Z` - for Linux x86_64: it fetches that release's RELEASE-NOTES.md, reads the sha256 for the chosen bundle out of the Checksums block, verifies the download against it before anything touches the disk, unpacks the tree to `~/.local/share/ytdlp-cli`, links `~/.local/bin/ytdlp`, keeps an existing `config/settings.json` across re-installs, and `--uninstall` removes tree and link (a foreign `~/.local/bin/ytdlp` is left alone). Default payload is the portable bundle (ffmpeg included), matching the two installers; `--lean` picks the smaller one. Nothing runs as root and no system package manager is involved - the tarball stays the artifact. The Checksums block of RELEASE-NOTES.md is now a machine-read seam of every release: keep the `digest  filename` rows verbatim. macOS stays out of the script (the pkg is the mac path). Tested via a fake-release suite (digest mismatch and missing row refuse; re-install keeps settings; foreign link untouched) and end-to-end against the published v2.2.0 - portable and lean, selftest 177/0 via the PATH link, uninstall clean. README documents the one-liner.
+
 - owner call: the v2.1.1 page loses the retired macOS tar (2026-10-17k)
 The macOS tar bundle (`ytdlp-cli-v2.1.1-macos-arm64-portable.tar.gz`) is pulled from the published v2.1.1 release and its RELEASE-NOTES.md refreshed in place (the file row, its checksum row and the macOS bundle lines are gone; mac readers are pointed at the v2.2.0 pkg). The page now holds five files and every live asset's api digest equals the refreshed notes.
 
