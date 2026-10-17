@@ -1,9 +1,12 @@
 changelog
 =========
 
-Newest first. Current level: v2.0.3 (native, in development); v2.0.2 released 2026-10-17; v1.5.0 is the final python line. Consolidated 2026-10-16: chapters longer than their headlines are compressed, full dated chapters live in git history.
+Newest first. Current level: v2.0.3 (native, released 2026-10-17); v2.0.2 released 2026-10-17; v1.5.0 is the final python line. Consolidated 2026-10-16: chapters longer than their headlines are compressed, full dated chapters live in git history.
 
-## v2.0.3 native (in development)
+## v2.0.3 native (released 2026-10-17)
+
+- v2.0.3 published (this commit)
+A behavior-fix release on the native line: the keypress-0 quick paste and the probe-timeout orphan hardening (entries below). CI run 39008046558 assembled the six binaries; both platform bundles were extracted and run from the CI bytes before upload (windows-lean/portable selftest 177/0 from the extracted tree with the 2.0.3 version fields and the import table free of vcruntime*/msvcp*; linux-lean/portable launcher selftest 177/0 and --check resolving the bundled yt-dlp 2026.08.19 and, in the portable bundle, the bundled ffmpeg n9.0.2-27-g7e93014c5b-20261013) and all six match the CI SHA256SUMS. Digests folded into README.md and the staged releases/v2.0.3/RELEASE-NOTES.md; the tag and the gh release upload follow; G10 runs from the release after publish. Bundle payload pins stay as published (gyan 9.0.2 windows portable, BtbN n9.0.2 linux).
 
 - fix: the probe timeout kills the whole process tree (this commit)
 OQ-P1 hardening, owner-ordered after the repro session (record scratch-oqp1/OQ-P1-REPRO-SESSION.md; the four exit-path runs were clean and the leak itself was not reproduced): the 60 s `--version` probe timeout used `child.kill()`, which terminates only the direct child - the PyInstaller bootloader - so a hung probe could orphan its python grandchild and keep `yt-dlp.exe` locked. The timeout now removes the whole tree (windows: `taskkill /F /T /PID`; posix: the probe runs in its own process group and the group takes SIGKILL), then reaps. The public message is unchanged; the deviation from the frozen python line's direct-child-only kill is recorded. Covered by the new unix test `a_probe_timeout_kills_the_whole_tree` (a shim forks a sleepy grandchild; the timeout must take both).
