@@ -1,9 +1,12 @@
 changelog
 =========
 
-Newest first. Current level: v2.0.2 (native, in development); v2.0.1 released 2026-10-16; v1.5.0 is the final python line. Consolidated 2026-10-16: chapters longer than their headlines are compressed, full dated chapters live in git history.
+Newest first. Current level: v2.0.2 (native, released 2026-10-17); v1.5.0 is the final python line. Consolidated 2026-10-16: chapters longer than their headlines are compressed, full dated chapters live in git history.
 
-## v2.0.2 native (in development)
+## v2.0.2 native (released 2026-10-17)
+
+- v2.0.2 published (this commit)
+A feature release on the native line: FR-17, the quick-paste row (entry below). CI run 39001201614 assembled the six binaries; both platform bundles were extracted and run from the CI bytes before upload (windows-lean/portable selftest 177/0 from the extracted tree with the 2.0.2 PE version fields and the import table free of vcruntime*/msvcp*; linux-lean/portable launcher selftest 177/0 and --check resolving the bundled yt-dlp and, in the portable bundle, the bundled ffmpeg n9.0.2-27-g7e93014c5b-20261013) and all six match the CI SHA256SUMS. Digests folded into README.md and the staged releases/v2.0.2/RELEASE-NOTES.md; the tag and the gh release upload follow; G10 runs from the release after publish. Bundle payload pins stay as published (gyan 9.0.2 windows portable, BtbN n9.0.2 linux).
 
 - fix: session_diff projects the macos pty's double-CR linefeed decoration (this commit)
 macos pty runs intermittently showed one extra \r before a paint line's \n (usually the first paint, per-process random). strace shows both children emit identical one-write-per-line shapes and no program write contains a bare CR before a LF, so the byte is a line-discipline artifact of the pty; the differ now collapses \r\r+\n to \r\n on both sides (linux runs never produce it). The failure dump also keeps the first-diff byte window and writes the raw transcripts into the work dir for --keep runs.
