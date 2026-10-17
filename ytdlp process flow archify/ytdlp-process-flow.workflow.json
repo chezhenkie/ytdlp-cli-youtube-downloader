@@ -1,0 +1,112 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "yt-dlp cli Process Flow",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "daily-path", "label": "Paste a url to verdict", "focus": ["launch", "auto_check", "prompt", "dispatch", "preflight", "run", "subs", "finished"], "note": "The everyday path: start, paste a url, press enter, read the frozen verdict." },
+      { "id": "quick-paste", "label": "Bare 0 quick paste", "focus": ["prompt", "quick0", "dispatch"], "note": "On a real tty a bare 0 reads the clipboard and starts the download at the keypress." },
+      { "id": "menu-and-settings", "label": "Menu actions", "focus": ["act", "settings_write", "batch", "quit"], "note": "Change defaults, batch urls, or leave; every change persists at once." },
+      { "id": "update-and-stops", "label": "Updates and stops", "focus": ["auto_check", "updater_ytdlp", "updater_cli", "ffmpeg_offer", "failed", "escape_stop"], "note": "Update paths and the places where a run asks consent or stops." }
+    ]
+  },
+  "lanes": [
+    { "id": "console", "label": "Console UI" },
+    { "id": "dl", "label": "Download Run" },
+    { "id": "app", "label": "Menu Actions" },
+    { "id": "store", "label": "Settings Store" },
+    { "id": "exc", "label": "Stops & Failure Paths", "variant": "exception" },
+    { "id": "net", "label": "Update & Network" }
+  ],
+  "phases": [
+    { "id": "intake", "label": "Open + input", "fromCol": 0, "toCol": 1 },
+    { "id": "route", "label": "Route + download", "fromCol": 2, "toCol": 4, "variant": "emphasis" },
+    { "id": "verdict", "label": "Verdict", "fromCol": 5, "toCol": 5, "variant": "dashed" }
+  ],
+  "groups": [
+    { "id": "stop_paths", "label": "Consent + stop", "lane": "exc", "fromCol": 3, "toCol": 5, "variant": "security" }
+  ],
+  "mainPath": ["launch", "auto_check", "prompt", "dispatch", "preflight", "run", "subs", "finished"],
+  "nodes": [
+    { "id": "launch", "lane": "console", "col": 0, "type": "frontend", "label": "Launch", "sublabel": "VT + menu paint", "width": 120 },
+    { "id": "prompt", "lane": "console", "col": 1, "type": "frontend", "label": "Main Prompt", "sublabel": "url / number / 0", "width": 120 },
+    { "id": "quit", "lane": "console", "col": 3, "type": "frontend", "label": "Quit", "sublabel": "save + settings path", "width": 132 },
+    { "id": "finished", "lane": "console", "col": 5, "type": "frontend", "label": "Finished Verdict", "sublabel": "file name + size", "width": 132 },
+    { "id": "quick0", "lane": "console", "col": 2, "type": "external", "label": "Quick Paste 0", "sublabel": "clipboard link", "tag": "FR-17", "width": 120 },
+    { "id": "act", "lane": "app", "col": 2, "type": "backend", "label": "Menu Action", "sublabel": "items 1-13", "width": 120 },
+    { "id": "batch", "lane": "app", "col": 3, "type": "messagebus", "label": "Item 9 Batch", "sublabel": "one url per line", "tag": "FR-12", "width": 120 },
+    { "id": "settings_write", "lane": "store", "col": 2, "type": "database", "label": "settings.json", "sublabel": "atomic write per change", "width": 132 },
+    { "id": "dispatch", "lane": "dl", "col": 2, "type": "backend", "label": "Url Dispatch", "sublabel": "clean_url + scheme gate", "width": 132 },
+    { "id": "preflight", "lane": "dl", "col": 3, "type": "backend", "label": "Preflight", "sublabel": "yt-dlp + ffmpeg probe", "width": 132 },
+    { "id": "run", "lane": "dl", "col": 4, "type": "backend", "label": "yt-dlp Run", "sublabel": "spinner + progress", "width": 120 },
+    { "id": "subs", "lane": "dl", "col": 5, "type": "backend", "label": "Subtitle Pass", "sublabel": "best-effort srt", "width": 120 },
+    { "id": "ffmpeg_offer", "lane": "exc", "col": 4, "type": "external", "label": "FFmpeg Offer", "sublabel": "digest-first install", "tag": "FR-14", "width": 132 },
+    { "id": "failed", "lane": "exc", "col": 5, "type": "security", "label": "Run Failed", "sublabel": "rc + full error line", "width": 132 },
+    { "id": "escape_stop", "lane": "exc", "col": 3, "type": "security", "label": "Escape Stop", "sublabel": "kill tree, clean parts", "tag": "FR-11", "width": 132 },
+    { "id": "auto_check", "lane": "net", "col": 0, "type": "cloud", "label": "Auto-Update Check", "sublabel": "daily, tty only", "width": 132 },
+    { "id": "updater_ytdlp", "lane": "net", "col": 3, "type": "cloud", "label": "yt-dlp -U", "sublabel": "pre + post probe", "width": 120 },
+    { "id": "updater_cli", "lane": "net", "col": 4, "type": "cloud", "label": "CLI Self-Update", "sublabel": "digest + selftest gate", "tag": "FR-13", "width": 132 }
+  ],
+  "edges": [
+    { "id": "boot-check", "from": "launch", "to": "auto_check", "role": "main" },
+    { "id": "check-next", "from": "auto_check", "to": "prompt", "label": "current / declined", "role": "main", "via": [[114, 812], [270, 812], [270, 180], [242, 180]] },
+    { "id": "check-update", "from": "auto_check", "to": "updater_cli", "variant": "dashed", "role": "branch", "route": "bottom-channel", "fromSide": "bottom", "toSide": "bottom" },
+    { "id": "prompt-quick0", "from": "prompt", "to": "quick0", "role": "branch" },
+    { "id": "prompt-url", "from": "prompt", "to": "dispatch", "label": "url", "variant": "emphasis", "role": "main" },
+    { "id": "prompt-number", "from": "prompt", "to": "act", "label": "number", "role": "branch" },
+    { "id": "quick0-url", "from": "quick0", "to": "dispatch", "label": "clipboard link", "role": "branch" },
+    { "id": "dispatch-preflight", "from": "dispatch", "to": "preflight", "role": "main" },
+    { "id": "preflight-run", "from": "preflight", "to": "run", "label": "ready", "variant": "emphasis", "role": "main" },
+    { "id": "preflight-ffmpeg", "from": "preflight", "to": "ffmpeg_offer", "label": "no ffmpeg", "variant": "dashed", "role": "branch" },
+    { "id": "ffmpeg-run", "from": "ffmpeg_offer", "to": "run", "role": "branch" },
+    { "id": "run-subs", "from": "run", "to": "subs", "label": "rc 0", "role": "main" },
+    { "id": "subs-finished", "from": "subs", "to": "finished", "role": "main" },
+    { "id": "run-failed", "from": "run", "to": "failed", "label": "rc != 0", "variant": "security", "role": "error" },
+    { "id": "run-escape", "from": "run", "to": "escape_stop", "label": "escape", "variant": "security", "role": "error" },
+    { "id": "act-quit", "from": "act", "to": "quit", "role": "branch" },
+    { "id": "act-settings", "from": "act", "to": "settings_write", "role": "branch" },
+    { "id": "act-batch", "from": "act", "to": "batch", "label": "item 9", "role": "branch" },
+    { "id": "act-updater", "from": "act", "to": "updater_ytdlp", "label": "item 11", "role": "branch" },
+    { "id": "batch-preflight", "from": "batch", "to": "preflight", "label": "each url in order", "role": "branch" },
+    { "id": "updater-chain", "from": "updater_ytdlp", "to": "updater_cli", "label": "then cli", "role": "main" }
+  ],
+  "semanticChecks": {
+    "allowedRoots": ["launch"],
+    "allowedTerminals": ["quit", "failed", "escape_stop", "updater_cli", "settings_write", "finished"],
+    "requiredPaths": [
+      { "from": "prompt", "to": "finished" },
+      { "from": "batch", "to": "run" }
+    ]
+  },
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Menu Loop",
+      "items": [
+        "Every action and verdict repaints to the prompt - the menu never disappears",
+        "Escape wipes results at the prompt, backs out of a submenu, stops a running download",
+        "quit is the only path that ends the process"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Daily Download",
+      "items": [
+        "Paste a url and press enter - saved defaults drive the whole run",
+        "One frozen preflight line, one live progress line, one frozen verdict per run",
+        "Every run end force-removes the .ytdlp-tmp work folder"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Safety Rails",
+      "items": [
+        "Updates install only behind digest and selftest gates",
+        "Escape kills the whole process tree and aborts the rest of a batch (rc 130)",
+        "Missing binaries, failures and refused installs end in a readable line"
+      ]
+    }
+  ]
+}
