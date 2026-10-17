@@ -6,13 +6,17 @@
 ; prompt): {localappdata}\Programs\ytdlp-cli, the user's PATH gets the
 ; directory, and a real uninstaller is registered in Windows Settings.
 ;
-; ISCC invocation (bundles.yml): ISCC /DVer=<version> /DStage=<staged tree> /O<dist>
+; ISCC invocation (bundles.yml): ISCC /DAppVer=<version> /DStage=<staged tree> /O<dist>
+; The define is AppVer, not Ver: ISPP symbols are case-insensitive and Ver is a
+; builtin (the Inno Setup version), so /DVer clobbered it and aborted the
+; compile inside ISPPBuiltins.iss - "Operator not applicable to this operand
+; type" at its VER comparison (bundles run 39055315895, windows job).
 ; The [Registry] entry appends the install dir to the user's PATH once;
 ; the [Code] snippet keeps reinstalls clean and removes the entry again on
 ; uninstall.
 
-#ifndef Ver
-  #define Ver "0.0.0"
+#ifndef AppVer
+  #define AppVer "0.0.0"
 #endif
 #ifndef Stage
   #define Stage "..\..\dist\ytdlp-cli-v0.0.0"
@@ -21,8 +25,8 @@
 [Setup]
 AppId={{8E4B0C21-7D3A-4E68-9A5F-2C6D9E1B7F30}
 AppName=ytdlp
-AppVersion={#Ver}
-AppVerName=ytdlp {#Ver}
+AppVersion={#AppVer}
+AppVerName=ytdlp {#AppVer}
 AppPublisher=chezhenkie
 AppPublisherURL=https://github.com/chezhenkie/ytdlp-cli-youtube-downloader
 DefaultDirName={localappdata}\Programs\ytdlp-cli
@@ -31,7 +35,7 @@ DefaultGroupName=ytdlp
 PrivilegesRequired=lowest
 MinVersion=10.0
 OutputDir=.
-OutputBaseFilename=ytdlp-cli-v{#Ver}-windows-setup
+OutputBaseFilename=ytdlp-cli-v{#AppVer}-windows-setup
 SetupIconFile=icon.ico
 UninstallDisplayIcon={app}\ytdlp.exe
 Compression=lzma2

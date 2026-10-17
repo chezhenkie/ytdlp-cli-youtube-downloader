@@ -114,7 +114,7 @@ jobs:
           $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { throw "ISCC.exe not found at $iscc" }
           $stage = "$PWD/dist/ytdlp-cli-v$ver"
-          & $iscc "/DVer=$ver" "/DStage=$stage" "/O$PWD/dist" "rust-src/packaging/windows-installer.iss"
+          & $iscc "/DAppVer=$ver" "/DStage=$stage" "/O$PWD/dist" "rust-src/packaging/windows-installer.iss"
           if ($LASTEXITCODE -ne 0) { throw "ISCC failed with $LASTEXITCODE" }
           if (-not (Test-Path "dist/ytdlp-cli-v$ver-windows-setup.exe")) { throw "setup.exe not produced" }
       - name: installer proof - silent install, selftest 177/0, PATH add/remove, uninstall
