@@ -9,6 +9,8 @@ One-shot URL runs, scripts, CI and piped runs never trigger it: no network conta
 
 **ffmpeg.** The lean bundles ship without it: when none is found on the machine, the CLI offers to fetch a published build - BtbN/FFmpeg-Builds on Windows and Linux, shaka-project/static-ffmpeg-binaries on macOS - and checks it against the provider's published checksum or digest before installing. FFmpeg's own repository is source code only and publishes no binaries, so that is not where a binary can come from.
 
+![ytdlp-cli main menu](resources/screenshot%20ytdlp-cli.png)
+
 ## Pick your download
 
 | file | size | contains |
