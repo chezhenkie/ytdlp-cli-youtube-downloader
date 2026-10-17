@@ -266,7 +266,7 @@ def normalize(data, tree, project_frames=False):
     data = PROG_USAGE_RE.sub(b"usage: {prog} ", data)
     data = PROG_ERROR_RE.sub(b"{prog}: error:", data)
     data = USAGE_INDENT_RE.sub(rb"{ind}\1", data)
-    # the three selftest check names that carry an honest native wording
+    # the five selftest check names that carry an honest native wording
     # (specsheet section 10, conformance map) project to the oracle
     # names, the same rule as the version token above
     data = data.replace(
@@ -280,6 +280,14 @@ def normalize(data, tree, project_frames=False):
     data = data.replace(
         b"PASS windows ffmpeg source is BtbN",
         b"PASS windows ffmpeg source is gyan.dev",
+    )
+    data = data.replace(
+        b"PASS ffmpeg sources cover windows, linux and macos",
+        b"PASS ffmpeg sources cover windows and linux",
+    )
+    data = data.replace(
+        b"PASS macos ffmpeg source is shaka-project",
+        b"PASS no ffmpeg download for macos",
     )
     data = ARCHIVE_ERROR_RE.sub(
         b"the downloaded archive was unreadable: {archive-error}", data

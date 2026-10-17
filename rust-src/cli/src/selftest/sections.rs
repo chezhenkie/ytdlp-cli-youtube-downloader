@@ -773,20 +773,37 @@ pub(super) fn section_menu(
     );
 
     // ffmpeg sources: windows BtbN zip (FR-14 amendment 2026-10-16c),
-    // linux BtbN tar.xz, no macos
+    // linux BtbN tar.xz, macos shaka-project raw binary (FR-14
+    // amendment 2026-10-17g)
     let windows_source = exec::ffmpeg_source("windows");
     let linux_source = exec::ffmpeg_source("linux");
-    let macos_none = exec::ffmpeg_source("macos").is_none();
-    let covered = macos_none && windows_source.is_some() && linux_source.is_some();
+    let macos_source = exec::ffmpeg_source("macos");
+    let covered = windows_source.is_some() && linux_source.is_some() && macos_source.is_some();
     c.check(
-        "ffmpeg sources cover windows and linux",
+        "ffmpeg sources cover windows, linux and macos",
         covered,
-        &got_strs(&["windows", "linux"]),
+        &got_strs(&["windows", "linux", "macos"]),
     );
+    // the native macos source is the shaka-project static build: a
+    // public repo with contributors, CI-built, sha256 per asset in the
+    // API, and the binary published raw - owner call 2026-10-17g
+    let macos_well = macos_source
+        .as_ref()
+        .map(|src| {
+            src.url.contains("shaka-project/static-ffmpeg-binaries")
+                && src.sha_url.contains("api.github.com")
+                && src.binname == "ffmpeg"
+                && src.how == "raw"
+                && src.sha_kind == "gh-api"
+        })
+        .unwrap_or(false);
     c.check(
-        "no ffmpeg download for macos",
-        macos_none,
-        &got_strs(&["macos"]),
+        "macos ffmpeg source is shaka-project",
+        macos_well,
+        &macos_source
+            .as_ref()
+            .map(|src| got_strs(&[src.url]))
+            .unwrap_or_default(),
     );
     for (platform, source) in [("linux", &linux_source), ("windows", &windows_source)] {
         let well = match source {

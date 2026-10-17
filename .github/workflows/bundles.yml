@@ -1,15 +1,21 @@
 name: bundles
 
-# Phase 10 (owner call 2026-10-16): assemble the seven release files on the
+# Phase 10 (owner call 2026-10-16): assemble the release files on the
 # native runners. workflow_dispatch only. This workflow builds artifacts; it does
 # not tag or publish anything. The release commit carries the digests, the tag
-# follows, and gh release upload places exactly these bytes.
+# follows, and gh release upload places exactly these bytes. macos joined in the
+# 2026-10-17g owner pass: five bundles (windows/linux lean+portable,
+# macos-arm64 lean+portable), three bare updater images and RELEASE-NOTES.md.
 #
-# Payload pins are the v1.5.0 payload line (owner call: pins kept):
-#   yt-dlp 2026.08.19: yt-dlp.exe (windows), yt-dlp_linux (linux)
+# Payload pins:
+#   yt-dlp 2026.08.19: yt-dlp.exe (windows), yt-dlp_linux (linux),
+#           yt-dlp_macos (macos arm64)
 #   ffmpeg: gyan.dev 9.0.2 essentials (windows), BtbN n9.0.2-27-g7e93014c5b
 #           autobuild-2026-10-13 (linux; the dated tag, so the pin cannot move
-#           under CI the way the moving "latest" tag did)
+#           under CI the way the moving "latest" tag did),
+#           shaka-project/static-ffmpeg-binaries n8.1.2-1 ffmpeg-osx-arm64
+#           (macos; owner call 2026-10-17g: a public repo with contributors,
+#           CI-built from source, per-asset sha256 - no one-person sites)
 # Every payload is checked against its pinned digest before anything is staged.
 # The GPL license texts are not fetched: they ship from rust-src/packaging/ (the
 # same bytes the v1.5.0 bundles carried) because the first dispatch showed
@@ -26,10 +32,13 @@ env:
   YTDLP_URL_BASE: https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19
   YTDLP_WINDOWS_SHA256: 66674953fe251b89f4d08c5f0e35e0728679bd67ab3d7d05c0562af101dd3e7a
   YTDLP_LINUX_SHA256: 58162f9bfdc27458ea47bfcb311cf47028f17d8154a8bf7d689861d46399230a
+  YTDLP_MACOS_SHA256: 0f192b7ec147ab6288885d6351d9ab67367640029b4377576ef46dd79cf7b202
   FFMPEG_WINDOWS_URL: https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.2-essentials_build.zip
   FFMPEG_WINDOWS_SHA256: 60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba
   FFMPEG_LINUX_URL: https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-13-13-05/ffmpeg-n9.0.2-27-g7e93014c5b-linux64-gpl-9.0.tar.xz
   FFMPEG_LINUX_SHA256: 50e0ede136e3545758a8dfb2e6cd12ec865643cd138af9ce6cd36a9015f395c2
+  FFMPEG_MACOS_URL: https://github.com/shaka-project/static-ffmpeg-binaries/releases/download/n8.1.2-1/ffmpeg-osx-arm64
+  FFMPEG_MACOS_SHA256: e7b9fcd97f95f333512d6e8b8ac24d9dbc08f189f36047695499bd7b57214b22
   GPL2_SHA256: edaef632cbb643e4e7a221717a6c441a4c1a7c918e6e4d56debc3d8739b233f6
   GPL3_SHA256: 3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986
 
@@ -148,5 +157,57 @@ jobs:
           path: |
             dist/ytdlp-cli-*.tar.gz
             dist/ytdlp-native-linux-x86_64
+            dist/SHA256SUMS
+          if-no-files-found: error
+
+  macos-bundles:
+    name: macos lean + portable + updater image
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+      - name: build the release binary
+        working-directory: rust-src
+        run: cargo build --release -p ytdlp-cli
+      - name: verify payload pins and assemble
+        run: |
+          set -euo pipefail
+          ver=$(sed -n 's/^version = "\(.*\)"$/\1/p' rust-src/Cargo.toml | head -n1)
+          echo "assembling v$ver"
+          mkdir -p payload dist
+          get_pinned() { # url out want
+            curl -fsSL --retry 3 -o "$2" "$1"
+            echo "$3  $2" | shasum -a 256 -c -
+          }
+          get_pinned "$YTDLP_URL_BASE/yt-dlp_macos" payload/yt-dlp_macos "$YTDLP_MACOS_SHA256"
+          get_pinned "$FFMPEG_MACOS_URL" payload/ffmpeg-osx-arm64 "$FFMPEG_MACOS_SHA256"
+          echo "$GPL2_SHA256  rust-src/packaging/GPL-2.0.txt" | shasum -a 256 -c -
+          echo "$GPL3_SHA256  rust-src/packaging/GPL-3.0.txt" | shasum -a 256 -c -
+          stage="dist/ytdlp-cli-v$ver"
+          mkdir -p "$stage/bin"
+          install -m 0755 rust-src/target/release/ytdlp "$stage/ytdlp"
+          install -m 0755 rust-src/packaging/run-ytdlp.sh "$stage/run-ytdlp.sh"
+          install -m 0644 rust-src/packaging/run-ytdlp.bat "$stage/run-ytdlp.bat"
+          install -m 0644 README.md CHANGELOG.md LICENSE THIRD-PARTY-NOTICES.md "$stage/"
+          install -m 0755 payload/yt-dlp_macos "$stage/bin/yt-dlp"
+          file "$stage/ytdlp" "$stage/bin/yt-dlp" payload/ffmpeg-osx-arm64
+          tar -czf "dist/ytdlp-cli-v$ver-macos-arm64-lean.tar.gz" -C dist "ytdlp-cli-v$ver"
+          install -m 0755 payload/ffmpeg-osx-arm64 "$stage/bin/ffmpeg"
+          install -m 0644 rust-src/packaging/GPL-2.0.txt rust-src/packaging/GPL-3.0.txt "$stage/"
+          tar -czf "dist/ytdlp-cli-v$ver-macos-arm64-portable.tar.gz" -C dist "ytdlp-cli-v$ver"
+          install -m 0755 rust-src/target/release/ytdlp dist/ytdlp-native-macos-arm64
+          cd dist
+          shasum -a 256 *.tar.gz ytdlp-native-macos-arm64 > SHA256SUMS
+          cat SHA256SUMS
+          ls -l ytdlp-cli-*.tar.gz ytdlp-native-macos-arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-bundles
+          path: |
+            dist/ytdlp-cli-*.tar.gz
+            dist/ytdlp-native-macos-arm64
             dist/SHA256SUMS
           if-no-files-found: error

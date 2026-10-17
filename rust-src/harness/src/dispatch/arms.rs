@@ -1675,13 +1675,14 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                 &mut rec,
             );
             let report = rec.text();
-            // The three check names that carry an honest native wording
-            // (python patched a module global the port never threads, and
-            // the 2026-10-16c FR-14 amendment repointed the windows
-            // offer source; specsheet section 10, conformance map)
-            // project to the oracle names here, the same rule as the
-            // version and update-source tokens in the phase-8 records.
-            const ALIAS: [(&str, &str); 3] = [
+            // The five check names that carry an honest native wording
+            // (python patched a module global the port never threads, the
+            // 2026-10-16c FR-14 amendment repointed the windows offer
+            // source, and the 2026-10-17g amendment added the macos
+            // source; specsheet section 10, conformance map) project to
+            // the oracle names here, the same rule as the version and
+            // update-source tokens in the phase-8 records.
+            const ALIAS: [(&str, &str); 5] = [
                 (
                     "cli update source is the releases api",
                     "cli update url is raw main branch",
@@ -1693,6 +1694,14 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                 (
                     "windows ffmpeg source is BtbN",
                     "windows ffmpeg source is gyan.dev",
+                ),
+                (
+                    "ffmpeg sources cover windows, linux and macos",
+                    "ffmpeg sources cover windows and linux",
+                ),
+                (
+                    "macos ffmpeg source is shaka-project",
+                    "no ffmpeg download for macos",
                 ),
             ];
             let checks: Vec<String> = report

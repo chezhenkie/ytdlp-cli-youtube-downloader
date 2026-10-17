@@ -304,7 +304,7 @@
     {
       "args": [
         {
-          "platform": "macos",
+          "platform": "plan9",
           "archive": {
             "path": "{scratch}/archive",
             "how": "zip",
@@ -331,7 +331,7 @@
           ]
         }
       ],
-      "note": "no published build for macos"
+      "note": "no published build for this platform: the refusal path, identical on both sides. macos left this case with the 2026-10-17g FR-14 amendment (it has a native source now) and is covered by the cli crate's tests instead - a recorded deviation"
     },
     {
       "args": [

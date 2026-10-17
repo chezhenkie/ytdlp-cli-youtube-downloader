@@ -44,6 +44,14 @@ license.
      Release page: https://github.com/BtbN/FFmpeg-Builds/releases
      The scripts used to build these binaries live in that same repository.
 
+   - macOS build (arm64), ffmpeg n8.1.2, provided by
+     shaka-project/static-ffmpeg-binaries.
+     Asset: ffmpeg-osx-arm64 (release n8.1.2-1)
+     sha256: e7b9fcd97f95f333512d6e8b8ac24d9dbc08f189f36047695499bd7b57214b22
+     Release page: https://github.com/shaka-project/static-ffmpeg-binaries/releases
+     The build script and the CI workflow that produce these binaries live in
+     that same repository. Present in the macos portable bundle only.
+
    ffmpeg is free software. You may use, study, modify and redistribute it under
    the terms of the GNU General Public License, exactly as its authors intend.
    Nothing in this bundle, and nothing in ytdlp-cli's own license or

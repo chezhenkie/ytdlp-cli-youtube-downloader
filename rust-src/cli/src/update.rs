@@ -162,6 +162,54 @@ pub fn expected_sha(
     digest
 }
 
+/// `expected_sha_api(api_url, asset_name)`: the published digest for the
+/// asset, read from the GitHub release API object instead of a checksum
+/// file - the shaka-project macos ffmpeg source publishes its sha256 as
+/// the per-asset `digest` field, and the pinned release tag means this
+/// read guards the same artifact the checksum-file read does. Same
+/// contract as `expected_sha`: None with the reason printed.
+pub fn expected_sha_api(
+    api_url: &str,
+    asset_name: &str,
+    http: &mut dyn HttpRt,
+    sink: &SharedSink,
+) -> Option<String> {
+    let text = match http.text(api_url, net::FORCED_TIMEOUT) {
+        Ok(text) => text,
+        Err(e) => {
+            tty::emit_line(
+                sink,
+                &format!("  could not read the published checksum: {e}"),
+            );
+            return None;
+        }
+    };
+    let digest = settings_json::parse(&text).ok().and_then(|root| {
+        let Json::Obj(fields) = root else { return None };
+        let Some(Json::Arr(assets)) = config::get(&fields, "assets") else {
+            return None;
+        };
+        for item in assets {
+            let Json::Obj(entry) = item else { continue };
+            let Some(Json::Str(name)) = config::get(entry, "name") else {
+                continue;
+            };
+            if name != asset_name {
+                continue;
+            }
+            if let Some(Json::Str(text)) = config::get(entry, "digest") {
+                return Some(text.strip_prefix("sha256:").unwrap_or(text).to_lowercase());
+            }
+            return None;
+        }
+        None
+    });
+    if digest.is_none() {
+        tty::emit_line(sink, "  the published checksum did not name this build");
+    }
+    digest
+}
+
 // ------------------------------------------------------- the native updater
 
 /// What one GET of the releases API yields for this platform.

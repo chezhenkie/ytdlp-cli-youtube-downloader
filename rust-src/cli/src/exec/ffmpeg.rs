@@ -16,15 +16,21 @@ use crate::update;
 
 /// Where a lean install fetches ffmpeg from. The Linux side is python's
 /// BtbN tarball; the Windows side is the BtbN win64 GPL zip per the
-/// owner-decided FR-14 amendment (2026-10-16c; python kept gyan.dev) -
-/// each with the file that carries the published digest; macos has no
-/// source here (no free static build is published), so it gets
-/// instructions instead of a download (FR-14, IF-7).
+/// owner-decided FR-14 amendment (2026-10-16c; python kept gyan.dev);
+/// macos was added in the 2026-10-17g amendment: the shaka-project
+/// static build - a public repo with contributors and CI-built assets
+/// that carry published sha256 digests (owner call: no one-person
+/// download sites). `sha_kind` names what `sha_url` carries: "checksums"
+/// for the provider's checksum file, "gh-api" for the GitHub release API
+/// object whose per-asset `digest` field is read instead. `how` is the
+/// payload shape: "zip" / "tar.xz" hold the binary in an archive, "raw"
+/// is the published binary itself.
 pub struct FfmpegSource {
     pub url: &'static str,
     pub sha_url: &'static str,
     pub binname: &'static str,
     pub how: &'static str,
+    pub sha_kind: &'static str,
 }
 
 pub fn ffmpeg_source(platform: &str) -> Option<FfmpegSource> {
@@ -39,12 +45,28 @@ pub fn ffmpeg_source(platform: &str) -> Option<FfmpegSource> {
             sha_url: "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/checksums.sha256",
             binname: "ffmpeg.exe",
             how: "zip",
+            sha_kind: "checksums",
         }),
         "linux" => Some(FfmpegSource {
             url: "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n9.0-latest-linux64-gpl-9.0.tar.xz",
             sha_url: "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/checksums.sha256",
             binname: "ffmpeg",
             how: "tar.xz",
+            sha_kind: "checksums",
+        }),
+        // owner-decided 2026-10-17g (FR-14 amendment): macos was
+        // instruction-only while the pinned providers shipped no mac
+        // build; the shaka-project release is built from source on
+        // GitHub's runners (x264/x265/lame -> the GPL line, same as the
+        // windows and linux payloads), its tag is pinned so the asset
+        // cannot move, and the API digest is checked before anything is
+        // installed. arm64 only - that is the runner and the payload.
+        "macos" => Some(FfmpegSource {
+            url: "https://github.com/shaka-project/static-ffmpeg-binaries/releases/download/n8.1.2-1/ffmpeg-osx-arm64",
+            sha_url: "https://api.github.com/repos/shaka-project/static-ffmpeg-binaries/releases/tags/n8.1.2-1",
+            binname: "ffmpeg",
+            how: "raw",
+            sha_kind: "gh-api",
         }),
         _ => None,
     }
@@ -79,7 +101,11 @@ pub fn install_ffmpeg(
         return None;
     };
     let asset = source.url.rsplit('/').next().unwrap_or(source.url);
-    let digest = update::expected_sha(source.url, source.sha_url, asset, ctx.http, &ctx.sink)?;
+    let digest = if source.sha_kind == "gh-api" {
+        update::expected_sha_api(source.sha_url, asset, ctx.http, &ctx.sink)?
+    } else {
+        update::expected_sha(source.url, source.sha_url, asset, ctx.http, &ctx.sink)?
+    };
     if let Err(e) = std::fs::create_dir_all(bin_dir) {
         print_out(&ctx.sink, &format!("  bin/ is not writable: {e}"));
         return None;
@@ -159,16 +185,33 @@ fn verify_and_install(
         print_out(&ctx.sink, "  checksum mismatch - nothing was changed");
         return None;
     }
-    if let Some(st) = stage.as_deref() {
+    if source.how == "raw" {
+        // the published asset is the binary itself (the macos source):
+        // nothing to unpack, but a fresh download carries no exec bit
+        // and the probe below runs it, so the mode is set first
+        if !is_windows && let Err(e) = pyfs::chmod_755(blob) {
+            print_out(
+                &ctx.sink,
+                &format!("  could not set the mode of {blob}: {e}"),
+            );
+            return None;
+        }
+    } else if let Some(st) = stage.as_deref() {
         st.set_live(Some("unpacking".to_string()));
     }
-    let fresh = crate::archive::extract_member(blob, source.how, source.binname, tmpdir, &ctx.sink);
-    let Some(fresh) = fresh else {
-        print_out(
-            &ctx.sink,
-            &format!("  no {} inside the downloaded archive", source.binname),
-        );
-        return None;
+    let fresh = if source.how == "raw" {
+        blob.to_string()
+    } else {
+        match crate::archive::extract_member(blob, source.how, source.binname, tmpdir, &ctx.sink) {
+            Some(fresh) => fresh,
+            None => {
+                print_out(
+                    &ctx.sink,
+                    &format!("  no {} inside the downloaded archive", source.binname),
+                );
+                return None;
+            }
+        }
     };
     if let Some(st) = stage.as_deref() {
         st.set_live(Some("testing the binary".to_string()));
@@ -249,7 +292,14 @@ pub fn offer_ffmpeg(s: &Obj, kind: &str, ctx: &mut DownloadCtx) -> Option<String
         );
         return None;
     };
-    let archive = if source.how == "zip" { "zip" } else { "tar.xz" };
+    let archive = if source.how == "zip" {
+        "zip"
+    } else if source.how == "tar.xz" {
+        "tar.xz"
+    } else {
+        // the macos source publishes the binary itself, no archive
+        "single binary"
+    };
     print_out(
         &ctx.sink,
         &format!("  download the official {platform} build? ({archive})"),

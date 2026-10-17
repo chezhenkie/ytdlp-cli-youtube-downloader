@@ -10,10 +10,10 @@ fn main() {
     {
         let version = std::env::var("CARGO_PKG_VERSION").unwrap_or_default();
         let mut res = winresource::WindowsResource::new();
-        res.set(
-            "FileDescription",
-            "yt-dlp cli - text-menu download wrapper around yt-dlp",
-        );
+        // the Explorer/task-manager "file description" stays a bare
+        // name: the long descriptive text propagates into places with
+        // no room for it (owner call 2026-10-17g)
+        res.set("FileDescription", "ytdlp");
         res.set("ProductName", "yt-dlp cli");
         res.set("CompanyName", "chezhenkie");
         res.set("LegalCopyright", "MIT License");

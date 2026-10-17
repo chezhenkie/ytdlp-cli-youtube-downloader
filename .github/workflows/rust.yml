@@ -194,7 +194,7 @@ jobs:
           if ($v.FileVersion -notlike "$ver*") { throw "FileVersion: $($v.FileVersion)" }
           if ($v.ProductName -ne "yt-dlp cli") { throw "ProductName: $($v.ProductName)" }
           if ($v.CompanyName -ne "chezhenkie") { throw "CompanyName: $($v.CompanyName)" }
-          if (-not $v.FileDescription) { throw "FileDescription empty" }
+          if ($v.FileDescription -ne "ytdlp") { throw "FileDescription: $($v.FileDescription)" }
           if (-not $v.LegalCopyright) { throw "LegalCopyright empty" }
           $v | Format-List ProductName, ProductVersion, FileVersion, CompanyName, LegalCopyright, FileDescription, Comments
       - name: PE import table must be free of vcruntime/msvcp (green assertion)

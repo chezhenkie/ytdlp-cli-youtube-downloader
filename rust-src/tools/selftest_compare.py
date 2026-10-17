@@ -10,14 +10,17 @@ def stream(path):
             names.append((verdict, rest))
     return names
 
-# The three recorded renames (specsheet 10 conformance map): where python
-# patched a module global the port never threads, and the 2026-10-16c
-# FR-14 amendment repointed the native windows offer source, the native
-# check carries an honest name; the compare maps them instead of failing.
+# The recorded renames (specsheet section 10 conformance map): where python
+# patched a module global the port never threads, the 2026-10-16c FR-14
+# amendment repointed the native windows offer source, and the 2026-10-17g
+# amendment added the native macos source, the native check carries an
+# honest name; the compare maps them instead of failing.
 ALIAS = {
     "cli update source is the releases api": "cli update url is raw main branch",
     "install_cli refuses an image that fails its own checks": "install_cli refuses a file that does not parse",
     "windows ffmpeg source is BtbN": "windows ffmpeg source is gyan.dev",
+    "ffmpeg sources cover windows, linux and macos": "ffmpeg sources cover windows and linux",
+    "macos ffmpeg source is shaka-project": "no ffmpeg download for macos",
 }
 
 native = [(v, ALIAS.get(n, n)) for v, n in stream(sys.argv[1])]

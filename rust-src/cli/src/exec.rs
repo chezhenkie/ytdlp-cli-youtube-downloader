@@ -689,9 +689,23 @@ mod tests {
             let dir = scratch(tag);
             let bin_dir = resolve::py_path_join(&dir.to_string_lossy(), "bin");
             std::fs::create_dir_all(&bin_dir).unwrap();
-            // macos has no published source at all, so its world is an
-            // empty script: the refusal must happen before any contact
+            // a source with an archive gets a scripted provider file plus
+            // its checksums text; the macos source publishes the binary
+            // raw and carries the digest in the release API object, so
+            // its world scripts that shape; a sourceless platform gets an
+            // empty script (the refusal must happen before any contact)
             let http = match ffmpeg_source(platform) {
+                Some(source) if source.how == "raw" => {
+                    let asset = source.url.rsplit('/').next().unwrap_or("");
+                    let bin = b"the ffmpeg build".to_vec();
+                    let body = format!(
+                        "{{\"assets\": [{{\"name\": \"{asset}\", \"digest\": \"sha256:{}\"}}]}}",
+                        sha256::sha256_hex(&bin)
+                    );
+                    FakeHttp::new()
+                        .with_text(source.sha_url, &body)
+                        .with_file(source.url, &bin)
+                }
                 Some(source) => {
                     let archive = provider_archive(platform, b"the ffmpeg build");
                     let digest = sha256::sha256_hex(&archive);
@@ -944,17 +958,17 @@ mod tests {
 
     #[test]
     fn a_platform_without_a_published_build_gets_instructions() {
-        let mut w = InstallWorld::new("ffmpeg-macos", "macos");
+        let mut w = InstallWorld::new("ffmpeg-nosource", "plan9");
         let sink = w.sink();
         let bin_dir = w.bin_dir.clone();
         let got = with_ctx!(&mut w, sink, |ctx| {
-            install_ffmpeg(None, "macos", &bin_dir, false, &mut ctx)
+            install_ffmpeg(None, "plan9", &bin_dir, false, &mut ctx)
         });
         assert_eq!(got, None);
         assert_eq!(
             w.printed(),
             vec![
-                "  no published ffmpeg download for macos",
+                "  no published ffmpeg download for plan9",
                 "  install it with your package manager - it is then found on PATH",
             ]
         );
@@ -963,12 +977,70 @@ mod tests {
     }
 
     #[test]
+    fn install_ffmpeg_installs_the_macos_raw_binary() {
+        // the 2026-10-17g FR-14 amendment: macos reads the digest from
+        // the release API object and installs the published binary as-is
+        let mut w = InstallWorld::new("ffmpeg-macos-raw", "macos");
+        let got = w.install("macos", false);
+        assert_eq!(got, Some(resolve::py_path_join(&w.bin_dir, "ffmpeg")));
+        assert_eq!(w.printed(), Vec::<String>::new());
+        let calls = w.http.calls();
+        let source = w.source();
+        assert_eq!(
+            calls[0],
+            format!("text {} 60", source.sha_url),
+            "the digest is read before anything is downloaded"
+        );
+        assert!(
+            calls[1].starts_with(&format!("file {} ", source.url)),
+            "{}",
+            calls[1]
+        );
+        assert_eq!(w.bin_listing(), vec!["ffmpeg".to_string()]);
+        assert_eq!(
+            std::fs::read(format!("{}/ffmpeg", w.bin_dir)).unwrap(),
+            b"the ffmpeg build"
+        );
+        // posix hosts: the installed binary carries the exec bit
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let m = std::fs::metadata(format!("{}/ffmpeg", w.bin_dir))
+                .unwrap()
+                .permissions()
+                .mode();
+            assert_eq!(m & 0o777, 0o755);
+        }
+        std::fs::remove_dir_all(&w.dir).unwrap();
+    }
+
+    #[test]
+    fn a_macos_api_digest_mismatch_installs_nothing() {
+        let mut w = InstallWorld::new("ffmpeg-macos-digest", "macos");
+        let source = w.source();
+        let asset = source.url.rsplit('/').next().unwrap();
+        let body = format!(
+            "{{\"assets\": [{{\"name\": \"{asset}\", \"digest\": \"sha256:{}\"}}]}}",
+            "0".repeat(64)
+        );
+        w.http.set_text(source.sha_url, &body);
+        assert_eq!(w.install("macos", false), None);
+        assert_eq!(
+            w.printed(),
+            vec!["  checksum mismatch - nothing was changed"]
+        );
+        assert!(w.probed.is_empty(), "a mismatch is never probed");
+        assert_eq!(w.bin_listing(), Vec::<String>::new());
+        std::fs::remove_dir_all(&w.dir).unwrap();
+    }
+
+    #[test]
     fn offer_ffmpeg_installs_behind_a_yes() {
         let host = resolve::host_platform();
         if ffmpeg_source(&host).is_none() {
-            // macos has no published build: the offer prints the
-            // platform refusal, which the arm below covers on windows
-            // and linux
+            // an exotic host with no published build: the offer prints
+            // the platform refusal, which the sourceless crate test
+            // above covers
             return;
         }
         let mut w = InstallWorld::new("offer-yes", &host);
@@ -984,16 +1056,15 @@ mod tests {
             printed[2],
             "  without it you get one single best file - no separate audio track, no merge, no mp3, no srt subtitles"
         );
+        let label = match w.source().how {
+            "zip" => "zip",
+            "tar.xz" => "tar.xz",
+            // the macos source publishes the binary itself
+            _ => "single binary",
+        };
         assert_eq!(
             printed[3],
-            format!(
-                "  download the official {host} build? ({})",
-                if w.source().how == "zip" {
-                    "zip"
-                } else {
-                    "tar.xz"
-                }
-            )
+            format!("  download the official {host} build? ({label})")
         );
         assert_eq!(printed[4], format!("  {}", w.source().url));
         assert_eq!(w.reader.prompts, vec!["  y/n (enter = no): ".to_string()]);
@@ -1016,15 +1087,16 @@ mod tests {
         assert!(w.http.calls().is_empty(), "declined: no contact at all");
         let printed = w.printed();
         if ffmpeg_source(&host).is_none() {
-            // macos: the offer never reaches a question
+            // an exotic host: the offer never reaches a question
             assert_eq!(
                 printed,
                 vec![
                     "".to_string(),
                     "  ffmpeg is not installed".to_string(),
-                    "  without it the audio is saved as-is, no mp3/opus/wav conversion"
-                        .to_string(),
-                    "  no published download for macos - install it with your package manager instead".to_string(),
+                    "  without it the audio is saved as-is, no mp3/opus/wav conversion".to_string(),
+                    format!(
+                        "  no published download for {host} - install it with your package manager instead"
+                    ),
                 ],
                 "{printed:?}"
             );
