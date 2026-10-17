@@ -2,7 +2,7 @@ Text-menu CLI around [yt-dlp](https://github.com/yt-dlp/yt-dlp). Paste a URL, pr
 
 The yt-dlp runtime is used exactly as published - nothing in it is patched or rebuilt by this project.
 
-**Updates.** The updater covers both the yt-dlp runtime and the cli. Menu item 11 updates both on demand; menu item 12 toggles the daily update check. The check runs only at the start of the interactive menu, in a real console window, and it prints what is newer and asks before it replaces anything.
+**Updates.** The updater covers the yt-dlp runtime: menu item 11 runs yt-dlp's own update on demand and menu item 12 toggles the daily update check. The cli never replaces itself; a newer cli comes from this page. The check runs only at the start of the interactive menu, in a real console window.
 
 One-shot URL runs, scripts, CI and piped runs never trigger it: no network contact, nothing written. There is no background process either - the check is a single event when you open the menu yourself. If updates have not happened for a while, start the program normally, or run menu item 11 to update on demand.
 
@@ -29,7 +29,7 @@ None beyond the bundle: no Python, no runtime, no redistributable. The Windows b
 
 The bundle also carries `run-ytdlp.bat` and `run-ytdlp.sh`; they are optional, the chapter below explains when they help.
 
-Linux builds are x86_64 glibc and the macOS bundles are arm64 (Apple silicon). On any other architecture put `yt-dlp` on PATH or set `yt_dlp_path` in `config/settings.json`. The macOS binaries are not signed or notarized; if a browser download attaches a quarantine flag, clear it once with `xattr -d com.apple.quarantine ./ytdlp` (same for files under `bin/`). There is no lean macOS bundle and the updater publishes no macOS image, so on macOS menu item 11 updates yt-dlp and a newer cli comes from this page.
+Linux builds are x86_64 glibc and the macOS bundles are arm64 (Apple silicon). On any other architecture put `yt-dlp` on PATH or set `yt_dlp_path` in `config/settings.json`. The macOS binaries are not signed or notarized; if a browser download attaches a quarantine flag, clear it once with `xattr -d com.apple.quarantine ./ytdlp` (same for files under `bin/`). There is no lean macOS bundle, and no release publishes a bare cli image on any platform, so menu item 11 updates yt-dlp and a newer cli always comes from this page.
 
 v1.5.0 was the final Python release; its bundles remain on the v1.5.0 release page.
 
@@ -58,7 +58,7 @@ Normally you use the exe: `ytdlp.exe` on Windows, `./ytdlp` on Linux and macOS. 
 | `run-ytdlp.bat` | Windows double-click entry. Runs `ytdlp.exe` from the bundle folder, forwards arguments, and pauses on a nonzero exit so the console does not close before you can read the error. |
 | `run-ytdlp.sh` | Posix entry that finds its own folder, so it runs from any directory and under `sh`/`dash` (Linux and macOS). |
 
-They change nothing else: same arguments, same settings, same output. The updater replaces the exe only and never touches them, so deleting them is safe. The bare updater image (`ytdlp-native-*`) runs without any launcher too.
+They change nothing else: same arguments, same settings, same output. The updater replaces the exe only and never touches them, so deleting them is safe.
 
 ## Checksums
 
@@ -68,11 +68,9 @@ They change nothing else: same arguments, same settings, same output. The update
 f22330ad58b70c9f89df331524f07469176aa8408ef6b5eb7c28ed4c990f1d01  ytdlp-cli-v2.1.1-linux-lean.tar.gz
 397b5a587ce7e5e98dee924460f3780b06947f949739beb5347f8c2b6f70fddf  ytdlp-cli-v2.1.1-linux-portable.tar.gz
 30c8bf5c89e411c3a3b92ff5eff48481eebd28bf45dca7ca1728689113dee5b5  ytdlp-cli-v2.1.1-macos-arm64-portable.tar.gz
-8a5992383eb2ad873a2f35032cf4202b2729c38f0bb4fcb29c797734466c3ebd  ytdlp-native-windows-x86_64.exe
-3e32675fa7a61a7edbec8c70a823e8a45d4901a51f153cc5d97e3161867b4b74  ytdlp-native-linux-x86_64
 ```
 
-The last two are the updater images the built-in updater fetches; their digests are published so every update is verified against them.
+No release publishes a bare cli image, so the built-in updater never replaces the cli; a newer cli always comes from this page.
 
 The bundled yt-dlp is the official 2026.08.19 release and matches the SHA-256 sums published with it. The Windows ffmpeg is the gyan.dev 9.0.2 essentials build, the Linux one is the BtbN n9.0.2 build and the macOS one is the shaka-project 8.1.2 static arm64 build; each matched its provider's published checksum or digest, and `THIRD-PARTY-NOTICES.md` in each bundle names the exact archive and its digest.
 

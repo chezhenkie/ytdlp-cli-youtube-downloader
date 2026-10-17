@@ -6,8 +6,9 @@ name: bundles
 # follows, and gh release upload places exactly these bytes. macos joined in the
 # 2026-10-17g owner pass; the 2026-10-17h owner call made the mac line
 # portable-only (the lean mac bundle was pulled) and pulled the bare macos
-# image: five bundles (windows/linux lean+portable each, macos-arm64 portable),
-# two bare updater images and RELEASE-NOTES.md - eight release files.
+# image. The 2026-10-17j owner call pulled the two remaining bare updater
+# images: the release is five bundles (windows/linux lean+portable each,
+# macos-arm64 portable) and RELEASE-NOTES.md - six release files.
 #
 # Payload pins:
 #   yt-dlp 2026.08.19: yt-dlp.exe (windows), yt-dlp_linux (linux),
@@ -46,7 +47,7 @@ env:
 
 jobs:
   windows-bundles:
-    name: windows lean + portable + updater image
+    name: windows lean + portable
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -92,24 +93,22 @@ jobs:
           Copy-Item $ff.FullName "$stage/bin/ffmpeg.exe"
           Copy-Item rust-src/packaging/GPL-2.0.txt, rust-src/packaging/GPL-3.0.txt "$stage/"
           Compress-Archive -Path $stage -DestinationPath "dist/ytdlp-cli-v$ver-windows-portable.zip"
-          Copy-Item rust-src/target/release/ytdlp.exe dist/ytdlp-native-windows-x86_64.exe
           cd dist
-          Get-ChildItem *.zip, *.exe | Sort-Object Name | ForEach-Object {
+          Get-ChildItem *.zip | Sort-Object Name | ForEach-Object {
             "$((Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLower())  $($_.Name)"
           } | Set-Content -Encoding ascii SHA256SUMS
           Get-Content SHA256SUMS
-          Get-ChildItem *.zip, *.exe | Sort-Object Name | ForEach-Object { "size: $($_.Name) $($_.Length)" }
+          Get-ChildItem *.zip | Sort-Object Name | ForEach-Object { "size: $($_.Name) $($_.Length)" }
       - uses: actions/upload-artifact@v4
         with:
           name: windows-bundles
           path: |
             dist/ytdlp-cli-*.zip
-            dist/ytdlp-native-windows-x86_64.exe
             dist/SHA256SUMS
           if-no-files-found: error
 
   linux-bundles:
-    name: linux lean + portable + updater image
+    name: linux lean + portable
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -148,17 +147,15 @@ jobs:
           install -m 0755 "$ff" "$stage/bin/ffmpeg"
           install -m 0644 rust-src/packaging/GPL-2.0.txt rust-src/packaging/GPL-3.0.txt "$stage/"
           tar -czf "dist/ytdlp-cli-v$ver-linux-portable.tar.gz" -C dist "ytdlp-cli-v$ver"
-          install -m 0755 rust-src/target/release/ytdlp dist/ytdlp-native-linux-x86_64
           cd dist
-          sha256sum *.tar.gz ytdlp-native-linux-x86_64 > SHA256SUMS
+          sha256sum *.tar.gz > SHA256SUMS
           cat SHA256SUMS
-          ls -l ytdlp-cli-*.tar.gz ytdlp-native-linux-x86_64
+          ls -l ytdlp-cli-*.tar.gz
       - uses: actions/upload-artifact@v4
         with:
           name: linux-bundles
           path: |
             dist/ytdlp-cli-*.tar.gz
-            dist/ytdlp-native-linux-x86_64
             dist/SHA256SUMS
           if-no-files-found: error
 
