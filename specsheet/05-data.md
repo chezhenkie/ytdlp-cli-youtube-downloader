@@ -31,7 +31,7 @@ Header lists related docs. README.md is published text (usage, assets, checksums
 
 ## 10. Validation
 
-Every requirement's acceptance criterion is an executable, offline check; the packaged `--selftest` runs the 177-check set and the CI adds the differential layer. The reference bounds the expected values: `rust-src/tools/selftest_compare.py` pairs the two `--selftest` reports line for line (name + verdict; zero mismatches), the harness vectors pin function-level records and the session suites pin binary-level transcripts (NFR-4). Status: FR-5's real-console clause is owner-verified (OQ-N2, section 13); FR-13's live install dance ran against the published v2.0.0 image (OQ-N4, closed 2026-10-16c); nothing else is pending.
+Every requirement's acceptance criterion is an executable, offline check; the packaged `--selftest` runs the 177-check set and the CI adds the differential layer. The reference bounds the expected values: `rust-src/tools/selftest_compare.py` pairs the two `--selftest` reports line for line (name + verdict; zero mismatches), the harness vectors pin function-level records and the session suites pin binary-level transcripts (NFR-4). Status: FR-5's real-console clause is owner-verified (OQ-N2, closed 2026-10-16c); FR-13's live install dance ran against the published v2.0.0 image (OQ-N4, closed 2026-10-16c); nothing else is pending.
 
 | requirement | verification |
 |---|---|

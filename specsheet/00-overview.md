@@ -18,7 +18,7 @@ A desktop CLI that wraps standalone yt-dlp: open it, paste a url, press enter, a
 
 ## Table of contents
 
-This file is 00-overview.md; the parts are numbered in reading order (01-07) and each part's section range is listed below (section 4 spans parts 02 and 03), so citations such as "section 4", "FR-8" or "NFR-1" keep resolving across code, changelog and plan.
+This file is 00-overview.md; the parts are numbered in reading order (01-06) and each part's section range is listed below (section 4 spans parts 02 and 03), so citations such as "section 4", "FR-8" or "NFR-1" keep resolving across code, changelog and plan.
 
 | part | sections | describes |
 |---|---|---|
@@ -28,4 +28,3 @@ This file is 00-overview.md; the parts are numbered in reading order (01-07) and
 | [04-interfaces.md](04-interfaces.md) | 5-7 | IF-1..IF-8 launchers, argv, settings schema, subprocess contracts, endpoints, CI; startup journey, user flows, states, failure handling; implementation rules, observability, process hygiene |
 | [05-data.md](05-data.md) | 8-10 | settings.json field table and boundary validation; documentation duties; requirement-to-verification map and the conformance map |
 | [06-phases-and-gates.md](06-phases-and-gates.md) | 12 | phases and gates, native gate 0, G9 + G10 evidence, the cutover record |
-| [07-open-questions.md](07-open-questions.md) | 13 | open questions register: OQ-B plus the closed native questions |
