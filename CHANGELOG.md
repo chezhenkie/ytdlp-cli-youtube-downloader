@@ -5,6 +5,9 @@ Newest first. Current level: v2.3.0 (native, released 2026-10-17); v2.2.0 releas
 
 ## v2.3.0 native (released 2026-10-17)
 
+- cleanup: dead-path cites and stale register wording (this commit)
+Spinner references now cite the pre-rust python implementation in term.rs and specsheet/01 FR-10 (the frozen ytdlp.py keeps its own line verbatim - never edited). specsheet/05 section 9 no longer points gaps at the retired open questions register. resources/.gitkeep is dropped (the two tracked screenshots remain), README.md line 2 loses its trailing space, and deprecated-py-src/src/__pycache__ plus the gitignored deprecated-py-src/bin/yt-dlp.exe are gone from the working tree. No behavior change.
+
 - docs: v2.3.0 G10 green at the destination (this commit)
 The published release was re-downloaded and re-checked: eight files (five bundles, the windows setup.exe, the macos arm64 pkg and RELEASE-NOTES.md), every asset's api digest equals README.md/RELEASE-NOTES.md, and every artifact re-verified from the released bytes - windows-lean/portable selftest 177/0 with the PE file description reading "ytdlp" and the 2.3.0 version fields; setup.exe silently installed and uninstalled on the dev machine, PATH entry asserted and gone again, the full payload present, selftest 177/0; linux-lean/portable selftest 177/0 with 0755 modes, --check resolving the bundled yt-dlp and the portable's ffmpeg (the archive digest equals the pin, its member equals the bundle's binary); linux-musl selftest 177/0, the binary static, the tar carrying no bin/ at all, --check resolving the apk yt-dlp 2026.08.19-r0 inside an official Alpine 3.24.0 minirootfs chroot; macos pkg identity (com.github.chezhenkie.ytdlp-cli 2.3.0), 0755 modes, the /usr/local/bin/ytdlp symlink, payload hash chain (yt-dlp 0f192b7e..., ffmpeg e7b9fcd9...) and Mach-O shape (cli thin arm64, yt-dlp_macos universal). No updater image on the page.
 

@@ -355,8 +355,8 @@ pub fn flat_freeze(text: &str, color: u8) -> Vec<(String, u8)> {
 pub const FRAME_SECS: f64 = 0.1;
 pub const DOTS: [&str; 5] = [".  ", ".. ", "...", ".. ", ".  "];
 
-// The eight waiting animations, ported from scripts-tools/spinner-demo.py
-// through the python implementation (the reference). Each frame is six
+// The eight waiting animations, ported from the pre-rust python
+// implementation (the reference). Each frame is six
 // (char, color) cells so one frame can mix colors; each animation carries
 // its own tick and its own settled freeze frame. The parity test below
 // pins the whole table against a digest recorded from the reference.
@@ -799,7 +799,7 @@ mod tests {
 
     /// The recorded reference digest over the exact serialization the scratch
     /// probe used (name|tick|cells;cells;freeze\n per spinner). This is
-    /// what makes "ported from spinner-demo.py" checkable: any wrong cell,
+    /// what makes "ported from the reference" checkable: any wrong cell,
     /// color, tick or frame order moves the digest.
     #[test]
     fn spinner_table_matches_the_reference_digest() {

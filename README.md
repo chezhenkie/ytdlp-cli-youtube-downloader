@@ -1,5 +1,5 @@
 Smart menu CLI around [yt-dlp](https://github.com/yt-dlp/yt-dlp). Built in Rust, zippy execution.
-Copy youtube link, open app, type '0' and download starts. This project is only the menu, the launchers and the defaults; actual download is performed by yt-dlp, and this is not affiliated with or endorsed by the yt-dlp project. 
+Copy youtube link, open app, type '0' and download starts. This project is only the menu, the launchers and the defaults; actual download is performed by yt-dlp, and this is not affiliated with or endorsed by the yt-dlp project.
 
 The yt-dlp runtime is used exactly as published - nothing in it is patched or rebuilt by this project. Bit for bit.
 
