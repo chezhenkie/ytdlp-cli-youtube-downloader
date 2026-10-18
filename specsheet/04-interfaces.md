@@ -6,7 +6,7 @@ IF-2 CLI argv. Positional url plus one-shot overrides: -a/--audio, -f/--format (
 
 IF-3 settings.json schema. Serialized defaults, written by the product only (FR-3). Fields in the Data section.
 
-IF-4 yt-dlp subprocess. argv per FR-8 and FR-9 with "--newline" for line-pumpable progress; stdout parsed for "[download]" progress lines, "Writing video subtitles to:" language extraction, "Destination:" suppression; stderr keeps a 6-line error tail (exec.rs). Compatibility depends on these shapes; the pinned yt-dlp source is the reference (resources/ytdlp-master.zip). PARSE-MISS POLICY (owner-approved 2026-10-14, audit F11 softened into detection instead of a json contract):
+IF-4 yt-dlp subprocess. argv per FR-8 and FR-9 with "--newline" for line-pumpable progress; stdout parsed for "[download]" progress lines, "Writing video subtitles to:" language extraction, "Destination:" suppression; stderr keeps a 6-line error tail (exec.rs). Compatibility depends on these shapes; the pinned yt-dlp source is the reference (resources/ytdlp-master.zip). PARSE-MISS POLICY (audit F11 softened into detection instead of a json contract):
 the stdout scraping stays, but a silent degrade becomes a spoken miss. A subtitle pass that exits 0 with no language codes read prints its verdict plus one amber note line ("yt-dlp reported success but no subtitle files were read - wording may have changed, please report"); a subtitle failure whose error line matches no sub_fail_reason pattern prints the not-fetched verdict plus one amber note line ("yt-dlp wording not recognized - please report"). Progress coloring misses nothing verifiable and
 stays silent. The full uncut error line on any failed download is unchanged. Purpose: yt-dlp upstream rewording its human output surfaces on the user's screen the moment it happens, so the wrapper can be updated to the new wording in the next pass.
 
@@ -14,24 +14,24 @@ IF-5 ffmpeg subprocess. probe_version asks "--version" then "-version" on both s
 
 IF-6 Os folder providers. Windows registry Shell Folders (HKCU, expandvars; resolve.rs); posix XDG user-dirs; folder dialogs per FR-6.
 
-IF-7 Network endpoints. CLI self-update: one GitHub releases API GET per FR-13 (newest tag, the running platform's bare-binary asset where one is published - no platform publishes one since owner call 2026-10-17j, macOS since 2026-10-17h - the api sha256 digest gate). yt-dlp updates via its own -U. ffmpeg provider urls: windows the BtbN win64 GPL zip with the digest read fresh from the provider's `checksums.sha256` every run, linux the BtbN tar.xz, macos the shaka-project static arm64 binary with the digest read from the pinned release API object's per-asset digest field (FR-14, MACOS SOURCE RULE; exec/ffmpeg.rs `ffmpeg_source`). Timeouts: 60 s for forced text fetches, 6 s for the non-forced daily auto-update check (owner-pinned 2026-10-14, audit F3), 1800 s for binary download (net.rs). All non-forced network
+IF-7 Network endpoints. CLI self-update: one GitHub releases API GET per FR-13 (newest tag, the running platform's bare-binary asset where one is published - no platform publishes one - the api sha256 digest gate). yt-dlp updates via its own -U. ffmpeg provider urls: windows the BtbN win64 GPL zip with the digest read fresh from the provider's `checksums.sha256` every run, linux the BtbN tar.xz, macos the shaka-project static arm64 binary with the digest read from the pinned release API object's per-asset digest field (FR-14, MACOS SOURCE RULE; exec/ffmpeg.rs `ffmpeg_source`). Timeouts: 60 s for forced text fetches, 6 s for the non-forced daily auto-update check (audit F3), 1800 s for binary download (net.rs). All non-forced network
 touches require either the menu (user action) or auto_update on plus a tty; a failed network contact is silent except when forced.
-  The 6 s non-forced timeout is load-bearing rather than incidental - a black-holed network would otherwise stall the first keystroke - so it is pinned by a test.
-  TLS is provided by rustls with webpki-roots; certificate verification is not made optional. Root certificates are bundled rather than read from the OS trust store, so the binary's behaviour does not vary with the host's certificate configuration.
-PROXY (decided 2026-10-15): the native HTTP layer resolves the environment first (HTTPS_PROXY/https_proxy, HTTP_PROXY/http_proxy, ALL_PROXY/all_proxy, with NO_PROXY honoured) and, on Windows when no such variable is set, the HKCU Internet Settings fallback (ProxyEnable/ProxyServer) through ureq's win-system-proxy feature (winreg 0.55, a windows-only target dependency); posix has no registry step.
-  The environment path is pinned offline: a loopback fake proxy must be dialed by the built binary in a test.
+ The 6 s non-forced timeout is load-bearing rather than incidental - a black-holed network would otherwise stall the first keystroke - so it is pinned by a test.
+ TLS is provided by rustls with webpki-roots; certificate verification is not made optional. Root certificates are bundled rather than read from the OS trust store, so the binary's behaviour does not vary with the host's certificate configuration.
+PROXY: the native HTTP layer resolves the environment first (HTTPS_PROXY/https_proxy, HTTP_PROXY/http_proxy, ALL_PROXY/all_proxy, with NO_PROXY honoured) and, on Windows when no such variable is set, the HKCU Internet Settings fallback (ProxyEnable/ProxyServer) through ureq's win-system-proxy feature (winreg 0.55, a windows-only target dependency); posix has no registry step.
+ The environment path is pinned offline: a loopback fake proxy must be dialed by the built binary in a test.
 
 IF-8 CI and selftest (IF to developers): offline; every push and pull request runs fmt, clippy with warnings denied, unit tests, the musl cross-check and the pinned width/printable table checks on windows/ubuntu/macos (.github/workflows/rust.yml); bundles.yml (workflow_dispatch) assembles the five release bundles (windows/linux lean+portable each plus the linux-musl bundle - FR-19; that job also proves it: static link, extract, packaged selftest 181/0, no bundled yt-dlp, the staged srtstripper digest); every bundle's bin/ carries the platform's srtstripper build, pinned to the v1.0.1 asset digests (FR-20), alongside the yt-dlp/ffmpeg payload pins; the job also builds the windows setup.exe and the macos-arm64 pkg (FR-18; both installers are installed and run on their own runners in the job) plus RELEASE-NOTES.md. No workflow contacts the network in a test (NFR-4).
 
 ## 6. Functionality
 
-Startup journey: enable ANSI/VT where needed (tty.rs), paint the menu box (header "yt-dlp cli  v<version>" centered, the FR-17 quick-paste row, 14 rows, "press escape to exit submenu", rules), print the hint block above the input line - verbatim, amber then grey then divider:
+Startup journey: enable ANSI/VT where needed (tty.rs), paint the menu box (header "yt-dlp cli v<version>" centered, the FR-17 quick-paste row, 14 rows, "press escape to exit submenu", rules), print the hint block above the input line - verbatim, amber then grey then divider:
 
-    paste url, press enter and download will start.
-    enter number to change default settings
-    change download location by choosing menu item: 5
-    download several urls at once by choosing menu item: 10
-    DL location: <resolved folder>
+ paste url, press enter and download will start.
+ enter number to change default settings
+ change download location by choosing menu item: 5
+ download several urls at once by choosing menu item: 10
+ DL location: <resolved folder>
 
 then auto-update check (FR-13) and first save. The menu never disappears: everything paints under it, nothing prints beyond the hint block, item-10 entry lines, and stage/verdict lines (`main_menu`, menu.rs).
 
@@ -48,8 +48,8 @@ Failure handling pattern: every detectable failure (missing binary, failed probe
 
 ## 7. Implementation
 
-Only what this spec defines is implemented; code comments carry the long-form rationale where a spec-sized claim cannot (FR-14's "checksum before install" order is documented in RELEASE-NOTES.md and the exec/ffmpeg.rs comment). Named owner for everything: chezhenkie. Every component stays in its layer (section 4).
+Only what this spec defines is implemented; code comments carry the long-form rationale where a spec-sized claim cannot (FR-14's "checksum before install" order is documented in RELEASE-NOTES.md and the exec/ffmpeg.rs comment). Every component stays in its layer (section 4).
 
 Observability is the stage line system itself: one grouped preflight line, one live progress line, one frozen verdict per run - no external logging, no collected telemetry, no crash dumps. --check is the operator's window (FR-15). Selftest pins the observable surfaces called out in NFR-4.
 
-Processes must start and stop cleanly and release everything they acquire (NFR-3): threads are daemon, stages join their writer thread within one tick on done() (tty.rs), temp files (".ff-" dirs, tmp settings file, .new binary) are removed or replaced on every successful path and refused paths write nothing.
+Processes must start and stop cleanly and release everything they acquire (NFR-3): threads are daemon, stages join their writer thread within one tick on done() (tty.rs), temp files (".ff-" dirs, tmp settings file,.new binary) are removed or replaced on every successful path and refused paths write nothing.

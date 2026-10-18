@@ -1,7 +1,7 @@
 ## 8. Data
 
-settings.json fields; all strings unless stated, none sensitive (no secrets, no machine-derived values shipped), owner chezhenkie, retained indefinitely in the user's copy, migration via settings_version (currently unused; OQ-6 closed 2026-10-14: it stays a schema marker until a settings format change needs one).
-Boundary validation (audit F1/F2, 2026-10-14): bool fields are safe by truthiness; playlist_max_items, video_resolution, video_container, audio_format and audio_quality reach their consumers raw from the editable file. Fix design: `load_settings` coerces these in memory
+settings.json fields; all strings unless stated, none sensitive (no secrets, no machine-derived values shipped), retained indefinitely in the user's copy, migration via settings_version (currently unused; OQ-6 closed: it stays a schema marker until a settings format change needs one).
+Boundary validation (audit F1/F2): bool fields are safe by truthiness; playlist_max_items, video_resolution, video_container, audio_format and audio_quality reach their consumers raw from the editable file. Fix design: `load_settings` coerces these in memory
 only - playlist_max_items int-parsed with fallback 0 (= all), the three vocabulary fields whitelisted against RESOLUTIONS/CONTAINERS/AUDIO_FORMATS (config.rs) with fallback to the default, audio_quality accepted only as a number or "<n>K" per yt-dlp --audio-quality semantics, fallback "0". Coercion never rewrites settings.json (user settings are theirs):
 
 | key | type | shipped | allowed/default | consumed by |
@@ -33,13 +33,13 @@ Header lists related docs. README.md is published text (usage, assets, checksums
 
 ## 10. Validation
 
-Every requirement's acceptance criterion is an executable, offline check; the packaged `--selftest` runs the 181-check set (NFR-4). The former python-oracle differential layer (harness vectors, --check byte-parity, session transcripts) is retired as of 2026-10-18: the frozen reference in `deprecated-py-src/` predates the srt stripper feature, so the comparison could not express it, and the native check set is the contract now. Status: FR-5's real-console clause is owner-verified (OQ-N2, closed 2026-10-16c); FR-13's live install dance ran against the published v2.0.0 image (OQ-N4, closed 2026-10-16c); nothing else is pending.
+Every requirement's acceptance criterion is an executable, offline check; the packaged `--selftest` runs the 181-check set (NFR-4). The former python-oracle differential layer (harness vectors, --check byte-parity, session transcripts) is retired: the frozen reference in `deprecated-py-src/` predates the srt stripper feature, so the comparison could not express it, and the native check set is the contract now. Status: FR-5's real-console clause is verified (OQ-N2); FR-13's live install dance ran against the published v2.0.0 image (OQ-N4, closed ); nothing else is pending.
 
 | requirement | verification |
 |---|---|
 | FR-1, FR-2, FR-4, FR-7, FR-8, FR-9 | --selftest sections, 181 checks total |
 | FR-3 | selftest load/save checks, LF and unchanged-bytes assertions, "coerce never rewrites settings.json"; byte-identical settings.json and coercion notes over a corrupted-input matrix |
-| FR-5 | history and reader checks; the real-console pass is owner-verified (OQ-N2, closed) |
+| FR-5 | history and reader checks; the real-console pass is (OQ-N2, closed) |
 | FR-6 | outdir checks plus the audit memo regression |
 | FR-10 | color/width/spinner/render checks, including the erase sequences and the cursor-up block sequence |
 | FR-11, FR-12 | clean_url, fail_sentence, batch checks, work-folder cleanup (argv temp path, fresh-partial removal, empty-folder removal); every run end force-removes the work folder (FR-11) |
@@ -55,4 +55,4 @@ Every requirement's acceptance criterion is an executable, offline check; the pa
 
 Acceptance criteria for every requirement are the PASS lines of the suite that ships it. Performance is not a target beyond NFR constraints and has no measured number in this spec (no invented factors).
 
-SELFTEST MAP for the packaged `--selftest` (G9 evidence). The report carries 181 checks by name, order and verdict. The former line-for-line compare against the frozen reference (`rust-src/tools/selftest_compare.py` and the `vectors/selftest.json` record) is retired with the python-oracle layer (2026-10-18). Historical renames that were recorded for that compare: `cli update source is the releases api` (reference slot: `cli update url is raw main branch`), `install_cli refuses an image that fails its own checks` (reference slot: `install_cli refuses a file that does not parse`), `windows ffmpeg source is BtbN` (reference slot: `windows ffmpeg source is gyan.dev`), `ffmpeg sources cover windows, linux and macos` (reference slot: `ffmpeg sources cover windows and linux`), and `macos ffmpeg source is shaka-project` (reference slot: `no ffmpeg download for macos`). The `{archive-error}` payload of the unreadable-archive line is shape-gated (each archive library words it its own way), and the item-13 audit print goes into the live report uncaptured.
+SELFTEST MAP for the packaged `--selftest` (G9 evidence). The report carries 181 checks by name, order and verdict. The former line-for-line compare against the frozen reference (`rust-src/tools/selftest_compare.py` and the `vectors/selftest.json` record) is retired with the python-oracle layer. Historical renames that were recorded for that compare: `cli update source is the releases api` (reference slot: `cli update url is raw main branch`), `install_cli refuses an image that fails its own checks` (reference slot: `install_cli refuses a file that does not parse`), `windows ffmpeg source is BtbN` (reference slot: `windows ffmpeg source is gyan.dev`), `ffmpeg sources cover windows, linux and macos` (reference slot: `ffmpeg sources cover windows and linux`), and `macos ffmpeg source is shaka-project` (reference slot: `no ffmpeg download for macos`). The `{archive-error}` payload of the unreadable-archive line is shape-gated (each archive library words it its own way), and the item-13 audit print goes into the live report uncaptured.
