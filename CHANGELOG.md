@@ -1,257 +1,199 @@
-changelog
-=========
+# Changelog
 
-Newest first. Current level: v2.3.0 (native, released 2026-10-17); v2.2.0 released 2026-10-17; v2.1.1 released 2026-10-17; v2.1.0 released 2026-10-17; v2.0.4 released 2026-10-17; v1.5.0 is the final python line. Consolidated 2026-10-16: chapters longer than their headlines are compressed, full dated chapters live in git history.
+## 2.4.0
 
-## v2.3.0 native (released 2026-10-17)
+### New features
 
-- cleanup: dead-path cites and stale register wording (this commit)
-Spinner references now cite the pre-rust python implementation in term.rs and specsheet/01 FR-10 (the frozen ytdlp.py keeps its own line verbatim - never edited). specsheet/05 section 9 no longer points gaps at the retired open questions register. resources/.gitkeep is dropped (the two tracked screenshots remain), README.md line 2 loses its trailing space, and deprecated-py-src/src/__pycache__ plus the gitignored deprecated-py-src/bin/yt-dlp.exe are gone from the working tree. No behavior change.
+#### All platforms
 
-- docs: v2.3.0 G10 green at the destination (this commit)
-The published release was re-downloaded and re-checked: eight files (five bundles, the windows setup.exe, the macos arm64 pkg and RELEASE-NOTES.md), every asset's api digest equals README.md/RELEASE-NOTES.md, and every artifact re-verified from the released bytes - windows-lean/portable selftest 177/0 with the PE file description reading "ytdlp" and the 2.3.0 version fields; setup.exe silently installed and uninstalled on the dev machine, PATH entry asserted and gone again, the full payload present, selftest 177/0; linux-lean/portable selftest 177/0 with 0755 modes, --check resolving the bundled yt-dlp and the portable's ffmpeg (the archive digest equals the pin, its member equals the bundle's binary); linux-musl selftest 177/0, the binary static, the tar carrying no bin/ at all, --check resolving the apk yt-dlp 2026.08.19-r0 inside an official Alpine 3.24.0 minirootfs chroot; macos pkg identity (com.github.chezhenkie.ytdlp-cli 2.3.0), 0755 modes, the /usr/local/bin/ytdlp symlink, payload hash chain (yt-dlp 0f192b7e..., ffmpeg e7b9fcd9...) and Mach-O shape (cli thin arm64, yt-dlp_macos universal). No updater image on the page.
+* Added the srt timecode stripper (menu item 8): with subtitles enabled, every download writes a timecode-stripped copy of each subtitle file next to it. The menu row shows on/off plus the active mode; turning it on asks for the mode (alpha, timecodes, numbered, numbered-only).
+* The bundles now ship the matching srtstripper binary in bin/ on every platform, so the feature works out of the box.
 
-- v2.3.0 published (this commit)
-A platform release on the native line: Alpine and other musl x86_64 systems get a cli-only bundle and install.sh selects it automatically. rust.yml run 39068002217 (16 jobs) green and bundles.yml run 39068006822 assembled the eight files, all four jobs green (linux-musl-bundle green on its first run), on the release-build commit 857f488; every file extracted and checked from the CI bytes before upload - windows-lean/portable selftest 177/0 with the PE file description "ytdlp" (version 2.3.0) and --check resolving the bundled yt-dlp and the portable's ffmpeg; setup.exe silently installed (PATH entry asserted once, the installed payload byte-identical to the portable zip, selftest 177/0, the uninstaller removing tree and PATH entry, HKCU PATH restored); linux-lean/portable selftest 177/0, tar modes 0755, bundled yt-dlp 58162f9b... and the portable's ffmpeg byte-equal to the member of the pinned BtbN n9.0.2-27-g7e93014c5b archive (50e0ede1...); linux-musl: binary static, the tar carries no bin/ at all, selftest 177/0 on the dev host and inside an official Alpine 3.24.0 minirootfs chroot with --check resolving the apk yt-dlp 2026.08.19-r0; macos pkg structure (identity com.github.chezhenkie.ytdlp-cli 2.3.0, modes, the /usr/local/bin/ytdlp symlink, payload chain yt-dlp 0f192b7e... and ffmpeg e7b9fcd9..., Mach-O shape: thin arm64 cli, universal yt-dlp, thin arm64 ffmpeg); document files in every bundle byte-equal to the repo tree; all seven files match the CI SHA256SUMS. Digests folded into README.md and the staged releases/v2.3.0/RELEASE-NOTES.md; eight release files (five bundles, the setup.exe, the pkg, the notes). Measured sizes: windows lean 19504902, windows portable 59514396, windows setup 48895985, linux lean 41998310, linux portable 110072111, linux musl 2128059, macos arm64 pkg 54095575. G10 runs from the release after publish.
+## 2.3.0
 
-- release prep 2026-10-17n: version 2.3.0, the linux-musl bundle (FR-19), install.sh musl support (28a0ac9)
-Owner call 2026-10-17n (FR-19): Alpine and other musl x86_64 systems get `ytdlp-cli-v2.3.0-linux-musl.tar.gz`, the cli built for `x86_64-unknown-linux-musl` (static-pie; selftest 177/0 both on the WSL host and inside an official Alpine 3.24.0 minirootfs chroot, where `apk add yt-dlp` pulled exactly the pinned 2026.08.19-r0 together with ffmpeg 8.1.2 and the JS runtime). Cli-only by design: no musl yt-dlp or ffmpeg builds are published by their providers; NFR-1 records this as a named deviation of the runtime-is-bundled rule for this one bundle. The new bundles.yml job `linux-musl-bundle` asserts the static link, extracts the staged tar, runs the packaged selftest 177/0 and asserts the tar carries no bin/yt-dlp. `install.sh` auto-selects musl (when `ldd --version` reports musl, or `/lib/ld-musl-*.so.1` exists), refuses `--lean`/`--portable` there with a clear message and prints the apk runtime note after the install. Specsheet rows for FR-19: 01 (requirement), 02 (build matrix + release list), 03 (record 2026-10-17n), 04 (IF-8), 05 (verification). THIRD-PARTY-NOTICES.md: the musl artifacts carry the MIT cli only. Local gate before push: fmt + clippy clean, run-all 69 functions / 978 records / 0 mismatches, sessions piped 32/32 and pty 14/14, tables pinned, G4 --check byte compare clean, report parity 177/177, musl selftest 177/0.
+### New features
 
-## v2.2.0 native (released 2026-10-17)
+#### Linux (musl)
 
-- cleanup: the open questions register is retired (owner call 2026-10-17m; this commit)
-specsheet/07-open-questions.md is deleted; the 00-overview parts table now lists 01-06 and the two section-13 pointers in the specsheet (05-data, 06) are repointed at the recorded trail. The register stood at OQ-B (parked: the multi-instance settings.json write policy, reopen when multi-instance use appears); the closed native questions keep their verdicts in the changelog chapters and the spec header - OQ-N1 (the predecessor line locks at v1.5.0, 00 reference note), OQ-N3 (lzma-rust2 replaces xz2/lzma-sys, v2.0.0 chapters), OQ-N4 (v2.0.0), OQ-N2 (v2.0.1), OQ-P1 (v2.0.3).
+* Added a bundle for Alpine and other musl x86_64 systems: the cli built for x86_64-unknown-linux-musl, statically linked. It carries no yt-dlp and no ffmpeg (none published for musl); install the download runtime with `apk add yt-dlp`, which pulls ffmpeg and the JS runtime with it.
+* The install script detects musl systems and picks the musl bundle automatically; `--lean` and `--portable` are refused there.
 
-- install: the curl installer for Linux (owner call 2026-10-17l; this commit)
-`install.sh` (repo root, served from main) installs the latest release - or `--version vX.Y.Z` - for Linux x86_64: it fetches that release's RELEASE-NOTES.md, reads the sha256 for the chosen bundle out of the Checksums block, verifies the download against it before anything touches the disk, unpacks the tree to `~/.local/share/ytdlp-cli`, links `~/.local/bin/ytdlp`, keeps an existing `config/settings.json` across re-installs, and `--uninstall` removes tree and link (a foreign `~/.local/bin/ytdlp` is left alone). Default payload is the portable bundle (ffmpeg included), matching the two installers; `--lean` picks the smaller one. Nothing runs as root and no system package manager is involved - the tarball stays the artifact. The Checksums block of RELEASE-NOTES.md is now a machine-read seam of every release: keep the `digest  filename` rows verbatim. macOS stays out of the script (the pkg is the mac path). Tested via a fake-release suite (digest mismatch and missing row refuse; re-install keeps settings; foreign link untouched) and end-to-end against the published v2.2.0 - portable and lean, selftest 177/0 via the PATH link, uninstall clean. README documents the one-liner.
+## 2.2.0
 
-- owner call: the v2.1.1 page loses the retired macOS tar (2026-10-17k)
-The macOS tar bundle (`ytdlp-cli-v2.1.1-macos-arm64-portable.tar.gz`) is pulled from the published v2.1.1 release and its RELEASE-NOTES.md refreshed in place (the file row, its checksum row and the macOS bundle lines are gone; mac readers are pointed at the v2.2.0 pkg). The page now holds five files and every live asset's api digest equals the refreshed notes.
+### New features
 
-- docs: v2.2.0 G10 green at the destination (this commit)
-The published release was re-downloaded and re-checked: seven files (four bundles, the windows setup.exe, the macos arm64 pkg and RELEASE-NOTES.md), every asset's api digest equals README.md/RELEASE-NOTES.md, and every artifact re-verified from the released bytes - windows-lean/portable selftest 177/0 with the PE file description reading "ytdlp" and the 2.2.0 version fields (--check resolving the bundled yt-dlp, the portable's ffmpeg too); setup.exe silently installed and uninstalled on the dev machine, PATH entry asserted and gone again, full payload present, selftest 177/0; linux-lean/portable selftest 177/0 with 0755 modes and the ffmpeg archive-member chain (the archive digest equals the pin, its member equals the bundle's binary); macos pkg identity, 0755 modes, payload hash chain (yt-dlp 0f192b7e..., ffmpeg e7b9fcd9...) and Mach-O shape (cli thin arm64, yt-dlp_macos universal). No updater image on the page.
+#### Windows
 
-- v2.2.0 published (this commit)
-An installer release on the native line: Windows gains a setup.exe and macOS moves to a pkg; the mac tar bundle is retired. CI run 39056005150 (16 jobs) green; bundles.yml run 39056925461 assembled the seven files, all three jobs green; every bundle extracted and checked from the CI bytes before upload - windows-lean/portable selftest 177/0 with the PE file description reading "ytdlp" and the 2.2.0 version fields, --check resolving the bundled yt-dlp (the portable's ffmpeg too); setup.exe silently installed on the dev machine, PATH entry asserted, selftest 177/0, the full payload present, and the uninstaller removing tree and PATH entry; linux-lean/portable selftest 177/0, tar modes 0755, payload pins (yt-dlp raw binary; ffmpeg checked as archive-against-pin plus member-against-bundle), the launcher --check; macos pkg identity (identifier/version), 0755 modes, the PATH symlink, payload hash chain (yt-dlp 0f192b7e..., ffmpeg e7b9fcd9...) and Mach-O shape (cli thin arm64, yt-dlp_macos universal) - and all six files match the CI SHA256SUMS. Digests folded into README.md and the staged releases/v2.2.0/RELEASE-NOTES.md; seven release files (four bundles, the setup.exe, the pkg, the notes). Measured sizes: windows lean 19502163, windows portable 59511657, windows setup 48896067, linux lean 41994276, linux portable 110065495, macos arm64 pkg 54093041. G10 runs from the release after publish.
+* Added a per-user setup.exe installer: installs without an admin prompt, puts `ytdlp` on PATH, adds a Start Menu entry, an optional desktop shortcut and a registered uninstaller.
 
-- installers: the windows setup.exe and the macos pkg; the mac tar bundle is retired (owner call 2026-10-17k)
-FR-18. Windows gains a per-user setup.exe built in bundles.yml with Inno Setup from the same staged portable tree the zip carries (rust-src/packaging/windows-installer.iss): no admin prompt, install into %LOCALAPPDATA%\Programs\ytdlp-cli, the folder appended once to the user PATH and removed again on uninstall, a Start Menu entry, an optional desktop shortcut, and a registered uninstaller that removes the whole tree (the install folder is also the app's data folder: settings.json, updated yt-dlp, offered ffmpeg). macOS drops the tar bundle for an unsigned pkg (pkgbuild, --install-location /): /usr/local/ytdlp-cli holds the portable layout, /usr/local/bin/ytdlp goes on PATH, a postinstall hands the tree to the console user (settings saves, yt-dlp -U and the ffmpeg offer all write inside the tree; admin group gets g+w as fallback), and the shipped rust-src/packaging/uninstall-macos.sh removes tree, symlink and receipt (identifier com.github.chezhenkie.ytdlp-cli). The unsigned first-open flow is stated in README.md and the release notes (macOS: System Settings > Privacy & Security > Open Anyway, password or Touch ID, no terminal; Windows SmartScreen: More info > Run anyway). Specsheet: FR-18 (01), build matrix and release list (02), IF-8 (04), the verification row (05), the v2.2.0 decision record (03), the register note (07). THIRD-PARTY-NOTICES now reads "portable bundles and the macOS pkg". The release is seven files: four bundles, the windows setup.exe, the macos-arm64 pkg, RELEASE-NOTES.md.
+#### macOS
 
-- test: both installers are installed and run on their native CI runners (this commit)
-bundles.yml proves, not just assembles. The windows job silently installs the setup.exe (/VERYSILENT), asserts the installed exe's PE fields (FileDescription ytdlp, ProductName yt-dlp cli, version 2.2.0), runs the installed --selftest (177 checks, 0 failed), asserts the HKCU PATH entry, then uninstalls silently and asserts directory and PATH entry are gone. The macos job runs `sudo installer -pkg` on the runner, asserts the /usr/local/bin/ytdlp symlink, runs the installed --selftest 177/0, asserts the payload digests at the installed location, tree writability, the installed launcher (run-ytdlp.sh --check), then runs the shipped uninstall script and asserts symlink, tree and receipt are gone.
+* Replaced the portable tar bundle with a pkg installer for Apple silicon: installs to /usr/local/ytdlp-cli, puts `ytdlp` on PATH and ships an uninstall script. The pkg is unsigned; the first open is allowed once in System Settings > Privacy & Security (Open Anyway).
 
-## v2.1.1 native (released 2026-10-17)
+## 2.1.1
 
-- docs: v2.1.1 G10 green at the destination (this commit)
-The published release was re-downloaded and re-checked: six files (five bundles and RELEASE-NOTES.md), every asset's api digest equals README.md/RELEASE-NOTES.md, and all five bundles re-verified from the released bytes - windows-lean/portable selftest 177/0, linux-lean/portable selftest 177/0 with 0755 modes, macos-portable structure, 0755 modes, payload hash chain (yt-dlp 0f192b7e..., ffmpeg e7b9fcd9...) and Mach-O shape (cli thin arm64). No updater image on the page.
+### Fixes
 
-- owner call: no bare updater images in the release (2026-10-17j)
-The two remaining bare updater images (`ytdlp-native-windows-x86_64.exe`, `ytdlp-native-linux-x86_64`) are pulled from the release and from bundles.yml: the release is five bundles and RELEASE-NOTES.md - six files. The updater lookup keeps its FR-13 GET (the per-platform name, the api digest in the same response); with no image published the fetch resolves to the missing-asset refusal ("no published cli build for <platform>", silent in the daily check, printed by --update; yt-dlp -U untouched) on every platform now, macOS since 2026-10-17h. README, release notes and specsheet updated.
+#### All platforms
 
-- v2.1.1 published (this commit)
-A text-fix release on the native line: the amber hint line loses its trailing period and menu item 12's notice tells the truth when the daily check is off (entries below). CI run 39044177617 (16 jobs) green; bundles.yml run 39045559567 assembled the five bundles, all three jobs green; every bundle extracted and checked from the CI bytes before upload - windows-lean/portable selftest 177/0 with the PE file description reading "ytdlp" and the 2.1.1 version fields; linux-lean/portable selftest 177/0, tar modes 0755, payload pins (yt-dlp 58162f9b..., ffmpeg a573011f...), --check resolving the bundled yt-dlp and the portable bundle's ffmpeg directory plus the no-ffmpeg single-file fallback; macos structure, 0755 modes, payload hash chain and Mach-O shape - and all five files match the CI SHA256SUMS. Digests folded into README.md and the staged releases/v2.1.1/RELEASE-NOTES.md; six release files (five bundles, the notes). Measured sizes: windows lean 19500400, windows portable 59509894, linux lean 41993628, linux portable 110069168, macos arm64 portable 54084713. G10 runs from the release after publish.
+* Removed the bare updater images from the release page; the in-app cli self-update now reports "no published cli build for <platform>" (yt-dlp updates are unchanged).
+* Fixed the trailing period in the amber hint line.
+* Menu item 12's notice now states what auto update off means: "auto update off - no startup check".
 
-- fix: the amber hint line loses its trailing period; item 12's off notice says what off means (this commit)
-Owner calls 2026-10-17i. The hint line now reads "paste url, press enter and download will start" without the period (ui.rs `hint_lines`), and menu item 12's line reads "auto update off - no startup check" when the daily check is off, stating what off means; the on wording "checked once a day at start" is unchanged. Both are recorded native-only wording changes: `project_wording()` (arms.rs) and `normalize()` (tools/session_diff.py) map them so the differential compares against the shipped wording, and the item-12 crate test asserts both branches. Local gate before push: fmt + clippy clean, run-all 69 functions / 978 records / 0 mismatches, sessions piped 32/32 and pty 14/14, tables pinned, G4 --check byte compare clean, report parity 177/177.
+## 2.1.0
 
-- docs: the owner-banned term is gone from the repo (this commit)
-The term is replaced with "reference" across every tracked file (28 swept, double-word collisions repaired), covering the specsheet, README, CHANGELOG, workflows, vector note fields and tool strings; zero occurrences remain. The frozen python source keeps its exact bytes and is reference-only; the off-limits archify export folder is untouched. The term stays banned as a standing owner rule.
+### New features
 
-## v2.1.0 native (released 2026-10-17)
+#### macOS
 
-- owner call: the mac line is portable-only - the lean mac bundle and the bare macos image are pulled (2026-10-17h)
-The macOS offer is exactly one file: `ytdlp-cli-v2.1.0-macos-arm64-portable.tar.gz`. The lean mac bundle and the bare `ytdlp-native-macos-arm64` updater image are deleted from the published v2.1.0 release and dropped from the product's asset contract: `release_asset()` (update.rs) has no macOS entry, so the cli self-update refuses with "no published cli build for macos" (yt-dlp -U untouched), and the bundles.yml macos job assembles the portable bundle only. README rows and digests updated (seven rows); the release notes updated and re-uploaded; the page carries eight files (five bundles, two updater images, the notes). Known consequence: mac builds installed from v2.1.0 carry the old map, so at the next release they surface the same missing-asset refusal the new map answers directly.
+* Added macOS support: an arm64 portable bundle for Apple silicon.
+* The macOS bundle can download ffmpeg (the shaka-project static build), since macOS ships no ffmpeg.
 
-- docs: v2.1.0 G10 green at the destination (this commit)
-Every asset re-downloaded from the published release: the nine digest rows in RELEASE-NOTES.md hash-match the downloaded bytes, every api digest equals README.md/RELEASE-NOTES.md and the ten assets are all present. Windows and linux bundles extracted and run from the release bytes: windows-lean/portable selftest 177/0 with the PE file description reading "ytdlp" on the shipped exe, the updater image 177/0; linux-lean/portable selftest 177/0, tar modes 0755, bundled payloads matching their pins (yt-dlp 58162f9b..., ffmpeg a573011f...), --check resolving the bundled yt-dlp, the portable ffmpeg dir and the no-ffmpeg single-file fallback. The macos bundles were extracted and checked from the release bytes on the dev machine (structure, 0755 modes, payload hash chain, Mach-O shape - thin arm64 cli, universal yt-dlp_macos); execution on macOS for the same source is covered by the green macos jobs of rust.yml (39036458054 on the prep commit, 39037250332 on the release commit). Measured updater-image sizes: 3983360 (windows), 4949744 (linux), 4124096 (macos).
+### Fixes
 
-- v2.1.0 published (this commit)
-A platform release on the native line: macOS joins with arm64 lean+portable bundles and an in-app ffmpeg source, and the Windows exe's file description is a bare "ytdlp". bundles.yml run 39036779688 assembled the nine binaries, all three jobs green; every bundle was extracted and checked from the CI bytes before upload - windows-lean/portable selftest 177/0 with the PE file description reading "ytdlp", linux-lean/portable selftest 177/0 with --check resolving the bundled yt-dlp and (portable) the bundled ffmpeg, macos-lean/portable structure + 0755 modes + payload hash chain + Mach-O shape (the cli thin arm64, yt-dlp_macos the official universal binary) since mac binaries cannot run on the dev machine - and all nine match the CI SHA256SUMS. Digests folded into README.md and the staged releases/v2.1.0/RELEASE-NOTES.md; ten release files (six bundles, three updater images, the notes). Measured sizes: windows lean 19497369, windows portable 59506863, linux lean 41991288, linux portable 110068111, macos lean 38500931, macos portable 54084409, updater images 3983360 (windows), 4949744 (linux), 4124096 (macos). G10 runs from the release after publish.
+#### Windows
 
-- feat: macOS joins the release line - arm64 lean and portable bundles, updater image (080fe72)
-`bundles.yml` gains the macos-latest job: lean ships the cli + yt-dlp, portable adds ffmpeg, both carry the docs set and the launchers, and the bare `ytdlp-native-macos-arm64` image matches FR-13's existing asset contract (update.rs already named it). Payload pins are digest-checked before staging (shasum -a 256 -c; sha256sum is not on macOS): yt-dlp_macos 2026.08.19 (0f192b7e..., the official universal binary carrying both slices) and shaka-project/static-ffmpeg-binaries n8.1.2-1 ffmpeg-osx-arm64 (e7b9fcd9..., 34074040 bytes, verified 2026-10-17 by download + hash against the API digest). Specsheet: build matrix (02), IF-7/IF-8 (04), the non-goal note (01).
+* Changed the exe's Windows file description to the bare "ytdlp"; Windows surfaces that field as the app name in Explorer and the Task Manager.
 
-- feat: the lean macOS offer can fetch ffmpeg - FR-14 macos amendment (080fe72)
-Owner call 2026-10-17g. Without ffmpeg yt-dlp silently falls back to the single pre-merged file (on YouTube typically 360p) with no mp3 and no remux - a degraded default, and the lean macOS bundle is exactly the case no stock macOS machine escapes (macOS ships no ffmpeg). Source-selection rule (owner call: a proper repo with contributors, not one-person download sites): shaka-project/static-ffmpeg-binaries, built from source in its own GitHub Actions workflow (x264/x265/lame -> the GPL line), per-asset sha256 published. That provider carries no checksums file, so `expected_sha_api` (update.rs) reads the digest from the pinned release API object (assets[].digest) under the same digest-first contract; the asset is the binary itself, so the install path gains a raw mode - chmod 0755, probe, rename into bin/ - and the offer label for a wrapper-less download says "single binary". The packaged selftest swaps `no ffmpeg download for macos` for `macos ffmpeg source is shaka-project`; the recorded comparator renames grow from three to five (selftest_compare.py, session_diff.py, the harness phase-9 alias table). The install_ffmpeg vector's macos case becomes the sourceless refusal under plan9 - macos is covered by crate tests instead (raw install including the exec bit, API-digest mismatch installs nothing) - a recorded deviation. Two crate tests added; suite 186 + 2 ignored.
+## 2.0.4
 
-- fix: the Windows file description is a bare "ytdlp" (080fe72)
-Owner call 2026-10-17g: FileDescription was "yt-dlp cli - text-menu download wrapper around yt-dlp", and the long text propagates into every place Windows shows an app name (Explorer's Details tab, the task manager) - none has room for it. `build.rs` now sets FileDescription "ytdlp" (ProductName "yt-dlp cli" stays), `rust.yml` pins the exact value where it previously only asserted non-empty, and the bundle check re-asserts it on the shipped exe. Local gate before push: fmt + clippy clean, run-all 69 functions / 978 records / 0 mismatches, sessions piped 32/32 and pty 14/14, cargo tests 186 + 2 ignored, G4 --check byte compare clean, report parity 177/177.
+### New features
 
-## v2.0.4 native (released 2026-10-17)
+#### Windows
 
-- docs: v2.0.4 G10 green at the destination (this commit)
-Every asset downloaded from the published release: the six digest rows in RELEASE-NOTES.md hash-match the downloaded bytes and the api digests equal README's numbers. All four bundles extracted and run from the published bytes on their target platform - windows-lean/portable selftest 177/0 with PE imports clean, the 2.0.4 version fields and the icon resource extracted; linux-lean/portable launcher selftest 177/0, --check resolving the bundled yt-dlp 2026.08.19 and the portable bundle's ffmpeg dir, tar modes 0755. Measured sizes: windows lean 19493997, windows portable 59503491, linux lean 41990246, linux portable 110065489, updater images 3984384 (windows) and 4946400 (linux).
+* Added the app icon to the exe: Explorer, the taskbar and terminal tabs show it.
 
-- v2.0.4 published (this commit)
-A presentation release on the native line: the app icon is embedded in the Windows exe and the README names the exe as the normal entry with its own launcher chapter (entries below). CI run 39011403570 assembled the six binaries; both platform bundles were extracted and run from the CI bytes before upload (windows-lean/portable selftest 177/0 from the extracted tree with the 2.0.4 version fields, the import table free of vcruntime*/msvcp* and the icon resource extracted; linux-lean/portable launcher selftest 177/0, --check resolving the bundled yt-dlp 2026.08.19 and, in the portable bundle, the bundled ffmpeg dir, 0755 modes from the tar listing) and all six match the CI SHA256SUMS. Digests folded into README.md and the staged releases/v2.0.4/RELEASE-NOTES.md; the tag and the gh release upload follow; G10 runs from the release after publish. Bundle payload pins stay as published (gyan 9.0.2 windows portable, BtbN n9.0.2 linux).
+## 2.0.3
 
-- feat: the Windows exe carries the app icon (f1907d1)
-Drawn once as app-rust/packaging/icon.svg (terminal caret + download arrow in the menu's amber palette), embedded as app-rust/packaging/icon.ico (16/32/48/256) through the FR-16 resource script. Explorer, the taskbar and Windows Terminal tabs now show it; the exe grows about 16 KB and nothing else changes. The Linux binary is unaffected (no ELF icon resource).
+### Fixes
 
-- docs: README names the exe as the normal entry; launchers get their own chapter (2206fbc)
-"Exe or launcher" states plainly that ytdlp.exe / ./ytdlp is the whole program and that run-ytdlp.bat / run-ytdlp.sh are optional thin wrappers (double-click pause on error; folder-resolving entry that works under sh/dash). Requirements and the one-shot example now list the exe first.
+#### All platforms
 
-- cleanup: historical root docs and the process-flow exports dropped (d5491c0)
-RUST-PORT-PLAN.md, python-to-rust-refactor-pitfalls.md and the archify exports removed by owner pass; the two specsheet references they left behind were repointed at the recorded evidence trail. Git history keeps the full texts.
+* Fixed a hung yt-dlp probe leaving a running yt-dlp process behind: the probe timeout now removes the whole process tree.
+* Pressing 0 at the prompt now fires the quick paste at the keypress (no Enter needed); 0 then Enter still works in scripts and pipes.
 
-## v2.0.3 native (released 2026-10-17)
+## 2.0.2
 
-- docs: v2.0.3 G10 green at the destination (this commit)
-Every asset downloaded from the published release: the six digest rows in RELEASE-NOTES.md hash-match the downloaded bytes and the api digests equal README's numbers. All four bundles extracted and run from the published bytes on their target platform - windows-lean/portable selftest 177/0 with PE imports clean and the 2.0.3 version fields; linux-lean/portable launcher selftest 177/0, --check resolving the bundled yt-dlp 2026.08.19 and the portable bundle's ffmpeg (n9.0.2-27-g7e93014c5b-20261013), 0755 modes in the extract check. Measured sizes: windows lean 19478570, windows portable 59488064, linux lean 41989870, linux portable 110064827, updater images 3968512 (windows) and 4946336 (linux).
+### New features
 
-- v2.0.3 published (this commit)
-A behavior-fix release on the native line: the keypress-0 quick paste and the probe-timeout orphan hardening (entries below). CI run 39008046558 assembled the six binaries; both platform bundles were extracted and run from the CI bytes before upload (windows-lean/portable selftest 177/0 from the extracted tree with the 2.0.3 version fields and the import table free of vcruntime*/msvcp*; linux-lean/portable launcher selftest 177/0 and --check resolving the bundled yt-dlp 2026.08.19 and, in the portable bundle, the bundled ffmpeg n9.0.2-27-g7e93014c5b-20261013) and all six match the CI SHA256SUMS. Digests folded into README.md and the staged releases/v2.0.3/RELEASE-NOTES.md; the tag and the gh release upload follow; G10 runs from the release after publish. Bundle payload pins stay as published (gyan 9.0.2 windows portable, BtbN n9.0.2 linux).
+#### All platforms
 
-- fix: the probe timeout kills the whole process tree (this commit)
-OQ-P1 hardening, owner-ordered after the repro session (record scratch-oqp1/OQ-P1-REPRO-SESSION.md; the four exit-path runs were clean and the leak itself was not reproduced): the 60 s `--version` probe timeout used `child.kill()`, which terminates only the direct child - the PyInstaller bootloader - so a hung probe could orphan its python grandchild and keep `yt-dlp.exe` locked. The timeout now removes the whole tree (windows: `taskkill /F /T /PID`; posix: the probe runs in its own process group and the group takes SIGKILL), then reaps. The public message is unchanged; the deviation from the frozen python line's direct-child-only kill is recorded. Covered by the new unix test `a_probe_timeout_kills_the_whole_tree` (a shim forks a sleepy grandchild; the timeout must take both).
+* Added the quick-paste row: press 0 to paste the first link from the clipboard and start the download.
 
-- fix: pressing 0 fires the clipboard quick paste at once (this commit)
-Owner pass on the published v2.0.2: the row's "press zero '0'" was read as a keypress, and a bare 0 just echoed on the input line (probe scratch-fr17/probe-key0.py on the published binary: one echoed byte back, nothing else; 0+enter ran the download). On a real tty the main prompt now acts on the bare 0 at the keypress - no enter, no echo, not remembered in history; a 0 typed later inside a line stays a character. The 0-then-enter line path still works for scripted and piped runs (the defaulted Reader::read_line_quick0 seam); submenu and hold reads are untouched. Pinned by tty.rs unit tests (the quick0_fires rule and the scripted default) plus the probe on the fixed build.
+## 2.0.1
 
-## v2.0.2 native (released 2026-10-17)
+### New features
 
-- docs: v2.0.2 G10 green at the destination (this commit)
-Every asset downloaded from the published release: the six digest rows in RELEASE-NOTES.md hash-match the downloaded bytes and the api digests equal README's numbers. All four bundles extracted and run from the published bytes on their target platform - windows-lean/portable selftest 177/0 with PE imports clean and the 2.0.2 version fields; linux-lean/portable launcher selftest 177/0, --check resolving the bundled yt-dlp 2026.08.19 and the portable bundle's ffmpeg (n9.0.2-27-g7e93014c5b-20261013), 0755 modes in the extract check. Measured sizes: windows lean 19474092, windows portable 59483586, linux lean 41986551, linux portable 110060692, updater images 3965952 (windows) and 4944400 (linux).
+#### All platforms
 
-- v2.0.2 published (this commit)
-A feature release on the native line: FR-17, the quick-paste row (entry below). CI run 39001201614 assembled the six binaries; both platform bundles were extracted and run from the CI bytes before upload (windows-lean/portable selftest 177/0 from the extracted tree with the 2.0.2 PE version fields and the import table free of vcruntime*/msvcp*; linux-lean/portable launcher selftest 177/0 and --check resolving the bundled yt-dlp and, in the portable bundle, the bundled ffmpeg n9.0.2-27-g7e93014c5b-20261013) and all six match the CI SHA256SUMS. Digests folded into README.md and the staged releases/v2.0.2/RELEASE-NOTES.md; the tag and the gh release upload follow; G10 runs from the release after publish. Bundle payload pins stay as published (gyan 9.0.2 windows portable, BtbN n9.0.2 linux).
+* The Rust build is now the shipped product; the final Python release (v1.5.0) remains on its release page.
 
-- fix: session_diff projects the macos pty's double-CR linefeed decoration (this commit)
-macos pty runs intermittently showed one extra \r before a paint line's \n (usually the first paint, per-process random). strace shows both children emit identical one-write-per-line shapes and no program write contains a bare CR before a LF, so the byte is a line-discipline artifact of the pty; the differ now collapses \r\r+\n to \r\n on both sides (linux runs never produce it). The failure dump also keeps the first-diff byte window and writes the raw transcripts into the work dir for --keep runs.
+### Fixes
 
-- feat: FR-17 quick-paste row - press 0 to paste a link and start the download (this commit)
-The menu box's blank top row is now row 0, "press zero '0' to paste link and start direct download", in a darker amber (208). Pressing 0 reads the system clipboard (windows: Win32 CF_UNICODETEXT; posix: wl-paste/xclip/xsel/pbpaste), takes the first link with clean_url and runs the download exactly like a pasted url - the results screen stays, escape wipes it; no link prints one amber line and holds. The clipboard is a menu::World seam; the row bytes and both flows are pinned by crate tests, and the differential (run-all 69/978/0) and session suites (piped 32/32, pty 14/14) project the row to {menu-quick-row} on both sides.
+#### All platforms
 
-## v2.0.1 native (released 2026-10-16)
+* Fixed the daily update check never firing at startup.
+* Fixed a cancelled download (Ctrl+C) keeping the temporary work folder; every run now ends with it removed.
+* Changed the Windows ffmpeg download source to the BtbN builds (the previous source was slow).
 
-- docs: specsheet describes the native product only (this commit)
-The frozen v1.5.0 line is demoted to a single reference-reference note in 00; its 154 mentions and every code line-cite are gone from sections 1-13 and the port notes became a per-phase native decision record. No behavior, decision, number or evidence changed; file names on disk (app-python/, the refactor-pitfalls memo) are untouched.
+## 2.0.0
 
-- docs: OQ-N2 remainder closed - the startup notice's live check landed (this commit)
-With v2.0.1 published the quiet startup notice could finally fire: the published v2.0.0 linux image ran under a real pty with live network and printed "a newer version is published: v2.0.1 (this is v2.0.0)" plus the releases url and the y/n prompt; the decline path answered "not updated" and the daily stamp persisted (evidence scratch-phase10/n2-notice-pty.txt). The windows-boot form was not separately re-run; this path is platform-agnostic.
+### New features
 
-- cutover: native is the shipped product (this commit)
-Phase 11 landed at v2.0.1: the python selftest CI workflow is retired (rust.yml keeps the frozen python line plus CPython 3.14.4 as the differential reference), and the specsheet records the cutover in the 00 header and section 12. README already switched to the native bundles at the v2.0.0 release commit with one legacy line; app-python/ stays in the repo as the legacy folder, never deleted (owner call 2026-10-16).
+#### All platforms
 
-- v2.0.1 verified at the destination; G10 green (this commit)
-Every asset downloaded from the published release: the six digest rows in RELEASE-NOTES.md hash-match the downloaded bytes and the api digests equal README's numbers. All four bundles extracted and run from the published bytes on their target platform - windows-lean/portable selftest 177/0 with PE imports clean and the 2.0.1 version fields; linux-lean/portable launcher selftest 177/0, --check resolving the bundled yt-dlp 2026.08.19 and the portable bundle's ffmpeg (n9.0.2-27-g7e93014c5b-20261013), 0755 modes in the tar listing. Measured sizes: windows lean 19473494, windows portable 59482988, linux lean 41981136, linux portable 110055725, updater images 3958784 (windows) and 4936744 (linux).
+* Rewrote the program in Rust: one static binary per platform, no Python and no runtime dependencies. The v1.5.0 bundles remain on the v1.5.0 page.
+* Bundles assemble on their own CI runners from digest-checked payloads; every release publishes a checksums file.
 
-- v2.0.1 published (this commit)
-A behavior-fix release on the native line. CI run 38951859070 assembled the six binaries; both platform bundles were extracted and run from the CI bytes before upload (windows-lean/portable selftest 177/0 from the extracted tree with the 2.0.1 PE version fields and the import table free of vcruntime*/msvcp*; linux-lean/portable launcher selftest 177/0 and --check resolving the bundled yt-dlp and, in the portable bundle, the bundled ffmpeg) and all six match the CI SHA256SUMS. Digests folded into README.md and the staged releases/v2.0.1/RELEASE-NOTES.md; the tag and the gh release upload follow; G10 runs from the release after publish. Carries the FR-14 amendment (native Windows ffmpeg offer = BtbN win64, digest read fresh from checksums.sha256 on every offer) and the FR-11 amendment (every native run end removes the .ytdlp-tmp work folder, Ctrl+C included) - entries below. Bundle payload pins stay as published (gyan 9.0.2 windows portable, BtbN n9.0.2 linux).
+## 1.5.0
 
-- fix: FR-11 follow-ups after CI - let-chain in the harness record projection, session fs projection (this commit)
-CI caught two things: clippy denied the nested `if ... if let` in the install_ffmpeg record projection (now a let-chain), and the piped/pty session differ failed `quick-download-fail-keeps-partial` plus `quick-subs-429-keeps-vtt` on `fs_list differs` - the two cases where the reference keeps work-folder files. The reference's listing now drops entries under `.ytdlp-tmp` when forming the native expectation (`tools/session_diff.py`); a work entry surviving a native run still fails the compare.
+### Fixes
 
-- spec: FR-11 amendment - the native work folder never survives a run (this commit)
-Owner call during the OQ-N2 console pass after seeing .ytdlp-tmp survive a Ctrl+C: nothing in the work folder has value. Every native run end now removes it with its contents - success, failure, escape (rc 130 shape kept) and Ctrl+C. Supersedes NFR-3's keep-for-resume for the native line; named consequence: python's 429-subtitle keep-for-retry across runs does not apply natively. Python stays frozen; `drop_temp_dir`'s function semantics and its selftest checks are unchanged -
-only the native call sites change. Implemented in d4f7b17; follow-ups in c589d00.
+#### All platforms
 
-- docs: OQ-N2 closed - owner console pass PASS on a real console (this commit)
-Owner ran scratch-oqn2/OQN2-CONSOLE-PASS.md runs 0-6 by hand against the FR-16 build: boot colors, the offer's decline and accept paths with the live ffmpeg stage text, escape and Ctrl+C mid-download, item 11's transcript, the chcp 437 codepage run - all PASS by owner call. Recorded along: the published build's offer url is still gyan.dev (the FR-14 BtbN repoint lands in the next build), and Ctrl+C kept the .ytdlp-tmp partials while escape cleans them (NFR-3 parity, not a
-fault; the owner called this at closure - the FR-11 amendment 2026-10-16c makes every native run end remove the work folder, Ctrl+C included).
+* Fixed the output folder flickering with hundreds of fragment files during HLS/DASH downloads: intermediates now live in a hidden work folder and only the final file lands in the output folder.
 
-- spec: FR-14 amendment - the native Windows ffmpeg offer moves to BtbN win64 (this commit)
-Owner call during the OQ-N2 console pass: a live offer download measured ~300 KB/s from gyan.dev, so the native Windows offer fetches the BtbN/FFmpeg-Builds win64 GPL build (the provider the Linux side already uses) - `ffmpeg-n9.0-latest-win64-gpl-9.0.zip` on the moving `latest` tag, digest read fresh from the provider's `checksums.sha256` on every run so the tag moving cannot go stale. Verified 2026-10-16: 193963209 bytes, sha256 177bec2e8c3397c5e9739901993dadc1cad0954de97d2604a2704c8531a59e32,
-member `bin/ffmpeg.exe`. The frozen python line keeps gyan.dev; recorded as the third native deviation, so the selftest check `windows ffmpeg source is gyan.dev` runs natively as `windows ffmpeg source is BtbN` (selftest_compare + session_diff projections and the section-8 conformance map follow). Check count, order and the record set are unchanged; the v2.0.0 bundle payload pins are not touched (they ship the pinned gyan build; a future release decides its own). Implemented in be54374.
+## 1.4.2
 
-## v2.0.0 native port (released 2026-10-16)
+### Fixes
 
-- v2.0.0 published; G10 green; OQ-N4 live two-image dance proven (a43949a)
-The release is up as seven files: four bundles under the `ytdlp-cli-v2.0.0-*` names, the two bare updater images and RELEASE-NOTES.md. G10 at the destination: every asset's api digest equals the numbers in README.md and RELEASE-NOTES.md; all four bundles extracted and run from the published bytes - windows-lean and windows-portable selftest 177/0 with the PE import table free of vcruntime*/msvcp* and the FR-16 version fields re-asserted; linux-lean and linux-portable launcher selftest 177/0 and
-`--check` resolving the bundled yt-dlp, plus the portable bundle's bundled ffmpeg (n9.0.2-27-g7e93014c5b-20261013). OQ-N4 closed: the new ignored test `live_two_image_dance_against_a_published_image` (update.rs) drove the real `<new> --selftest` spawn gate against the published linux image - placed file byte-identical to the asset, `.old` waits for the fresh-start cleanup (`remove_previous_image`), a dead staged file refused with the running image untouched; cargo rc 0, run manually with
-`YTDLP_LIVE_IMAGE` (section 13). Suite stays 176 unit tests + 2 ignored + 4 integration.
+#### All platforms
 
-- v2.0.0 release: README switches to the native assets, digests folded, release notes staged (07c1787)
-bundles.yml run 38935941248 assembled the six release binaries (linux 1m13s, windows 1m39s). Both platform bundles extracted and run from the CI bytes before upload - windows: selftest 177 checks 0 failed from the extracted tree, FR-16 version fields present; linux: launcher selftest 177/0 and `--check` resolves the bundled yt-dlp 2026.08.19 - and all six files match the CI SHA256SUMS. Digests folded into README.md (which now documents the native bundles; one line notes v1.5.0 was the final
-python release) and into the staged releases/v2.0.0/RELEASE-NOTES.md. The tag and the gh release upload follow the owner gate; G10 runs from the release after publish. Published asset names carry the `v` prefix (`ytdlp-cli-v2.0.0-...`), matching the v1.5.0 page; the first upload omitted it, so the four bundles were re-uploaded under the v names (same bytes, digests unchanged) and bundles.yml now names them with the prefix.
+* Subtitle parse misses are now reported on screen instead of failing silently.
 
-- phase 10: bundles.yml assembly workflow + thin native launchers (this commit)
-The four v2.0.0 bundles and the two updater images assemble in `.github/workflows/bundles.yml` (workflow_dispatch only) on the native runners: windows lean + portable zips, linux lean + portable tar.gz, plus the bare `ytdlp-native-windows-x86_64.exe` / `ytdlp-native-linux-x86_64` images, each staged from the release binary (linux = the gnu target) and the pinned payloads - yt-dlp 2026.08.19 (`yt-dlp.exe`, `yt-dlp_linux`), gyan.dev 9.0.2 essentials from the versioned packages url, BtbN
-n9.0.2-27-g7e93014c5b from the dated autobuild tag - every payload digest-checked before staging, SHA256SUMS emitted per job. The launchers move to `app-rust/packaging/` (thin `$0`-based posix `run-ytdlp.sh`, pause-on-error `run-ytdlp.bat`, IF-1) and ship in every bundle beside the binary. The BtbN pin moves from the moving `latest` tag to the dated autobuild-2026-10-13 tag: latest was republished upstream, so the digest the v1.5.0 line recorded (afa2b69c) is not retrievable anywhere; probe
-2026-10-16: the dated archive's ffmpeg binary is byte-identical to the v1.5.0-shipped binary (sha256 a573011f...), so the shipped payload stays the same and only THIRD-PARTY-NOTICES.md and the specsheet record the new archive name and digest (50e0ede1...). Local WSL smoke of the workflow's linux block verbatim: bundles built, extracted, `run-ytdlp.sh --selftest` rc 0.
-First CI dispatch (run 38934952971): linux job green in 1m18s; windows job red because www.gnu.org was unreachable from the windows runners (curl 28, eight retries). The GPL texts now ship from `app-rust/packaging/GPL-2.0.txt` and `GPL-3.0.txt` - byte-identical to the v1.5.0 bundles, digests asserted in the workflow - so bundle assembly no longer touches gnu.org.
+## 1.4.1
 
-- phase 10 spec: CI bundle assembly, payload pins kept, FR-16 Windows file metadata (this commit)
-Owner calls 2026-10-16: the four v2.0.0 bundles assemble in a workflow_dispatch job on the native runners from the pinned v1.5.0 payloads, emitting SHA256SUMS plus artifacts; the release commit carries the digests and gh release upload places those exact bytes; RELEASE-NOTES.md attaches as an asset. The Windows exe gains a complete PE version resource (FR-16: product, version, owner, copyright, comments; the Explorer Details tab) with CI and G10 assertions. Docs-only so far; the build change follows.
+### Fixes
 
-- size pass: five code-motion splits, records byte-stable (86b066c, 1bb8f29, d573674, e6398c2, 5749dbd, 7aa245d, 8ac60da)
-No behaviour change. `harness/src/dispatch.rs` split into a 12-line shell plus `dispatch/arms.rs`; `cli/src/selftest.rs` split along its seams into `selftest/{mod,plumbing,sections}.rs`; the cli_args help/usage rendering moved to `cli_args/help.rs`; the exec ffmpeg-install layer moved to `exec/ffmpeg.rs`; the exec run seam moved to `exec/run.rs`. Gate after every split: fmt check-only and clippy -D warnings clean, run-all 69 functions / 978 records / 0 mismatches, session_diff piped 32/32 and pty 14/14, 176 cli unit tests plus 4 integration tests, report parity 177/177. The `resolve.rs` line-slice split was attempted and reverted (cfg-dense; needs item-level parsing). One fmt-dirt round trip went red on CI: the earlier gate ran cargo fmt before its --check, masking dirt in the committed split files (fixed in 7aa245d; the gate is fmt-check-only since). Also gitignores app-rust log files (86b066c).
+#### All platforms
 
-- architecture split, doc lines wrapped (fa390c5)
-04-architecture.md doubles as the spec and the growth log, so it split: the spec (layers, capability map, crate policy, language gates, build matrix, data ownership, licensing) stays in 04-architecture.md (11 KB), the nine per-phase NATIVE PORT NOTES paragraphs move to 04-port-notes.md (32 KB) and are re-ordered to phase order (2-9); both files are section 4 for every citation, and 04 carries the pointer. Doc lines wrap at 500 characters so no line exceeds a tool read window. Doc-only; no
-requirement changed.
+* Subtitles now default to on (English); resetting the menu keeps them on.
 
-- evidence pin for line cites (this commit)
-The specsheet's FR/NFR/IF rows carry L<N> line cites recorded at write time; keeping them trustworthy meant re-checking each against the working tree before acting. The 00 header now pins every line cite to the recorded code state (v1.5.0 tag for python, the recorded commit for native): they describe history, re-verify nothing before an edit, re-pin at release time only. Doc-only; no requirement changed.
+## 1.4
 
-- specsheet consolidated, docs capped (a4fb415)
-The specsheet/ parts merge by section range: 01 = sections 1-3 (problem, FR, NFR), 05 = sections 5-7 (interfaces, functionality, implementation), 08 = sections 8-10 (data, documentation, validation). 11-stakeholders (content already in the main header) and 14-decision-history are deleted; decisions live in CHANGELOG chapters and git history. Part number = first section, so "section 4" / "section 10" citations still resolve. CHANGELOG.md capped at 25 KB: older chapters keep version, commits and
-facts in one line each.
+### New features
 
-- phase 9: packaged selftest ported, G9 report parity (56574f2)
-`--selftest` is a real run in the shipped build (the phase-7 refusal retires): `app-rust/cli/src/selftest.rs` carries python's check set one to one - 177 checks by name, order and count, python's exact sink shape (`PASS name`, `FAIL name  got: <repr>` on failure), the `- WIDTH` divider, the count line and rc 1-when-anything-failed. Where python monkeypatched a module global the port injects the seam the ported function already takes. Named deviations recorded in the specsheet section-10
-conformance map: `cli update url is raw main branch` runs as the releases-api pin, `install_cli refuses a file that does not parse` runs as the gate refusal, the install dance stages a scratch side-name pair (`<copy>`/`<copy>.new`) and the `<new> --selftest` gate is scripted at the dance because a live-spawned gate would recurse; the gate's real spawn path stays pinned by a named unit test and one live two-image dance at the first tagged release (OQ-N4). `act 9 is multi url` drives the real
-dispatch; `item 12 leaves the save to main_menu` asserts untouched settings-file bytes. The archive fixture builders moved out of cfg(test) into shipped code so tests and the packaged run build fixtures from one member list, and lzma-rust2 gains the encoder feature (recorded G8 amendment). Evidence: `tools/selftest_compare.py` pairs both reports line for line, native 177/0 vs reference 177/0, zero differing pairs with the two renames mapped; `vectors/selftest.json` plus the phase-9 harness arm take
-run-all to 69 functions / 978 records / 0 mismatches under the CPython 3.14.4 reference; session_diff's `selftest-report` piped case is byte-identical (32 piped + 14 pty green locally); 176 cli unit tests; fmt and clippy -D warnings clean. G9 evidence in specsheet section 12. No functional requirement changed; app-python untouched.
+#### All platforms
 
-- phase 8: network and updaters ported, the native self-update gated on the releases API digest and its own --selftest (10b0364, d095432)
-The network lands as a seam (`cli/src/net.rs::HttpRt`, ops `text` and `file`): ureq 3.4.2 with python's User-Agent and header set, python's timeouts (60 s forced, 6 s non-forced - the stall audit F3 measured 6.01 s on both bytes against the same unroutable host - and 1800 s for a binary download), python's proxy resolution (environment first with NO_PROXY, the HKCU Internet Settings fallback on windows via win-system-proxy); rustls with webpki-roots never reads the host trust store, a 4xx/5xx is
-an error like urlopen's HTTPError, `http_file` streams 64 KiB chunks into the `.part` sibling and renames on completion. The filesystem seams land in `pyfs.rs` (os.replace that overwrites, mkdtemp, quiet rmtree, 0o755 chmod, `.part` naming) and `archive.rs` lifts one binary from a zip or tar.xz through pure-rust crates (miniz_oxide, lzma-rust2 in place of the C xz2 closed as OQ-N3; linux-gnu release 450856 -> 4405792 bytes unstripped). The ffmpeg install is the full gate: digest read before any
-download, `.ff-` temp dir under bin/, sha256 verify, extract, three one-second-apart probes, replace into bin/; the offer's accept path is live behind its own dot stage. The updater family joins `update.rs`: yt-dlp stays `<binary> -U` with inherited stdio; the cli half is the native FR-13 contract (owner-decided 2026-10-14): one GET of the releases API returns the newest tag plus a sha256 per asset, the platform maps to its bare-binary asset, a missing asset or digest is a refusal, the download
-is staged `<target>.new`, digest-verified, gated on `<new> --selftest`, then the running image is renamed `.old` and the new file placed, `.old` removed on the next successful start. Because `--selftest` was still the refusal at this phase, the install is inert by construction - a named test. `--update` runs update_all (rc 0/1), item 11 runs it in session, the menu start runs the once-a-day check with python's gates, stamp and y/n prompt, and the phase-7 refusals retire. Differential: nine new
-vector files, network scripted on both sides, archive fixtures built per side from a member list; run-all 68 functions / 977 records / 0 mismatches (CPython 3.14.4); 174 cli unit tests including the loopback proxy dial plus one `#[ignore]`d measured timeout; version and update-source printouts project to tokens (specsheet section 4). CI installs musl-tools for the musl target. No functional requirement changed; app-python untouched.
+* Added a download spinner with stable stage lines.
+* Added the cli self-update, the ffmpeg download offer and the auto-update toggle.
 
-- phase 7: download run ported, url quick mode, G7 offline execution evidence (c26911f, 43a5cd8)
-The execution layer lands in `app-rust/cli/src/exec.rs`: temp_dir/drop_temp_dir (the .ytdlp-tmp work folder), newest_since (2 s slack), clean_partials (mtime >= start - 5 s), the RunRt seam (spawn, escape watch, kill tree, Ctrl+C flag, frame sleep), run_download (two pump threads joined like python's join timeouts, UTF-8-replacement decode, StageLive progress only under USE_COLOR and never for Destination: lines, `rsplit(".", 2)[-2]` subtitle codes, 6-line stderr tail, rc 130 on escape),
-ffmpeg_source/offer_ffmpeg (gyan.dev / BtbN, digest-first), DownloadCtx and do_download (preflight, offer, build_args, run, subtitle pass). `cli_args.rs` ports the IF-2 quick-mode command line end to end: token classification, consume rules, choice validation, the usage wrap, a textwrap port. Reference pin (measured 2026-10-15): argparse renders invalid choices with str() on CPython 3.14.4 but repr() on 3.14.6, so the reference is pinned to 3.14.4 in CI and the port's usage/help/error text matches
-byte for byte across formatter widths 11..=200 (digest 68a3325d83e53008fd041656c5d2613dbb0e1aa21f824bd1dbd15b0ce0debef7). `main.rs` runs python's dispatch order and quick mode exits through std::process::exit (python's sys.exit mapping measured on both os). Evidence offline by construction: `fake-ytdlp`, a dev-only crate staged as bin/yt-dlp + bin/ffmpeg with PATH pinned, scripts outcomes and argv records; four vector arms take run-all to 59 functions / 912 records / 0 mismatches;
-`session_diff.py` grew per-case args/env/bin staging, a strict stderr compare, pty bursts and a session-leader pty child - 31 piped cases (three os), 14 pty cases (ubuntu+macos), byte-identical; `exec_100_runs.rs` runs run_download 100 times proving no lingering process, identical argv and no fd growth. 125 lib tests + 4 integration; fmt/clippy clean; musl cross-check compiles; python selftest stays 177 checks 0 failed; --check stays byte-identical; live WSL smoke against v1.5.0 linux-lean
-matched downloads, verdicts and rc 0 (only the random freeze glyph differs, a per-run draw on both sides). Deviations until their phases recorded in specsheet section 4. No functional requirement changed; app-python untouched.
+### Fixes
 
-- phase 6: terminal layer ported, G6 golden transcripts byte-identical (64fa210 spec, 2d96e5f, 25d88f0, 9298ab8)
-tty.rs lands Out/Reader seams, read_esc branches, LineEdit + session history, KeyWatch, Stage, block_under_input, terminal size, VT enable, hold; menu.rs lands pick_list, ask_bool, paint_batch, run_batch, multi_url, the folder dialog, act, main_menu; ui.rs gains the pure transcript builders. Every interactive side effect goes through the two seams so the whole menu runs offline in tests and the harness. Measured python semantics byte for byte: windows pipe newline translation (61 0D 0A 62 78)
-with UTF-16 WriteConsoleW on console handles; piped universal newlines with lone-CR lookahead; chunk-buffered posix raw reader with incremental strict-UTF-8 decode (a burst drains into the first read, so ESC [ A degrades to escape + "[A" on both sides, pinned by the pty harness); tty.setraw/setcbreak masks flag for flag from the 3.14 stdlib; windows uses CPython's own CRT calls (_getwch/_kbhit); EOF on a raw read answers escape; Ctrl+C/EOF in a submenu exits 1 with one stderr line. G6 evidence,
-four layers: twelve differential arms (127 cases, stdout transcripts, settings state and prompt logs with scratch projection) take run-all to 55 functions / 873 records / 0 mismatches; `tools/session_diff.py` stages both implementations in private trees and compares stdout bytes, exit code, stderr presence and the final settings.json - piped 13 cases on three os, pty 8 cases under a real pty on linux and macos, green locally; tests 94 -> 112 including write-lock contention and hold-site pins;
-new CI jobs piped on three os and pty on ubuntu+macos. Port notes in specsheet section 4. No functional requirement changed; app-python untouched.
+#### Linux
 
-- phase 5: argument construction ported, G5 argv parity, 43 functions / 746 records / 0 (efa9395, 1be5baa, d989850)
-output_args, build_args and build_sub_args land in `args.rs` with no new crates: the whole settings x ffmpeg-present decision tree with python's crash shapes kept as typed branches (ABS_RE TypeError, resolve_outdir AttributeError, non-numeric playlist_max_items value_error); the injected lazy js-runtime closure reproduces python's shutil.which("node") ordering (which call log recorded, and that log caught the ordering on the first run); raw settings values render as CPython repr texts via the
-generated printable table (736 ranges, 154810 code points, sha256 56fd2191e3fb8c13110e1f8be9c43755aaf81b071b9ad3240145f3ae5c598625, identical on 3.14.6 and 3.14.4) plus pytext::py_repr_str probed on both references. Three vector files (30 + 32 + 19 cases) of element-wise argv, shape tokens and which logs; 94 rust lib tests; fmt/clippy clean; msvc and musl cross-checks compile. Port notes in specsheet section 4. No functional requirement changed; app-python untouched.
+* Fixed exec permissions in the Linux bundles.
 
-- specsheet stored as a folder of numbered part files (d032d5a)
-00 is the main document (header, short description, TOC) and sections 1-14 lived in part files matching their numbers until the 2026-10-16 consolidation above; "section N" citations stay valid. Doc-only; no requirement changed.
+## 1.3
 
-- phase 4: resolution and diagnostics ported, --check wired, G4 parity on three OS (4ebd03d, f9a997c, 407197a, 32d03c1)
-A new `resolve.rs` lands platform_name, find_yt_dlp, find_ffmpeg_dir, probe_version, auto_outdir, resolve_outdir and show_check with the pathlib 3.14 lexical model, expandvars, shutil.which for four fixed names, the Shell Folders registry read (first external dependency, windows-sys) and a 60 s-timeout probe; --check prints the seven FR-15 lines with python line endings (CRLF on windows, measured). probe_version and auto_outdir memos are audit F4/F6, named tests. Twelve vector files, 263 cases
-(stdlib entry points included); run-all 40 functions / 665 records / 0 mismatches; 86 lib tests. G4: CI check-parity stages each release binary beside the python tree and byte-compares --check on windows, ubuntu and macos (rust run 38728108495, and byte-identical locally in WSL). No functional requirement changed; app-python untouched.
+### New features
 
-- phase 3: state layer ported, settings codec and no-op pin (47a67d9)
-`settings_json.rs` is a CPython-faithful codec: json.loads semantics (floats, NaN/Infinity, duplicate keys last-wins, i64 saturation, lone surrogates to U+FFFD) and json.dumps(s, indent=2, sort_keys=True) semantics with one LF tail; the defaults merge, unknown-key drop, legacy audio_only line, coercion notes; save skip-compares and never trusts the loader to write. A 36-case corrupted-file matrix plus a 12-case save matrix; 66 lib tests plus tracked-settings byte-exact integration (no-op save
-leaves git diff empty). run-all 28 functions / 402 records / 0 mismatches; records stay i64-only. No functional requirement changed; app-python untouched.
+#### All platforms
 
-- phase 2: pure layer ported, differential all green (569dd8e)
-26 absent-I/O functions ported across args/term/exec/update/config/ui, one vector file per function; the new `harness.py run-all` (the gate-2 CI command) reports 26 functions / 354 records / 0 mismatches under the CPython 3.14.4 WSL reference. Streaming SHA-256 passes FIPS 180-4 and hashes all four v1.5.0 bundles to the README digests; east-asian width table pinned by reference digest (122 ranges, 182719 code points, 73ee3105a481eed7e96b61663338a0f21b600c970b35f728e2b38a55384d06d5); spinner table and
-PCG32 pinned against compiled references. Port notes in specsheet section 4. No functional requirement changed; app-python untouched.
+* First public release.
+* Added a subtitle menu: the full IANA language list with typed-code validation.
+* Added GPL license notices to the portable bundles.
 
-- phase 1: differential harness, workspace skeleton, rust CI, gate 1 (3b3e4f4, b572605)
-`app-rust/` is a cargo workspace (cli bin + a harness dispatcher crate never shipped); `tools/harness.py` calls a named function in either implementation and byte-compares CPython interchange records, with the instrument proven green (python vs python, 19 clean_url records) and red (one flipped byte detected) before it judged any rust; the reference interpreter is pinned to CPython 3.14.x and enforced by the tool. G1: static executables with crt-static reaching rustc from the repo-root config; CI
-run 38566072196 green on three os including the PE assertions (3 imports, no vcruntime/msvcp; a dynamic-CRT build shows 9 imports, proving the checker works); `tools/pe_imports.py` validated against a real msvc-built PE. No functional requirement changed; app-python untouched.
+### Fixes
 
-## v1.5.0
+#### Linux
 
-- v1.5.0 published (d96aec4)
-Four bundles rebuilt on the v1.4.2 platform binaries, verified by extraction and selftest on target platforms (177 checks 0 failed): windows lean 17669989, windows portable 57581583, linux lean 2976745, linux portable 70577598. Digests in README.md and releases/v1.5.0/RELEASE-NOTES.md. The definitive python line before the native port; native first release renumbered v2.0.0 by owner call. Carries the change below.
+* Fixed the launcher to work under sh and dash.
 
-- work folder keeps download churn out of the output folder (e51713b)
-yt-dlp writes one file per HLS/DASH fragment, appends it to the .part file and deletes it (pinned source fragment.py _download_fragment/_append_fragment), so the output folder flickered with hundreds of files per download. The run now carries -P temp:<outdir>/.ytdlp-tmp: every intermediate (fragment files, parts, resume markers, pre-merge files) lives in that work folder and the final move is a same-volume rename. Measured for one 10-minute HLS download: 396 fragment create/delete events in the
-watched folder before, 1 final-file event after. The work folder is removed whenever it ends empty - on escape (after fresh partials are cleaned), on failure and after the subtitle pass; partials with resume value are kept. Selftest 169 -> 177 checks, 0 failed. Specsheet FR-7/FR-8/FR-11/NFR-3 amended first (44ce465).
+#### All platforms
 
-## python line v1.0 - v1.4.2 (compressed 2026-10-16 to hold the 25 KB cap; the full chapters with every hash are in git history)
+* Fixed menu repaint issues.
 
-- v1.4.2: published with 169 checks 0 failed (0b6b1f3); parse misses surfaced on screen (b98f581); auto-update trigger rule pinned in README and FR-13 (45eec0a); audit fixes F1-F8, F10 (788845d specsheet, ee947fc code).
-- v1.4.1: subtitles default on/en, resetting keeps them on (e0eb55c); v1.3 chapter restored; design specsheet added (963268b, 8065113); published with 145 checks 0 failed (e0eb55c, 90eed17).
-- v1.4: random download spinner with stable stage lines; linux bundles fixed for exec permissions (e3869b8); cli self-update, ffmpeg download offer and auto-update toggle (393368c).
-- v1.3: first public release (dda9a50, 606be03): sh/dash launcher fix, selftest matrix on three os, four tagged assets with matching checksums, GPL notices in the portable bundles; third git history purge immediately before the first push (67202b0, 60713a7); subtitle menu work: full IANA list, typed-code validation, repaint fixes (48397f0, 6296264, 354a504, e070b86, 1968751, 9af4240, 438031e).
-- v1.2: batch downloads, menu item 9 (c162d00, 8572c8d); settings.json LF and write-only-on-change (0f14002); changelog made chaptered (~9300 bytes, 662965f); first two git history purges (eba9a2b, 9fe9037); output folder defaults to desktop (40d7784); menu labels shortened (065c4df); housekeeping: thumbnail and metadata options dropped, ffprobe deleted, repo reorganized (d702da7, 519577c, d65a43d).
-- v1.1: menu rework to the single input line accepting a url or a menu number (d07db27 and eight more); nav keys rebuilt with arrow history (f5b6f67, d9b1b5d).
-- v1.0: initial scaffold, selftest harness, release zips, docs; renderer fix (e88e27e, b4c2975).
+## 1.2
+
+### New features
+
+#### All platforms
+
+* Added batch downloads (menu item 9).
+* The default output folder is now the desktop.
+
+### Fixes
+
+#### All platforms
+
+* Fixed settings.json being rewritten on every start; it is now written only when a value changes, with LF line endings.
+* Removed the thumbnail and metadata options and the bundled ffprobe.exe (unused).
+* Shortened the menu labels.
+
+## 1.1
+
+### New features
+
+#### All platforms
+
+* The menu is now a single input line that accepts a url or a menu number.
+* Rebuilt the navigation keys with arrow-key history.
+
+## 1.0
+
+### New features
+
+#### All platforms
+
+* Initial release: the text-menu download wrapper, the selftest harness, release zips and docs.

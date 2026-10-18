@@ -1,6 +1,6 @@
 ## 4. Native decision record (section 4 continuation, per phase)
 
-The per-phase trail below is the decision-of-record for the native line: binding decisions, recorded deviations and the evidence method. Dated history (commit-by-commit detail) lives in git history and CHANGELOG chapters; this file keeps what a reader of the code still needs.
+The per-phase trail below is the decision-of-record for the native line: binding decisions, recorded deviations and the evidence method. Dated history (commit-by-commit detail) lives in git history; this file keeps what a reader of the code still needs.
 
 NATIVE DECISIONS recorded during phase 2: integers are i64 throughout - a settings value or version piece beyond it saturates at the i64 bound instead of arbitrary precision (no real yt-dlp or youtube value approaches that, and the differential protocol itself carries i64 only; pinned by rust tests); numeric pattern matching over yt-dlp or user input is ASCII (the unicode digit classes are not ported - yt-dlp emits ASCII digits, and the harness protocol cannot carry the rest); `pick_checksum` splits checksum files on `\n` (published files are LF/CRLF); float rendering reproduces the reference's `repr` semantics (`py_float_repr`, pinned against probed reference values) because the coercion path renders through it and the settings writer needs the same rendering.
 
