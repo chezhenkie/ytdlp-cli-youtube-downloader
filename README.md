@@ -15,13 +15,13 @@ One-shot URL runs, scripts, CI and piped runs never trigger it: no network conta
 
 | file | size | contains |
 |---|---|---|
-| `ytdlp-cli-v2.3.0-windows-lean.zip` | 19.5 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
-| `ytdlp-cli-v2.3.0-windows-portable.zip` | 59.5 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
-| `ytdlp-cli-v2.3.0-windows-setup.exe` | 48.9 MB | Windows installer, same content as the portable zip: per-user install, no admin prompt, `ytdlp` on your PATH, with an uninstaller. |
-| `ytdlp-cli-v2.3.0-linux-lean.tar.gz` | 42.0 MB | yt-dlp. Install ffmpeg yourself for merge and audio conversion. |
-| `ytdlp-cli-v2.3.0-linux-portable.tar.gz` | 110.1 MB | yt-dlp **and** ffmpeg. Nothing else to install. |
-| `ytdlp-cli-v2.3.0-linux-musl.tar.gz` | 2.1 MB | Alpine and other musl systems: the cli only. Get the runtime with `apk add yt-dlp`; that package pulls ffmpeg and the JS runtime with it. |
-| `ytdlp-cli-v2.3.0-macos-arm64.pkg` | 54.1 MB | macOS installer for Apple silicon (yt-dlp and ffmpeg). Nothing else to install. |
+| `ytdlp-cli-v2.4.0-windows-lean.zip` | 19.6 MB | yt-dlp and the srtstripper. Install ffmpeg yourself for merge and audio conversion. |
+| `ytdlp-cli-v2.4.0-windows-portable.zip` | 59.6 MB | yt-dlp, the srtstripper **and** ffmpeg. Nothing else to install. |
+| `ytdlp-cli-v2.4.0-windows-setup.exe` | 49.0 MB | Windows installer, same content as the portable zip: per-user install, no admin prompt, `ytdlp` on your PATH, with an uninstaller. |
+| `ytdlp-cli-v2.4.0-linux-lean.tar.gz` | 42.2 MB | yt-dlp and the srtstripper. Install ffmpeg yourself for merge and audio conversion. |
+| `ytdlp-cli-v2.4.0-linux-portable.tar.gz` | 110.3 MB | yt-dlp, the srtstripper **and** ffmpeg. Nothing else to install. |
+| `ytdlp-cli-v2.4.0-linux-musl.tar.gz` | 2.4 MB | Alpine and other musl systems: the cli and the srtstripper. Get the runtime with `apk add yt-dlp`; that package pulls ffmpeg and the JS runtime with it. |
+| `ytdlp-cli-v2.4.0-macos-arm64.pkg` | 54.3 MB | macOS installer for Apple silicon (yt-dlp, ffmpeg and the srtstripper). Nothing else to install. |
 The lean bundles skip ffmpeg, on a machine with no ffmpeg at all it also offers to fetch the published build for the platform, with the checksum checked before it is installed.
 
 ![ytdlp-cli process flow](resources/archify%20flow%20ytdlp-cli.png)
@@ -30,11 +30,11 @@ The live, interactive flow can be found in the [ytdlp process flow archify](http
 
 ## Requirements
 
-None beyond the bundle, the Windows binary is statically linked. The musl bundle is cli-only: its runtime is the system's own yt-dlp (see the Alpine bullet below).
+None beyond the bundle, the Windows binary is statically linked. The musl bundle carries no download runtime: its yt-dlp is the system's own (see the Alpine bullet below).
 
 - Windows: `ytdlp.exe` (or the setup.exe below, which installs it for your user and puts it on your PATH)
 - Linux: `./ytdlp`
-- Alpine and other musl Linux: `./ytdlp` plus the system runtime - `apk add yt-dlp` (that package pulls ffmpeg and the JS runtime with it); no musl yt-dlp or ffmpeg builds are published, so the musl bundle ships the cli only
+- Alpine and other musl Linux: `./ytdlp` plus the system runtime - `apk add yt-dlp` (that package pulls ffmpeg and the JS runtime with it); no musl yt-dlp or ffmpeg builds are published, so the musl bundle ships the cli and the srtstripper only
 - macOS (Apple silicon): `ytdlp` (the .pkg below installs it and puts it on your PATH)
 
 Every bundle also carries `run-ytdlp.bat` and `run-ytdlp.sh`; they are optional, the chapter below explains when they help (the installers install those files too).
@@ -93,18 +93,18 @@ They change nothing else: same arguments, same settings, same output. The update
 ## Checksums
 
 ```
-bc9d0cb8d77db067f66a97af06540f2e39d6912cc4572ccd307af8fd4a09e2b8  ytdlp-cli-v2.3.0-windows-lean.zip
-4dad638005d1313ed85520b4db4a1d9824de1d6fdedc8ba084c05634750a2aed  ytdlp-cli-v2.3.0-windows-portable.zip
-9ec81277bf00cd5db69f858d6d9a9d689e27b42583c3da28d580d2ae2f631cc9  ytdlp-cli-v2.3.0-windows-setup.exe
-e2d8a9be1486317bd6fa5e7ae64c1156c97dc6b2221b79c8cebf96fea74733c7  ytdlp-cli-v2.3.0-linux-lean.tar.gz
-b8218b62b78bc61625a059bf9706721cf71bc5c27377620e753edae023d30c63  ytdlp-cli-v2.3.0-linux-portable.tar.gz
-61dd0039fa1ed27a40db92836c11d572100450c6c8f8ccdc56077f69ebc9acb1  ytdlp-cli-v2.3.0-linux-musl.tar.gz
-161608ad7e6ea0995aa92735e217f64c4cb79e5774a6b7548821f6597b860d0a  ytdlp-cli-v2.3.0-macos-arm64.pkg
+65856e5b79944279fa2e2b9404778b3b1cbc5ed19cd739a26d502d3f956bfd78  ytdlp-cli-v2.4.0-windows-lean.zip
+20c2b544770d4fcda6ea353d323cc5e514c677ae798e99e9db46a8d13351fbf7  ytdlp-cli-v2.4.0-windows-portable.zip
+085c53bb1c4e81cc2d2e214b3524a489a8224bb19737eec66bce96b04d5cbc32  ytdlp-cli-v2.4.0-windows-setup.exe
+32387cd747dbc9ab9379dd43318f83dc7b633763f3aaf8655afe63f8cb678b02  ytdlp-cli-v2.4.0-linux-lean.tar.gz
+2cf47bda431df63c1526d04fb1d17ed1e43576aca179165635b0d8e6f5f47830  ytdlp-cli-v2.4.0-linux-portable.tar.gz
+1f6045cde9d960c32d2463ab95049555a59a4f6469f96ffac63e2075ef817bb1  ytdlp-cli-v2.4.0-linux-musl.tar.gz
+c7f155f1d01703e00c035ea3ab1c3f2012195ad8e34ede6bb8f860448e8aa6a0  ytdlp-cli-v2.4.0-macos-arm64.pkg
 ```
 
 No release publishes a bare cli image, so the built-in updater never replaces the cli; a newer cli always comes from this page.
 
-The bundled yt-dlp is the official 2026.08.19 release and matches the SHA-256 sums published with it. The Windows ffmpeg is the gyan.dev 9.0.2 essentials build, the Linux one is the BtbN n9.0.2 build and the macOS one is the shaka-project 8.1.2 static arm64 build; each matched its provider's published checksum or digest, and `THIRD-PARTY-NOTICES.md` in each bundle and installer names the exact archive and its digest. The linux-musl bundle ships neither: its yt-dlp and ffmpeg are the system's own packages.
+The bundled yt-dlp is the official 2026.08.19 release and matches the SHA-256 sums published with it. The Windows ffmpeg is the gyan.dev 9.0.2 essentials build, the Linux one is the BtbN n9.0.2 build and the macOS one is the shaka-project 8.1.2 static arm64 build; each matched its provider's published checksum or digest, and `THIRD-PARTY-NOTICES.md` in each bundle and installer names the exact archive and its digest. The linux-musl bundle ships none of the three: its yt-dlp and ffmpeg are the system's own packages.
 
 ## Licensing
 
