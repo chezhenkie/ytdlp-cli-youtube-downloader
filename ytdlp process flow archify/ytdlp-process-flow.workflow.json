@@ -153,10 +153,14 @@
       "sources": [
         {
           "path": "rust-src/packaging/run-ytdlp.sh",
+          "line": 1,
+          "end_line": 6,
           "label": "launcher"
         },
         {
-          "path": "rust-src/packaging/run-ytdlp.bat"
+          "path": "rust-src/packaging/run-ytdlp.bat",
+          "line": 1,
+          "end_line": 5
         }
       ],
       "width": 165
@@ -201,6 +205,7 @@
         {
           "path": "rust-src/cli/src/resolve.rs",
           "line": 1042,
+          "end_line": 1081,
           "label": "show_check"
         }
       ],
@@ -248,17 +253,19 @@
         {
           "path": "rust-src/cli/src/menu.rs",
           "line": 725,
-          "end_line": 737,
+          "end_line": 738,
           "label": "paint loop"
         },
         {
           "path": "rust-src/cli/src/ui.rs",
           "line": 63,
+          "end_line": 74,
           "label": "quick_row"
         },
         {
           "path": "rust-src/cli/src/ui.rs",
           "line": 366,
+          "end_line": 394,
           "label": "render_lines"
         }
       ]
@@ -274,17 +281,19 @@
         {
           "path": "rust-src/cli/src/menu.rs",
           "line": 745,
-          "end_line": 756,
+          "end_line": 794,
           "label": "read_quick0"
         },
         {
           "path": "rust-src/cli/src/tty.rs",
           "line": 931,
+          "end_line": 988,
           "label": "unix raw"
         },
         {
           "path": "rust-src/cli/src/tty.rs",
           "line": 1004,
+          "end_line": 1047,
           "label": "windows CRT"
         }
       ]
@@ -301,11 +310,12 @@
         {
           "path": "rust-src/cli/src/menu.rs",
           "line": 757,
-          "end_line": 781
+          "end_line": 793
         },
         {
           "path": "rust-src/cli/src/args.rs",
           "line": 23,
+          "end_line": 53,
           "label": "clean_url"
         }
       ]
@@ -322,11 +332,13 @@
         {
           "path": "rust-src/cli/src/clipboard.rs",
           "line": 62,
+          "end_line": 85,
           "label": "posix read"
         },
         {
           "path": "rust-src/cli/src/menu.rs",
           "line": 383,
+          "end_line": 703,
           "label": "act(\"0\")"
         }
       ]
@@ -342,6 +354,7 @@
         {
           "path": "rust-src/cli/src/menu.rs",
           "line": 383,
+          "end_line": 703,
           "label": "act"
         }
       ]
@@ -357,11 +370,13 @@
         {
           "path": "rust-src/cli/src/menu.rs",
           "line": 266,
+          "end_line": 291,
           "label": "multi_url"
         },
         {
           "path": "rust-src/cli/src/menu.rs",
           "line": 211,
+          "end_line": 261,
           "label": "run_batch"
         }
       ]
@@ -377,6 +392,7 @@
         {
           "path": "rust-src/cli/src/config.rs",
           "line": 422,
+          "end_line": 521,
           "label": "load_settings"
         }
       ],
@@ -393,6 +409,7 @@
         {
           "path": "rust-src/cli/src/resolve.rs",
           "line": 968,
+          "end_line": 990,
           "label": "resolve_outdir"
         }
       ]
@@ -408,11 +425,13 @@
         {
           "path": "rust-src/cli/src/resolve.rs",
           "line": 818,
+          "end_line": 844,
           "label": "find_yt_dlp"
         },
         {
           "path": "rust-src/cli/src/resolve.rs",
           "line": 849,
+          "end_line": 892,
           "label": "find_ffmpeg_dir"
         }
       ]
@@ -429,6 +448,7 @@
         {
           "path": "rust-src/cli/src/args.rs",
           "line": 255,
+          "end_line": 327,
           "label": "build_args"
         }
       ]
@@ -444,6 +464,7 @@
         {
           "path": "rust-src/cli/src/config.rs",
           "line": 527,
+          "end_line": 549,
           "label": "save_settings"
         },
         {
@@ -466,7 +487,7 @@
         {
           "path": "rust-src/cli/src/exec.rs",
           "line": 384,
-          "end_line": 513,
+          "end_line": 550,
           "label": "do_download"
         }
       ]
@@ -482,6 +503,7 @@
         {
           "path": "rust-src/cli/src/exec.rs",
           "line": 35,
+          "end_line": 41,
           "label": "fail_sentence"
         },
         {
@@ -493,6 +515,7 @@
         {
           "path": "rust-src/cli/src/exec/run.rs",
           "line": 142,
+          "end_line": 165,
           "label": "kill tree"
         }
       ],
@@ -509,6 +532,7 @@
         {
           "path": "rust-src/cli/src/args.rs",
           "line": 334,
+          "end_line": 371,
           "label": "build_sub_args"
         }
       ],
@@ -525,6 +549,7 @@
         {
           "path": "rust-src/cli/src/update.rs",
           "line": 446,
+          "end_line": 561,
           "label": "auto_update_check"
         },
         {
@@ -547,6 +572,7 @@
         {
           "path": "rust-src/cli/src/update.rs",
           "line": 565,
+          "end_line": 571,
           "label": "update_all"
         }
       ],
@@ -563,6 +589,7 @@
         {
           "path": "rust-src/cli/src/update.rs",
           "line": 394,
+          "end_line": 433,
           "label": "update_yt_dlp"
         }
       ]
@@ -578,6 +605,7 @@
         {
           "path": "rust-src/cli/src/update.rs",
           "line": 246,
+          "end_line": 289,
           "label": "fetch_cli"
         }
       ],
@@ -594,6 +622,7 @@
         {
           "path": "rust-src/cli/src/update.rs",
           "line": 296,
+          "end_line": 332,
           "label": "install_cli"
         }
       ],
@@ -610,6 +639,7 @@
         {
           "path": "rust-src/cli/src/update.rs",
           "line": 233,
+          "end_line": 239,
           "label": "release_asset"
         },
         {
@@ -631,11 +661,13 @@
         {
           "path": "rust-src/cli/src/clipboard.rs",
           "line": 9,
+          "end_line": 56,
           "label": "windows read"
         },
         {
           "path": "rust-src/cli/src/clipboard.rs",
           "line": 62,
+          "end_line": 85,
           "label": "posix read"
         }
       ]
@@ -651,6 +683,7 @@
         {
           "path": "rust-src/cli/src/exec.rs",
           "line": 219,
+          "end_line": 340,
           "label": "run_download"
         }
       ]
@@ -666,11 +699,13 @@
         {
           "path": "rust-src/cli/src/exec/ffmpeg.rs",
           "line": 264,
+          "end_line": 355,
           "label": "offer_ffmpeg"
         },
         {
           "path": "rust-src/cli/src/exec/ffmpeg.rs",
           "line": 85,
+          "end_line": 123,
           "label": "install_ffmpeg"
         }
       ],
@@ -687,6 +722,7 @@
         {
           "path": "rust-src/cli/src/menu.rs",
           "line": 300,
+          "end_line": 315,
           "label": "folder_dialog"
         }
       ]
@@ -702,11 +738,13 @@
         {
           "path": "rust-src/cli/src/config.rs",
           "line": 527,
+          "end_line": 549,
           "label": "save"
         },
         {
           "path": "rust-src/cli/src/config.rs",
           "line": 383,
+          "end_line": 387,
           "label": "render"
         }
       ]
@@ -728,6 +766,7 @@
         {
           "path": "rust-src/cli/src/resolve.rs",
           "line": 818,
+          "end_line": 844,
           "label": "discovery"
         }
       ],
@@ -744,11 +783,13 @@
         {
           "path": "rust-src/cli/src/exec.rs",
           "line": 102,
+          "end_line": 107,
           "label": "temp_dir"
         },
         {
           "path": "rust-src/cli/src/exec.rs",
           "line": 124,
+          "end_line": 128,
           "label": "drop_temp_dir_force"
         }
       ],
@@ -765,13 +806,14 @@
         {
           "path": "rust-src/cli/src/exec.rs",
           "line": 137,
+          "end_line": 154,
           "label": "newest_since"
         },
         {
           "path": "rust-src/cli/src/exec.rs",
           "line": 489,
           "end_line": 511,
-          "label": "final rename"
+          "label": "saved-file check"
         }
       ],
       "width": 115
