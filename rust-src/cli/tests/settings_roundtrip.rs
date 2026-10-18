@@ -7,20 +7,15 @@
 use std::path::{Path, PathBuf};
 use ytdlp_cli::config::{LoadOutcome, load_settings, render_settings_file, save_settings};
 
-fn repo_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..")
+fn tracked_settings_json() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("settings.json")
 }
 
 #[test]
 fn tracked_settings_json_roundtrips_byte_exact() {
-    let source = repo_root()
-        .join("deprecated-py-src")
-        .join("config")
-        .join("settings.json");
-    if !source.exists() {
-        println!("tracked settings.json absent: roundtrip check skipped (dev-only)");
-        return;
-    }
+    let source = tracked_settings_json();
     let original = std::fs::read(&source).expect("tracked settings readable");
 
     let work =
