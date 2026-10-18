@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#020617">
+  <meta name="description" content="Process flow of the yt-dlp cli: terminal input, menu session, download run, upstream updates, child processes and files on disk.">
+  <title>yt-dlp cli - process flow</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23020617'/%3E%3Crect x='4' y='4' width='8' height='8' rx='1.5' fill='%2334d399'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #020617;
+      --bar: #0b1220;
+      --line: #1e293b;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --dim: #64748b;
+      --accent: #34d399;
+      --mono: ui-monospace, "JetBrains Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      min-height: 100dvh;
+      -webkit-font-smoothing: antialiased;
+    }
+    .site-bar {
+      flex: none;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      height: 48px;
+      padding: 0 18px;
+      background: var(--bar);
+      border-bottom: 1px solid var(--line);
+      white-space: nowrap;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      color: #ffffff;
+    }
+    .brand::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      background: var(--accent);
+    }
+    .divider { width: 1px; height: 16px; background: var(--line); }
+    .tagline {
+      color: var(--muted);
+      font-size: 12.5px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    nav {
+      margin-left: auto;
+      display: flex;
+      gap: 18px;
+      font-size: 11.5px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    nav a {
+      color: var(--muted);
+      text-decoration: none;
+      padding: 4px 0;
+      border-bottom: 1px solid transparent;
+    }
+    nav a:hover, nav a:focus-visible {
+      color: #ffffff;
+      border-bottom-color: var(--accent);
+      outline: none;
+    }
+    main {
+      flex: 1 1 auto;
+      min-height: 0;
+      position: relative;
+      background: var(--bg);
+    }
+    iframe {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: var(--bg);
+    }
+    .fallback {
+      margin: 0;
+      padding: 48px 24px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .fallback a { color: var(--accent); }
+    @media (max-width: 720px) {
+      .site-bar { height: 44px; padding: 0 12px; gap: 10px; }
+      .tagline, .divider { display: none; }
+      nav { gap: 12px; font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-bar">
+    <span class="brand">yt-dlp cli</span>
+    <span class="divider" aria-hidden="true"></span>
+    <span class="tagline">process flow - 15 nodes, 6 lanes</span>
+    <nav aria-label="Diagram links">
+      <a href="flow.html">Full view</a>
+      <a href="https://github.com/chezhenkie/ytdlp-cli-youtube-downloader">Repository</a>
+    </nav>
+  </header>
+  <main>
+    <iframe src="flow.html?present=1&amp;theme=dark" title="yt-dlp cli process flow diagram" allow="fullscreen"></iframe>
+    <noscript><p class="fallback">The interactive diagram needs JavaScript. <a href="flow.html">Open the full view</a>.</p></noscript>
+  </main>
+</body>
+</html>

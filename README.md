@@ -26,7 +26,7 @@ The lean bundles skip ffmpeg, on a machine with no ffmpeg at all it also offers 
 
 ![ytdlp-cli process flow](resources/archify%20flow%20ytdlp-cli.png)
 
-The live, interactive flow can be found in the [ytdlp process flow archify](https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/tree/main/ytdlp%20process%20flow%20archify) folder.
+The live, interactive flow is published at [chezhenkie.github.io/ytdlp-cli-youtube-downloader](https://chezhenkie.github.io/ytdlp-cli-youtube-downloader/); the diagram source is in the [ytdlp process flow archify](https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/tree/main/ytdlp%20process%20flow%20archify) folder.
 
 ## Requirements
 
