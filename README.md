@@ -93,13 +93,13 @@ They change nothing else: same arguments, same settings, same output. The update
 ## Checksums
 
 ```
-65856e5b79944279fa2e2b9404778b3b1cbc5ed19cd739a26d502d3f956bfd78  ytdlp-cli-v2.4.0-windows-lean.zip
-20c2b544770d4fcda6ea353d323cc5e514c677ae798e99e9db46a8d13351fbf7  ytdlp-cli-v2.4.0-windows-portable.zip
-085c53bb1c4e81cc2d2e214b3524a489a8224bb19737eec66bce96b04d5cbc32  ytdlp-cli-v2.4.0-windows-setup.exe
-32387cd747dbc9ab9379dd43318f83dc7b633763f3aaf8655afe63f8cb678b02  ytdlp-cli-v2.4.0-linux-lean.tar.gz
-2cf47bda431df63c1526d04fb1d17ed1e43576aca179165635b0d8e6f5f47830  ytdlp-cli-v2.4.0-linux-portable.tar.gz
-1f6045cde9d960c32d2463ab95049555a59a4f6469f96ffac63e2075ef817bb1  ytdlp-cli-v2.4.0-linux-musl.tar.gz
-c7f155f1d01703e00c035ea3ab1c3f2012195ad8e34ede6bb8f860448e8aa6a0  ytdlp-cli-v2.4.0-macos-arm64.pkg
+aa6e483a4f0093378c78fdef632a9bdbf57a5f192bdbcd22cafdca2ff2bcdffa  ytdlp-cli-v2.4.0-windows-lean.zip
+6f80b2565ca123f329c6259cb3db501f3854eca6679686e11734a704026121bb  ytdlp-cli-v2.4.0-windows-portable.zip
+06f97458386d71303d1dc781d12f299674909dead7e95648d7ce4cca9b36c0ab  ytdlp-cli-v2.4.0-windows-setup.exe
+4bf37aa6dc98031bab6eda5ba2b200aaca1fb3d83ee4df1fd8c2283162e19c64  ytdlp-cli-v2.4.0-linux-lean.tar.gz
+7086a0a8c530e132199753ada45e91d4753acb4574dd48a19dc4724c65a2e4bd  ytdlp-cli-v2.4.0-linux-portable.tar.gz
+2fc16e5c2babb9d638e7c19338da0178c2e1bee9e718c6a68697324e2b092c0e  ytdlp-cli-v2.4.0-linux-musl.tar.gz
+319444e00b6f6a57ad34fbea7bd8b0581be4351f63f80203bb648d1e74005e06  ytdlp-cli-v2.4.0-macos-arm64.pkg
 ```
 
 No release publishes a bare cli image, so the built-in updater never replaces the cli; a newer cli always comes from this page.
