@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="generator" content="archify 3.1.0">
   <meta name="archify-reader-contract" content="declared-wide-v1">
-  <title>yt-dlp cli - full process flow Diagram</title>
+  <title>yt-dlp cli - process flow Diagram</title>
   <script>
     // Resolve the theme before first paint so light-preference users don't
     // see a dark flash. The toolbar script below re-applies with UI state.
@@ -5150,17 +5150,17 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
            data-preset-badge-blueprint="BLUEPRINT / REV 01"
            data-preset-badge-editorial="EDITORIAL / FIELD NOTE">
         <div class="pulse-dot"></div>
-        <h1>yt-dlp cli - full process flow</h1>
+        <h1>yt-dlp cli - process flow</h1>
       </div>
     </div>
 
-    <script id="archify-source-evidence-data" type="application/json">{"schemaVersion":1,"verified":true,"repository":{"url":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader","revision":"ce068345e3c771d567f13e353178fdabf7b07b03","shortRevision":"ce06834","label":"chezhenkie/ytdlp-cli-youtube-downloader","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/tree/ce068345e3c771d567f13e353178fdabf7b07b03"},"referenceCount":55,"nodes":{"launcher":[{"path":"rust-src/packaging/run-ytdlp.sh","line":1,"endLine":6,"label":"launcher","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/packaging/run-ytdlp.sh#L1-L6"},{"path":"rust-src/packaging/run-ytdlp.bat","line":1,"endLine":5,"href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/packaging/run-ytdlp.bat#L1-L5"}],"dispatch":[{"path":"rust-src/cli/src/main.rs","line":36,"endLine":95,"label":"dispatch order","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/main.rs#L36-L95"},{"path":"rust-src/cli/src/main.rs","line":126,"endLine":151,"label":"overrides","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/main.rs#L126-L151"}],"modes":[{"path":"rust-src/cli/src/main.rs","line":70,"endLine":86,"href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/main.rs#L70-L86"},{"path":"rust-src/cli/src/resolve.rs","line":1042,"endLine":1081,"label":"show_check","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/resolve.rs#L1042-L1081"}],"quick":[{"path":"rust-src/cli/src/main.rs","line":196,"endLine":241,"href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/main.rs#L196-L241"}],"wiring":[{"path":"rust-src/cli/src/main.rs","line":419,"endLine":529,"href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/main.rs#L419-L529"}],"paint":[{"path":"rust-src/cli/src/menu.rs","line":725,"endLine":738,"label":"paint loop","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/menu.rs#L725-L738"},{"path":"rust-src/cli/src/ui.rs","line":63,"endLine":74,"label":"quick_row","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/ui.rs#L63-L74"},{"path":"rust-src/cli/src/ui.rs","line":366,"endLine":394,"label":"render_lines","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/ui.rs#L366-L394"}],"prompt":[{"path":"rust-src/cli/src/menu.rs","line":745,"endLine":794,"label":"read_quick0","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/menu.rs#L745-L794"},{"path":"rust-src/cli/src/tty.rs","line":931,"endLine":988,"label":"unix raw","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/tty.rs#L931-L988"},{"path":"rust-src/cli/src/tty.rs","line":1004,"endLine":1047,"label":"windows CRT","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/tty.rs#L1004-L1047"}],"route":[{"path":"rust-src/cli/src/menu.rs","line":757,"endLine":793,"href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/menu.rs#L757-L793"},{"path":"rust-src/cli/src/args.rs","line":23,"endLine":53,"label":"clean_url","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/args.rs#L23-L53"}],"quick0":[{"path":"rust-src/cli/src/clipboard.rs","line":62,"endLine":85,"label":"posix read","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/clipboard.rs#L62-L85"},{"path":"rust-src/cli/src/menu.rs","line":383,"endLine":703,"label":"act(\"0\")","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/menu.rs#L383-L703"}],"submenus":[{"path":"rust-src/cli/src/menu.rs","line":383,"endLine":703,"label":"act","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/menu.rs#L383-L703"}],"batch":[{"path":"rust-src/cli/src/menu.rs","line":266,"endLine":291,"label":"multi_url","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/menu.rs#L266-L291"},{"path":"rust-src/cli/src/menu.rs","line":211,"endLine":261,"label":"run_batch","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/menu.rs#L211-L261"}],"load_cfg":[{"path":"rust-src/cli/src/config.rs","line":422,"endLine":521,"label":"load_settings","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/config.rs#L422-L521"}],"outdir":[{"path":"rust-src/cli/src/resolve.rs","line":968,"endLine":990,"label":"resolve_outdir","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/resolve.rs#L968-L990"}],"bins":[{"path":"rust-src/cli/src/resolve.rs","line":818,"endLine":844,"label":"find_yt_dlp","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/resolve.rs#L818-L844"},{"path":"rust-src/cli/src/resolve.rs","line":849,"endLine":892,"label":"find_ffmpeg_dir","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/resolve.rs#L849-L892"}],"argv":[{"path":"rust-src/cli/src/args.rs","line":255,"endLine":327,"label":"build_args","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/args.rs#L255-L327"}],"save":[{"path":"rust-src/cli/src/config.rs","line":527,"endLine":549,"label":"save_settings","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/config.rs#L527-L549"},{"path":"rust-src/cli/src/menu.rs","line":779,"label":"after each action","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/menu.rs#L779"}],"download":[{"path":"rust-src/cli/src/exec.rs","line":384,"endLine":550,"label":"do_download","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/exec.rs#L384-L550"}],"verdict":[{"path":"rust-src/cli/src/exec.rs","line":35,"endLine":41,"label":"fail_sentence","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/exec.rs#L35-L41"},{"path":"rust-src/cli/src/exec.rs","line":462,"endLine":511,"label":"three verdicts","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/exec.rs#L462-L511"},{"path":"rust-src/cli/src/exec/run.rs","line":142,"endLine":165,"label":"kill tree","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/exec/run.rs#L142-L165"}],"subs":[{"path":"rust-src/cli/src/args.rs","line":334,"endLine":371,"label":"build_sub_args","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/args.rs#L334-L371"}],"auto_check":[{"path":"rust-src/cli/src/update.rs","line":446,"endLine":561,"label":"auto_update_check","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/update.rs#L446-L561"},{"path":"rust-src/cli/src/menu.rs","line":739,"endLine":744,"label":"one call site","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/menu.rs#L739-L744"}],"item11":[{"path":"rust-src/cli/src/update.rs","line":565,"endLine":571,"label":"update_all","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/update.rs#L565-L571"}],"ytdlp_up":[{"path":"rust-src/cli/src/update.rs","line":394,"endLine":433,"label":"update_yt_dlp","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/update.rs#L394-L433"}],"fetch_cli":[{"path":"rust-src/cli/src/update.rs","line":246,"endLine":289,"label":"fetch_cli","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/update.rs#L246-L289"}],"gate_cli":[{"path":"rust-src/cli/src/update.rs","line":296,"endLine":332,"label":"install_cli","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/update.rs#L296-L332"}],"refusal":[{"path":"rust-src/cli/src/update.rs","line":233,"endLine":239,"label":"release_asset","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/update.rs#L233-L239"},{"path":"rust-src/cli/src/update.rs","line":513,"label":"refusal line","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/update.rs#L513"}],"w_clip":[{"path":"rust-src/cli/src/clipboard.rs","line":9,"endLine":56,"label":"windows read","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/clipboard.rs#L9-L56"},{"path":"rust-src/cli/src/clipboard.rs","line":62,"endLine":85,"label":"posix read","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/clipboard.rs#L62-L85"}],"w_ytdlp":[{"path":"rust-src/cli/src/exec.rs","line":219,"endLine":340,"label":"run_download","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/exec.rs#L219-L340"}],"w_ffmpeg":[{"path":"rust-src/cli/src/exec/ffmpeg.rs","line":264,"endLine":355,"label":"offer_ffmpeg","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/exec/ffmpeg.rs#L264-L355"},{"path":"rust-src/cli/src/exec/ffmpeg.rs","line":85,"endLine":123,"label":"install_ffmpeg","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/exec/ffmpeg.rs#L85-L123"}],"w_dialog":[{"path":"rust-src/cli/src/menu.rs","line":300,"endLine":315,"label":"folder_dialog","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/menu.rs#L300-L315"}],"f_settings":[{"path":"rust-src/cli/src/config.rs","line":527,"endLine":549,"label":"save","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/config.rs#L527-L549"},{"path":"rust-src/cli/src/config.rs","line":383,"endLine":387,"label":"render","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/config.rs#L383-L387"}],"f_bin":[{"path":"rust-src/cli/src/main.rs","line":63,"endLine":65,"label":".old cleanup","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/main.rs#L63-L65"},{"path":"rust-src/cli/src/resolve.rs","line":818,"endLine":844,"label":"discovery","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/resolve.rs#L818-L844"}],"f_tmp":[{"path":"rust-src/cli/src/exec.rs","line":102,"endLine":107,"label":"temp_dir","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/exec.rs#L102-L107"},{"path":"rust-src/cli/src/exec.rs","line":124,"endLine":128,"label":"drop_temp_dir_force","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/exec.rs#L124-L128"}],"f_downloads":[{"path":"rust-src/cli/src/exec.rs","line":137,"endLine":154,"label":"newest_since","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/exec.rs#L137-L154"},{"path":"rust-src/cli/src/exec.rs","line":489,"endLine":511,"label":"saved-file check","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/ce068345e3c771d567f13e353178fdabf7b07b03/rust-src/cli/src/exec.rs#L489-L511"}]}}</script>
+    <script id="archify-source-evidence-data" type="application/json">{"schemaVersion":1,"verified":true,"repository":{"url":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader","revision":"40a24288a76b8aa07ab95f4059ddf1393d032b23","shortRevision":"40a2428","label":"chezhenkie/ytdlp-cli-youtube-downloader","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/tree/40a24288a76b8aa07ab95f4059ddf1393d032b23"},"referenceCount":32,"nodes":{"m_paint":[{"path":"rust-src/cli/src/menu.rs","line":744,"endLine":757,"label":"paint when dirty","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/menu.rs#L744-L757"},{"path":"rust-src/cli/src/menu.rs","line":758,"endLine":763,"label":"first paint: quiet update check, then save","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/menu.rs#L758-L763"},{"path":"rust-src/cli/src/ui.rs","line":179,"endLine":322,"label":"menu_items: rows 1-14","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/ui.rs#L179-L322"}],"m_route":[{"path":"rust-src/cli/src/menu.rs","line":778,"endLine":800,"label":"url in prompt: download run","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/menu.rs#L778-L800"},{"path":"rust-src/cli/src/args.rs","line":23,"endLine":53,"label":"clean_url: first http(s) link","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/args.rs#L23-L53"}],"m_act":[{"path":"rust-src/cli/src/menu.rs","line":383,"endLine":722,"label":"act(): items 0-14","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/menu.rs#L383-L722"},{"path":"rust-src/cli/src/menu.rs","line":811,"label":"save after each action (single line)","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/menu.rs#L811"},{"path":"rust-src/cli/src/update.rs","line":565,"endLine":571,"label":"update_all: yt-dlp update, then cli check","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/update.rs#L565-L571"}],"u_cli":[{"path":"rust-src/cli/src/update.rs","line":246,"endLine":289,"label":"fetch_cli: one GET","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/update.rs#L246-L289"},{"path":"rust-src/cli/src/update.rs","line":509,"endLine":517,"label":"refusal: no published cli build","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/update.rs#L509-L517"},{"path":"rust-src/cli/src/net.rs","line":35,"label":"CHECK_TIMEOUT: 6 s check ceiling (single line)","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/net.rs#L35"}],"u_gate":[{"path":"rust-src/cli/src/update.rs","line":296,"endLine":332,"label":"install_cli: selftest, then place","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/update.rs#L296-L332"}],"c_main":[{"path":"rust-src/cli/src/main.rs","line":36,"endLine":95,"label":"run(): load settings once, dispatch order","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/main.rs#L36-L95"},{"path":"rust-src/cli/src/main.rs","line":196,"endLine":241,"label":"run_quick: url argv, one run, exit","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/main.rs#L196-L241"}],"r_do":[{"path":"rust-src/cli/src/exec.rs","line":386,"endLine":553,"label":"do_download: one run","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/exec.rs#L386-L553"},{"path":"rust-src/cli/src/resolve.rs","line":818,"endLine":844,"label":"find_yt_dlp: settings, bin/, PATH","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/resolve.rs#L818-L844"},{"path":"rust-src/cli/src/args.rs","line":255,"endLine":327,"label":"build_args: yt-dlp argv","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/args.rs#L255-L327"}],"r_verdict":[{"path":"rust-src/cli/src/exec.rs","line":37,"endLine":43,"label":"fail_sentence: failed rc text","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/exec.rs#L37-L43"},{"path":"rust-src/cli/src/exec.rs","line":465,"endLine":482,"label":"stopped: rc 130","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/exec.rs#L465-L482"},{"path":"rust-src/cli/src/exec.rs","line":126,"endLine":130,"label":"drop_temp_dir_force: removes work folder","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/exec.rs#L126-L130"}],"r_ytdlp":[{"path":"rust-src/cli/src/exec.rs","line":221,"endLine":342,"label":"run_download: spawn, pumps, poll","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/exec.rs#L221-L342"},{"path":"rust-src/cli/src/exec/run.rs","line":142,"endLine":165,"label":"kill_tree_real: tree kill on escape","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/exec/run.rs#L142-L165"}],"r_subs":[{"path":"rust-src/cli/src/args.rs","line":334,"endLine":371,"label":"build_sub_args: --skip-download","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/args.rs#L334-L371"},{"path":"rust-src/cli/src/exec.rs","line":515,"endLine":550,"label":"subtitle branch: when subtitles on","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/exec.rs#L515-L550"}],"r_strip":[{"path":"rust-src/cli/src/exec.rs","line":561,"endLine":591,"label":"strip_subtitles: loop over new subs","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/exec.rs#L561-L591"},{"path":"rust-src/cli/src/exec/srtstripper.rs","line":97,"endLine":129,"label":"run_one: one spawn per file","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/exec/srtstripper.rs#L97-L129"},{"path":"rust-src/cli/src/exec/srtstripper.rs","line":16,"endLine":24,"label":"mode_flag: stripper mode to flag","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/exec/srtstripper.rs#L16-L24"}],"f_settings":[{"path":"rust-src/cli/src/config.rs","line":425,"endLine":524,"label":"load_settings: read once","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/config.rs#L425-L524"},{"path":"rust-src/cli/src/config.rs","line":530,"endLine":552,"label":"save_settings: atomic, skipped when unchanged","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/config.rs#L530-L552"}],"f_out":[{"path":"rust-src/cli/src/args.rs","line":178,"endLine":201,"label":"output_args: -P home and temp dirs","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/args.rs#L178-L201"},{"path":"rust-src/cli/src/resolve.rs","line":304,"label":"TEMP_DIR_NAME = .ytdlp-tmp (single line)","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/resolve.rs#L304"},{"path":"rust-src/cli/src/exec.rs","line":139,"endLine":156,"label":"newest_since: finished file","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/exec.rs#L139-L156"}]}}</script>
     <script id="archify-i18n-data" type="application/json">{"locale":"en","messages":{"viewer.kind.frontend":"Frontend","viewer.kind.backend":"Backend","viewer.kind.database":"Database","viewer.kind.cloud":"Cloud","viewer.kind.security":"Security","viewer.kind.messagebus":"Message bus","viewer.kind.external":"External","viewer.kind.neutral":"Neutral","viewer.kind.node":"Node","viewer.kind.start":"Start","viewer.kind.active":"Active","viewer.kind.waiting":"Waiting","viewer.kind.decision":"Decision","viewer.kind.success":"Success","viewer.kind.failure":"Failure","viewer.toolbar.actions":"Diagram actions","viewer.theme.toggle.title":"Toggle theme (T)","viewer.theme.toggle":"Toggle color theme","viewer.theme.dark":"Dark","viewer.theme.light":"Light","viewer.preset.choose.title":"Choose visual style (S cycles)","viewer.preset.choose":"Choose visual style","viewer.preset.style":"Style","viewer.preset.menu":"Visual style","viewer.preset.identity":"Visual identity","viewer.preset.cycles":"to cycle","viewer.preset.classic":"Classic","viewer.preset.classic.short":"Classic","viewer.preset.classic.hint":"Stable technical default","viewer.preset.flow":"Signal Flow","viewer.preset.flow.short":"Flow","viewer.preset.flow.hint":"Motion-forward presentation","viewer.preset.blueprint":"Blueprint","viewer.preset.blueprint.hint":"Engineering review","viewer.preset.editorial":"Editorial","viewer.preset.editorial.hint":"Publication and launch notes","viewer.preset.badge.signalFlow":"SIGNAL FLOW","viewer.preset.badge.blueprint":"BLUEPRINT / REV 01","viewer.preset.badge.editorial":"EDITORIAL / FIELD NOTE","viewer.preset.badge.editorialPlate":"ARCHIFY / PLATE 04","viewer.preset.current":"Visual style: {style}. Choose visual style","viewer.motion.live":"Live","viewer.motion.still":"Still","viewer.motion.pause":"Pause motion","viewer.motion.resume":"Resume motion","viewer.motion.reduced":"Motion paused by reduced-motion preference","viewer.motion.hidden":"Motion paused while this page is hidden","viewer.motion.yielding":"Pause motion; currently yielding to {owner}","viewer.motion.yielding.title":"Live preview enabled · yielding to {owner}","viewer.owner.route":"Route Probe","viewer.owner.lens":"Semantic Lens","viewer.owner.relationship":"Relationship Preview","viewer.owner.intent":"Intent Trace","viewer.owner.focus":"semantic focus","viewer.owner.legend":"legend preview","viewer.owner.reader":"reader interaction","viewer.present.enter":"Enter presentation stage","viewer.present.enter.title":"Presentation stage (F)","viewer.present.exit":"Exit presentation stage","viewer.present.exit.title":"Exit presentation stage (F or Escape)","viewer.present.present":"Present","viewer.present.exit.label":"Exit","viewer.export.button":"Export","viewer.export.button.title":"Export diagram (E)","viewer.export.diagram":"Export diagram","viewer.export.menu":"Export","viewer.export.subtitle":"Portable, clean outputs","viewer.export.share":"Share","viewer.export.shareCard":"Share Card","viewer.export.routeShareCard":"Route Share Card","viewer.export.reachShareCard":"Reach Share Card","viewer.export.copyDiagram":"Copy diagram","viewer.export.clipboardPng":"PNG to clipboard","viewer.export.raster":"Raster images","viewer.export.image":"Image","viewer.export.lossless":"Lossless image","viewer.export.compact":"Compact image","viewer.export.modern":"Modern image","viewer.export.vectorMotion":"Vector and motion","viewer.export.vectorMotion.heading":"Vector \u0026 motion","viewer.export.editable":"Editable vector","viewer.export.svg.auto":"SVG · Auto","viewer.export.svg.auto.hint":"Matches host theme","viewer.export.svg.light":"SVG · Light","viewer.export.svg.light.hint":"Always light","viewer.export.svg.dark":"SVG · Dark","viewer.export.svg.dark.hint":"Always dark","viewer.export.motion6s":"6s motion","viewer.export.unsupported":"Not supported by this browser","viewer.export.clipboardUnsupported":"Clipboard image write not supported by this browser","viewer.export.clipboardUnsupported.short":"Clipboard image write not supported in this browser.","viewer.export.motionUnavailable":"Motion capture unavailable in this browser","viewer.export.webmUnavailable":"WebM unavailable in this browser","viewer.export.failed":"Export failed: {message}","viewer.export.unknownVariant":"Unknown Share Card variant: {variant}","viewer.export.routeRequired":"Trace a route before exporting a Route Share Card","viewer.export.reachRequired":"Trace authored reach before exporting a Reach Share Card","viewer.export.unknown":"unknown","viewer.export.routeFailed":"Route Share Card export failed: {message}","viewer.export.reachFailed":"Reach Share Card export failed: {message}","viewer.export.copyFailed":"Copy failed: {message}","viewer.export.copiedPng":"Copied PNG to clipboard","viewer.export.downloadedRoute":"Downloaded Route Share Card","viewer.export.downloadedReach":"Downloaded Reach Share Card","viewer.export.downloadedWebm":"Downloaded WebM","viewer.export.recording":"Recording 6 seconds of motion…","viewer.export.card.routeSummary.one":"Path: {source} → {target} · {count} step","viewer.export.card.routeSummary.other":"Path: {source} → {target} · {count} steps","viewer.export.card.reachSummary":"Authored {direction} from {origin} · {nodes} · {links} · max {hops}","viewer.export.card.node.one":"{count} node","viewer.export.card.node.other":"{count} nodes","viewer.export.card.link.one":"{count} link","viewer.export.card.link.other":"{count} links","viewer.export.card.hop.one":"{count} hop","viewer.export.card.hop.other":"{count} hops","viewer.export.card.routeBadge":"ARCHIFY · ROUTE · {hops}","viewer.export.card.reachBadge":"ARCHIFY · {direction} REACH","viewer.export.direction.upstream":"Upstream","viewer.export.direction.downstream":"Downstream","viewer.export.error.canvasUnavailable":"Canvas unavailable for {label}","viewer.export.error.contextUnavailable":"2D canvas context unavailable for {label}","viewer.export.error.toBlobUnavailable":"canvas.toBlob unavailable for {label}","viewer.export.error.toBlobNull":"canvas.toBlob returned no data for {label}","viewer.export.error.variantsCombined":"Share Card variants cannot be combined","viewer.export.error.viewerState":"Share Card export could not remove temporary viewer state","viewer.export.error.routeState":"Route Card export could not preserve the resolved route safely","viewer.export.error.reachState":"Reach Card export could not preserve authored reach safely","viewer.export.error.webmRequirements":"WebM motion export requires a trace animation and browser MediaRecorder support","viewer.export.error.mediaRecorder":"MediaRecorder failed","viewer.export.error.emptyWebm":"MediaRecorder produced an empty WebM","viewer.export.error.webmBackground":"SVG background could not be loaded for WebM export","viewer.guide.title":"Explore this system","viewer.focus.selectedNodes":"{count} selected nodes","viewer.guide.eyebrow":"Diagram guide","viewer.guide.close":"Close diagram guide","viewer.guide.inspecting":"Inspecting compiled semantics","viewer.guide.actions":"Diagram exploration actions","viewer.guide.find":"Find any node","viewer.guide.find.hint":"Search labels, responsibilities, kinds, and stable IDs.","viewer.guide.route":"Trace a route","viewer.guide.route.aria":"Trace a directed route","viewer.guide.route.hint":"Ask how two semantic nodes connect in authored direction.","viewer.guide.map":"See the whole system","viewer.guide.map.hint":"Open Semantic Radar with a live viewport and stable nodes.","viewer.guide.lens":"Compare semantic kinds","viewer.guide.lens.hint":"Count roles, reveal their traffic, and compare direct authored links.","viewer.guide.present":"Enter Presentation Stage","viewer.guide.present.hint":"Give the live diagram the viewport without changing export.","viewer.guide.shortcuts":"Additional keyboard shortcuts","viewer.guide.shortcut.export":"Export","viewer.guide.shortcut.theme":"Theme","viewer.guide.shortcut.style":"Style","viewer.guide.shortcut.reset":"Reset","viewer.guide.shortcut.zoomIn":"Zoom in","viewer.guide.shortcut.zoomOut":"Zoom out","viewer.guide.shortcut.close":"Close","viewer.guide.credit":"Find Archify useful? A star on GitHub helps","viewer.guide.star":"Star","viewer.guide.facts":"{nodes} · {relationships}","viewer.guide.fact.node.one":"{count} semantic node","viewer.guide.fact.node.other":"{count} semantic nodes","viewer.guide.fact.relationship.one":"{count} relationship","viewer.guide.fact.relationship.other":"{count} relationships","viewer.guide.open":"Open diagram guide","viewer.finder.title":"Find a node","viewer.finder.close":"Close node finder","viewer.finder.placeholder":"Search labels or IDs","viewer.finder.search":"Search diagram nodes","viewer.finder.results":"Diagram nodes","viewer.finder.empty":"No matching nodes","viewer.finder.result.focus":"Focus {label}","viewer.finder.result.routeStart":"Choose {label} as route start","viewer.finder.result.routeTarget":"Choose {label} as route destination, {links}","viewer.finder.status.empty":"No matching nodes","viewer.finder.status.count.one":"{count} matching node","viewer.finder.status.count.other":"{count} matching nodes","viewer.finder.noun.nodes":"nodes","viewer.finder.link.one":"{count} link","viewer.finder.link.other":"{count} links","viewer.finder.result.focus.one":"Focus {label}, {count} related connection","viewer.finder.result.focus.other":"Focus {label}, {count} related connections","viewer.finder.status.filtered":"{visible} of {available} {noun}","viewer.finder.status.all":"{available} {noun}","viewer.passport.eyebrow":"Semantic passport","viewer.passport.metadata":"Node metadata","viewer.passport.evidence":"Verified source evidence","viewer.passport.verified":"Verified source","viewer.passport.verificationScope":"Verified against local Git at the pinned revision. Remote access has not been checked.","viewer.passport.reach":"Authored reach","viewer.passport.reach.trace":"Trace authored reachability","viewer.passport.upstream":"Upstream","viewer.passport.downstream":"Downstream","viewer.passport.upstream.trace":"Trace upstream authored reachability","viewer.passport.downstream.trace":"Trace downstream authored reachability","viewer.passport.close":"Close semantic passport","viewer.passport.move":"Move semantic passport. Drag, use arrow keys, or press Home to reset.","viewer.passport.copy":"Copy link","viewer.passport.copy.focus":"Copy link to focused node","viewer.passport.relations":"Relations","viewer.passport.relations.show":"Show connected relationships","viewer.passport.relations.hide":"Hide connected relationships","viewer.passport.relations.list":"Connected relationships","viewer.passport.copyRelation":"Copy relation","viewer.passport.copyNode":"Copy node","viewer.passport.copyPinned":"Copy link to pinned relationship","viewer.passport.copySource":"Copy link to source node","viewer.passport.copy.focused.success":"Focused node link copied","viewer.passport.copy.pinned.success":"Pinned relationship link copied","viewer.passport.copy.focused.failed":"Could not copy focused node link","viewer.passport.copy.pinned.failed":"Could not copy pinned relationship link","viewer.passport.relationship.none":"No connected relationships","viewer.passport.relationship.count.one":"{count} relation","viewer.passport.relationship.count.other":"{count} relations","viewer.passport.relationship.show.one":"Show {count} connected relationship","viewer.passport.relationship.show.other":"Show {count} connected relationships","viewer.passport.relationship.summary":"{out} outgoing · {in} incoming{loops}","viewer.passport.relationship.loops":" · {count} loop","viewer.passport.relationship.explorer":"Direct relationship explorer","viewer.passport.relationship.help":"Use arrow keys to explore relationships. Press Enter or Space to pin details; Escape clears.","viewer.passport.relationship.loopsBack":"loops back","viewer.passport.relationship.connectsTo":"connects to","viewer.passport.relationship.connectsFrom":"connects from","viewer.passport.relationship.pinned":"Pinned relationship · {from} → {to} · {label}","viewer.passport.relationship.inspect":"Inspect relationship {index} of {total}: {from} to {to}, {label}. Press Enter for details.","viewer.passport.relationship.group.out":"Outgoing","viewer.passport.relationship.group.in":"Incoming","viewer.passport.relationship.group.loop":"Self loops","viewer.passport.relationship.row":"{group}: {relationship}, {neighbor}","viewer.passport.relationship.direction.out":"OUT →","viewer.passport.relationship.direction.in":"← IN","viewer.passport.relationship.direction.loop":"LOOP","viewer.passport.sourceCount.one":"{count} verified source reference","viewer.passport.sourceCount.other":"{count} verified source references","viewer.passport.repository.open":"Open verified repository revision {revision}","viewer.passport.source.open":"Open verified source {path} at revision {revision}","viewer.passport.source.openLink":"Open ↗","viewer.passport.reach.upstream.one":"Trace {count} upstream authored node","viewer.passport.reach.upstream.other":"Trace {count} upstream authored nodes","viewer.passport.reach.downstream.one":"Trace {count} downstream authored node","viewer.passport.reach.downstream.other":"Trace {count} downstream authored nodes","viewer.passport.reach.noUpstream":"No upstream authored nodes","viewer.passport.reach.noDownstream":"No downstream authored nodes","viewer.passport.reach.status":"{direction} · {nodes} nodes · {links} links · max {hops} hops","viewer.route.eyebrow":"Path","viewer.route.start":"Click where the path starts","viewer.route.start.find":"Find start","viewer.route.start.find.aria":"Find a route start","viewer.route.copy":"Copy link","viewer.route.copy.aria":"Copy link to traced route","viewer.route.clear":"Clear","viewer.route.clear.aria":"Clear route probe","viewer.route.traced":"Path","viewer.route.pickTwo":"Click two nodes on the diagram","viewer.route.pickOne":"Click a node on the diagram","viewer.route.controls":"Route journey controls","viewer.route.previous":"Previous route position","viewer.route.play":"Play route journey","viewer.route.pause":"Pause route journey","viewer.route.replay":"Replay route journey","viewer.route.next":"Next route position","viewer.route.journey":"Journey","viewer.route.pause.label":"Pause","viewer.route.replay.label":"Replay","viewer.route.overview":"Overview","viewer.route.overview.aria":"Show complete route overview","viewer.route.instructions":"Click a start, then an end. Paths follow the arrows.","viewer.route.destination":"Where does the path from {label} end?","viewer.route.destination.find":"Find target","viewer.route.destination.find.aria":"Find a reachable route destination","viewer.route.differentDestination":"Choose a different destination","viewer.route.distinct":"Pick two different nodes.","viewer.route.unreachable":"Cannot reach {label} from here","viewer.route.unreachable.detail":"{target} cannot be reached from {source} along the arrows. Pick a highlighted node.","viewer.route.start.instructions":"Next, pick the end. Only nodes you can reach will light up.","viewer.route.copy.success":"Traced route link copied","viewer.route.copy.failed":"Could not copy traced route link","viewer.route.position":"Route position {index} of {total}: {label}","viewer.route.step":"Step {index} of {total} · {phase} · {label}","viewer.route.motionRequired":"Automatic journey requires Live motion","viewer.route.trigger.clear":"Clear traced route","viewer.route.overview.status":"{nodes} · {hops} · shortest path","viewer.route.overview.node.one":"{count} node","viewer.route.overview.node.other":"{count} nodes","viewer.route.overview.hop.one":"{count} step","viewer.route.overview.hop.other":"{count} steps","viewer.route.phase.playing":"Playing","viewer.route.phase.complete":"Complete","viewer.route.phase.inspecting":"Inspecting","viewer.route.destination.count.one":"{count} reachable node is highlighted. Click it.","viewer.route.destination.count.other":"{count} reachable nodes are highlighted. Click one.","viewer.route.noOutgoing":"No arrows lead out of this node. Clear it and pick another start.","viewer.route.result.title":"{source} to {target}","viewer.route.finder.source.title":"Choose route start","viewer.route.finder.source.placeholder":"Search route sources","viewer.route.finder.source.empty":"No matching route sources","viewer.route.finder.source.results":"Nodes that can start a route","viewer.route.finder.source.noun":"route sources","viewer.route.finder.source.badge":"start","viewer.route.finder.target.title":"Destination from {label}","viewer.route.finder.target.placeholder":"Search reachable destinations","viewer.route.finder.target.empty":"No matching reachable destinations","viewer.route.finder.target.results":"Reachable route destinations","viewer.route.finder.target.noun":"reachable destinations","viewer.route.hop.one":"{count} hop","viewer.route.hop.other":"{count} hops","viewer.lens.eyebrow":"Semantic lens","viewer.lens.title":"Compare system roles","viewer.lens.close":"Close semantic lens","viewer.lens.instruction":"Choose up to two semantic kinds. One reveals its real traffic; two compare only direct authored relationships.","viewer.lens.kinds":"Semantic kinds","viewer.lens.choose":"Choose a kind to inspect its nodes and touching relationships.","viewer.lens.copy":"Copy link to semantic lens","viewer.lens.clear":"Clear semantic lens","viewer.lens.open":"Open semantic lens","viewer.lens.openActive":"Open active semantic lens","viewer.lens.legend":"Semantic legend","viewer.lens.legend.inspect.one":"Inspect {label}, {count} node","viewer.lens.legend.inspect.other":"Inspect {label}, {count} nodes","viewer.lens.kind.count.one":"{label}, {count} node","viewer.lens.kind.count.other":"{label}, {count} nodes","viewer.lens.compare.one":"{first} → {second}: {forward} · {second} → {first}: {reverse} · {count} direct relationship","viewer.lens.compare.other":"{first} → {second}: {forward} · {second} → {first}: {reverse} · {count} direct relationships","viewer.lens.single":"{nodes} · {relationships} · connected peers remain visible","viewer.lens.node.one":"{count} {label} node","viewer.lens.node.other":"{count} {label} nodes","viewer.lens.relationship.one":"{count} touching relationship","viewer.lens.relationship.other":"{count} touching relationships","viewer.radar.title":"Semantic radar","viewer.radar.building":"Building overview","viewer.radar.openFull":"Open full semantic radar","viewer.radar.open":"Open radar","viewer.radar.close":"Close semantic radar","viewer.radar.surface":"Diagram overview. Click a node to focus it, or use arrow keys to pan.","viewer.radar.click":"Click node","viewer.radar.drag":"Drag to pan","viewer.radar.space":"Semantic radar needs more MAP space.","viewer.radar.nodes":"Semantic diagram radar nodes","viewer.radar.focus":"Focus {label} from Semantic Radar","viewer.radar.status":"{count} nodes · {viewport}","viewer.radar.fullMap":"{count} nodes · full map","viewer.radar.compacted":"Radar compacted to avoid covering the Semantic Passport or MAP controls.","viewer.radar.cancelWaiting":"Cancel semantic radar waiting for more MAP space","viewer.radar.needsSpace":"Semantic radar needs more visible MAP space","viewer.radar.viewport.full":"full map","viewer.radar.viewport.width":"{percent}% width","viewer.radar.viewport.scale":"{percent}% viewport","viewer.nav.controls":"Diagram view controls","viewer.nav.route":"Trace a directed route","viewer.nav.route.title":"Trace route (R)","viewer.nav.route.short":"ROUTE","viewer.nav.radar":"Open semantic radar","viewer.nav.radar.title":"Semantic radar (M)","viewer.nav.radar.short":"MAP","viewer.nav.lens":"Open semantic lens","viewer.nav.lens.title":"Semantic lens (L)","viewer.nav.lens.short":"LENS","viewer.nav.find":"Find a node","viewer.nav.find.title":"Find a node (/)","viewer.outline.title":"Node index","viewer.rail.show":"Notes \u0026 index","viewer.rail.controls":"Side panel","viewer.rail.collapse":"Collapse side panel","viewer.rail.bottom":"Move panel below the diagram","viewer.rail.right":"Move panel beside the diagram","viewer.nav.guide":"Open diagram guide","viewer.nav.guide.title":"Diagram guide (?)","viewer.nav.zoomOut":"Zoom out","viewer.nav.zoomOut.title":"Zoom out (-)","viewer.nav.reset":"Reset diagram view","viewer.nav.reset.title":"Reset view (0)","viewer.nav.read":"READ","viewer.nav.zoomIn":"Zoom in","viewer.nav.zoomIn.title":"Zoom in (+)","viewer.nav.camera":"{hint}. Reset diagram view","viewer.nav.camera.title":"{semantic}{hint} · reset view (0)","viewer.nav.camera.semantic":"Semantic camera active · ","viewer.nav.level.map":"MAP","viewer.nav.level.read":"READ","viewer.nav.level.full":"FULL","viewer.nav.level.auto":"AUTO","viewer.nav.detail.map":"Zoom in to reveal relationship labels and node context","viewer.nav.detail.read":"Zoom in again to reveal tags and annotations","viewer.nav.detail.full":"Full diagram detail","viewer.intent.summary":"{label}. {out} outgoing, {in} incoming{loops}. {total} connections. Press Enter for details.","viewer.intent.loops":", {count} self loop","viewer.common.copied":"Copied","viewer.common.copyFailed":"Copy failed","viewer.common.copyLink":"Copy link","viewer.common.clear":"Clear","viewer.common.close":"Close"}}</script>
     <!-- Main Diagram -->
     <div class="diagram-container" data-detail-level="read"
          data-preset-badge-editorial-plate="ARCHIFY / PLATE 04">
-      <svg viewBox="0 0 1559 1670" data-reader-fit="width-first" data-layout-contract="readable-v2" role="img" lang="en" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="standard" data-node-ui="">
-        <title id="archify-diagram-title">yt-dlp cli - full process flow</title>
+      <svg viewBox="0 0 972 970" data-reader-fit="width-first" data-layout-contract="readable-v2" role="img" lang="en" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-node-ui="">
+        <title id="archify-diagram-title">yt-dlp cli - process flow</title>
         <desc id="archify-diagram-description">A workflow diagram generated by Archify.</desc>
         <!-- Definitions -->
         <defs>
@@ -5206,741 +5206,328 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <rect width="100%" height="100%" fill="url(#grid)" />
 
         <!-- Swimlanes -->
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-0" x="40" y="52" width="1475" height="106" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-0" x="40" y="52" width="895" height="104" rx="10" class="c-lane" stroke-width="1"/>
         <text x="54" y="74" class="t-muted" font-size="10" font-weight="600">01 / human at the terminal</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-1" x="40" y="190" width="1475" height="106" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="212" class="t-muted" font-size="10" font-weight="600">02 / cli process (ytdlp)</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-1" x="40" y="176" width="895" height="104" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="54" y="198" class="t-muted" font-size="10" font-weight="600">02 / menu session</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-2" x="40" y="328" width="1475" height="106" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="350" class="t-muted" font-size="10" font-weight="600">03 / menu session</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-2" x="40" y="300" width="895" height="106" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="54" y="322" class="t-muted" font-size="10" font-weight="600">03 / updaters</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-3" x="40" y="466" width="1475" height="106" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="488" class="t-muted" font-size="10" font-weight="600">04 / quick-paste + batch</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-3" x="40" y="426" width="895" height="106" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="54" y="448" class="t-muted" font-size="10" font-weight="600">04 / ytdlp cli logic</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-4" x="40" y="604" width="1475" height="114" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="626" class="t-muted" font-size="10" font-weight="600">05 / download run</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-4" x="40" y="552" width="895" height="170" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="54" y="574" class="t-muted" font-size="10" font-weight="600">05 / child processes</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-5" x="40" y="750" width="1475" height="106" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="772" class="t-muted" font-size="10" font-weight="600">06 / settings + argv</text>
-
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-6" x="40" y="888" width="1475" height="106" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="910" class="t-muted" font-size="10" font-weight="600">07 / run outcome</text>
-
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-7" x="40" y="1026" width="1475" height="106" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="1048" class="t-muted" font-size="10" font-weight="600">08 / updaters</text>
-
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-8" x="40" y="1164" width="1475" height="106" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="1186" class="t-muted" font-size="10" font-weight="600">09 / cli self-update</text>
-
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-9" x="40" y="1302" width="1475" height="106" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="1324" class="t-muted" font-size="10" font-weight="600">10 / external world</text>
-
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-10" x="40" y="1440" width="1475" height="106" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="1462" class="t-muted" font-size="10" font-weight="600">11 / files on disk</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-5" x="40" y="742" width="895" height="104" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="54" y="764" class="t-muted" font-size="10" font-weight="600">06 / files on disk</text>
 
         <!-- Phase headers -->
-        <path d="M 106 35 H 402.5" class="a-default phase-rule" stroke-width="1" stroke-linecap="round" fill="none"/>
-        <rect x="205.85" y="27" width="96.8" height="16" rx="8" class="c-mask phase-chip"/>
-        <text x="254.25" y="38.5" class="t-muted" font-size="8" font-weight="600" text-anchor="middle" letter-spacing=".04em">start + dispatch</text>
-        <path d="M 564.9 35 H 912.9" class="a-default phase-rule" stroke-width="1" stroke-linecap="round" fill="none"/>
-        <rect x="700.1" y="27" width="77.6" height="16" rx="8" class="c-mask phase-chip"/>
-        <text x="738.9" y="38.5" class="t-muted" font-size="8" font-weight="600" text-anchor="middle" letter-spacing=".04em">menu session</text>
-        <path d="M 1072.4 35 H 1440.3000000000002" class="a-emphasis phase-rule" stroke-width="1" stroke-linecap="round" fill="none"/>
-        <rect x="1203.15" y="27" width="106.39999999999999" height="16" rx="8" class="c-mask phase-chip"/>
-        <text x="1256.3500000000001" y="38.5" class="t-backend" font-size="8" font-weight="600" text-anchor="middle" letter-spacing=".04em">act + run + update</text>
+
 
         <!-- Workflow groups -->
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="group" data-composition-frame-id="group-0" x="1010.4000000000001" y="642" width="493.9000000000001" height="72" rx="9" class="c-lane" stroke-width="1"/>
-        <text x="1020.4000000000001" y="640" class="t-backend" font-size="7" font-weight="600">one download run</text>
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="group" data-composition-frame-id="group-1" x="778.4" y="1064" width="707.9000000000002" height="64" rx="9" class="c-lane" stroke-width="1"/>
-        <text x="788.4" y="1062" class="t-messagebus" font-size="7" font-weight="600">menu-driven updates</text>
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="group" data-composition-frame-id="group-2" x="785.9" y="1202" width="720.4000000000002" height="64" rx="9" class="c-lane" stroke-width="1"/>
-        <text x="795.9" y="1200" class="t-messagebus" font-size="7" font-weight="600">cli self-update chain</text>
+
 
         <!-- Edge paths -->
-        <path data-edge-from="verdict" data-edge-to="prompt" data-edge-label="results stay, prompt again" data-edge-key="0" data-edge-id="e_again" data-composition-routing="workflow-v2-auto" data-edge-role="return" data-composition-points="1502.3000000000002,956;1527,956;1527,354;874.9,354;874.9,370" d="M 1502.3000000000002 956 L 1519 956 Q 1527 956 1527 948 L 1527 362 Q 1527 354 1519 354 L 882.9 354 Q 874.9 354 874.9 362 L 874.9 370" class="a-default" data-animate="edge" style="--step:10" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="download" data-edge-to="argv" data-edge-label="build args" data-edge-key="1" data-edge-id="e_args" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="1110.4,713;1110.4,784" d="M 1110.4 713 L 1110.4 784" class="a-dashed" data-animate="edge" style="--step:11" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="batch" data-edge-to="download" data-edge-label="sequential" data-edge-key="2" data-edge-id="e_batch_run" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="1110.4,560;1110.4,645" d="M 1110.4 560 L 1110.4 645" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="download" data-edge-to="bins" data-edge-label="preflight" data-edge-key="3" data-edge-id="e_bins" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="1014.4000000000001,670;602.9,670;602.9,792" d="M 1014.4000000000001 670 L 610.9 670 Q 602.9 670 602.9 678 L 602.9 792" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="submenus" data-edge-to="save" data-edge-label="every change" data-edge-key="4" data-edge-id="e_changed" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="1466.3000000000002,396;1511,396;1511,776;1402.3000000000002,776;1402.3000000000002,792" d="M 1466.3000000000002 396 L 1503 396 Q 1511 396 1511 404 L 1511 768 Q 1511 776 1503 776 L 1410.3000000000002 776 Q 1402.3000000000002 776 1402.3000000000002 784 L 1402.3000000000002 792" class="a-emphasis" data-animate="edge" style="--step:12" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="auto_check" data-edge-to="fetch_cli" data-edge-label="silent, 6 s" data-edge-key="5" data-edge-id="e_check_api" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="874.9,1120;874.9,1148;773.9,1148;773.9,1232;789.9,1232" d="M 874.9 1120 L 874.9 1140 Q 874.9 1148 866.9 1148 L 781.9 1148 Q 773.9 1148 773.9 1156 L 773.9 1224 Q 773.9 1232 781.9 1232 L 789.9 1232" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="verdict" data-edge-to="f_tmp" data-edge-label="force-remove every end" data-edge-key="6" data-edge-id="e_clean" data-composition-routing="workflow-v2-auto" data-edge-role="error" data-composition-points="1402.3000000000002,930;1402.3000000000002,872;998.4,872;998.4,1508;982.4,1508" d="M 1402.3000000000002 930 L 1402.3000000000002 880 Q 1402.3000000000002 872 1394.3000000000002 872 L 1006.4 872 Q 998.4 872 998.4 880 L 998.4 1500 Q 998.4 1508 990.4 1508 L 982.4 1508" class="a-security" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
-        <path data-edge-from="quick0" data-edge-to="w_clip" data-edge-label="first http link" data-edge-key="7" data-edge-id="e_clip" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="790.9,534;700.9,534" d="M 790.9 534 L 700.9 534" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="submenus" data-edge-to="w_dialog" data-edge-label="item 5" data-edge-key="8" data-edge-id="e_dialog" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="1402.3000000000002,422;1402.3000000000002,508" d="M 1402.3000000000002 422 L 1402.3000000000002 508" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="u_esc" data-edge-to="prompt" data-edge-label="escape" data-edge-key="9" data-edge-id="e_esc_read" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="874.9,146;874.9,162;990.4,162;990.4,338;850.9,338;850.9,370" d="M 874.9 146 L 874.9 154 Q 874.9 162 882.9 162 L 982.4 162 Q 990.4 162 990.4 170 L 990.4 330 Q 990.4 338 982.4 338 L 858.9 338 Q 850.9 338 850.9 346 L 850.9 370" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="u_esc" data-edge-to="verdict" data-edge-label="during a run: kill tree" data-edge-key="10" data-edge-id="e_escape_run" data-composition-routing="workflow-v2-auto" data-edge-role="error" data-composition-points="964.9,120;1543,120;1543,998;1402.3000000000002,998;1402.3000000000002,982" d="M 964.9 120 L 1535 120 Q 1543 120 1543 128 L 1543 990 Q 1543 998 1535 998 L 1410.3000000000002 998 Q 1402.3000000000002 998 1402.3000000000002 990 L 1402.3000000000002 982" class="a-security" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
-        <path data-edge-from="launcher" data-edge-to="dispatch" data-edge-label="exec" data-edge-key="11" data-edge-id="e_exec" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="226.5,258;264.5,258" d="M 226.5 258 L 264.5 258" class="a-emphasis" data-animate="edge" style="--step:1" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="w_ffmpeg" data-edge-to="f_bin" data-edge-label="install 0755" data-edge-key="12" data-edge-id="e_ff_install" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="602.9,1396;602.9,1562;1402.3000000000002,1562;1402.3000000000002,1534" d="M 602.9 1396 L 602.9 1554 Q 602.9 1562 610.9 1562 L 1394.3000000000002 1562 Q 1402.3000000000002 1562 1402.3000000000002 1554 L 1402.3000000000002 1534" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="download" data-edge-to="w_ffmpeg" data-edge-label="no ffmpeg?" data-edge-key="13" data-edge-id="e_ff_offer" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="1014.4000000000001,691;982.4000000000001,691;982.4000000000001,986;602.9,986;602.9,1344" d="M 1014.4000000000001 691 L 990.4000000000001 691 Q 982.4000000000001 691 982.4000000000001 699 L 982.4000000000001 978 Q 982.4000000000001 986 974.4000000000001 986 L 610.9 986 Q 602.9 986 602.9 994 L 602.9 1344" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="verdict" data-edge-to="f_downloads" data-edge-label="final rename" data-edge-key="14" data-edge-id="e_file" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="1378.3000000000002,982;1378.3000000000002,1014;1527,1014;1527,1466;1110.4,1466;1110.4,1482" d="M 1378.3000000000002 982 L 1378.3000000000002 1006 Q 1378.3000000000002 1014 1386.3000000000002 1014 L 1519 1014 Q 1527 1014 1527 1022 L 1527 1458 Q 1527 1466 1519 1466 L 1118.4 1466 Q 1110.4 1466 1110.4 1474 L 1110.4 1482" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="paint" data-edge-to="auto_check" data-edge-label="after first paint" data-edge-key="15" data-edge-id="e_first_check" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="506.9,396;490.9,396;490.9,1148;898.9,1148;898.9,1120" d="M 506.9 396 L 498.9 396 Q 490.9 396 490.9 404 L 490.9 1140 Q 490.9 1148 498.9 1148 L 890.9 1148 Q 898.9 1148 898.9 1140 L 898.9 1120" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="fetch_cli" data-edge-to="gate_cli" data-edge-label="asset + digest" data-edge-key="16" data-edge-id="e_gate" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="874.9,1258;874.9,1286;1378.3000000000002,1286;1378.3000000000002,1258" d="M 874.9 1258 L 874.9 1278 Q 874.9 1286 882.9 1286 L 1370.3000000000002 1286 Q 1378.3000000000002 1286 1378.3000000000002 1278 L 1378.3000000000002 1258" class="a-security" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
-        <path data-edge-from="route" data-edge-to="item11" data-edge-label="11" data-edge-key="17" data-edge-id="e_item11" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="1110.4,370;1110.4,354;1543,354;1543,1052;1110.4,1052;1110.4,1068" d="M 1110.4 370 L 1110.4 362 Q 1110.4 354 1118.4 354 L 1535 354 Q 1543 354 1543 362 L 1543 1044 Q 1543 1052 1535 1052 L 1118.4 1052 Q 1110.4 1052 1110.4 1060 L 1110.4 1068" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="u_typed" data-edge-to="prompt" data-edge-label="keys" data-edge-key="18" data-edge-id="e_keys" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="602.9,94;602.9,78;719.9,78;719.9,396;788.9,396" d="M 602.9 94 L 602.9 86 Q 602.9 78 610.9 78 L 711.9 78 Q 719.9 78 719.9 86 L 719.9 388 Q 719.9 396 727.9 396 L 788.9 396" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="prompt" data-edge-to="route" data-edge-label="line" data-edge-key="19" data-edge-id="e_line" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="960.9,396;1022.4000000000001,396" d="M 960.9 396 L 1022.4000000000001 396" class="a-emphasis" data-animate="edge" style="--step:5" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="dispatch" data-edge-to="load_cfg" data-edge-label="load once" data-edge-key="20" data-edge-id="e_load" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="364.5,292;364.5,792" d="M 364.5 292 L 364.5 792" class="a-emphasis" data-animate="edge" style="--step:12" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="dispatch" data-edge-to="wiring" data-edge-label="no flags" data-edge-key="21" data-edge-id="e_menu" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="464.5,258;520.9,258" d="M 464.5 258 L 520.9 258" class="a-emphasis" data-animate="edge" style="--step:2" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="dispatch" data-edge-to="modes" data-edge-label="mode flag?" data-edge-key="22" data-edge-id="e_mode" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="364.5,224;364.5,198;874.9,198;874.9,232" d="M 364.5 224 L 364.5 206 Q 364.5 198 372.5 198 L 866.9 198 Q 874.9 198 874.9 206 L 874.9 232" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="route" data-edge-to="batch" data-edge-label="9" data-edge-key="23" data-edge-id="e_nine" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="1110.4,422;1110.4,508" d="M 1110.4 422 L 1110.4 508" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="download" data-edge-to="outdir" data-edge-label="resolve" data-edge-key="24" data-edge-id="e_outdir" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="1014.4000000000001,679;944.6500000000001,679;944.6500000000001,776;874.9,776;874.9,792" d="M 1014.4000000000001 679 L 952.6500000000001 679 Q 944.6500000000001 679 944.6500000000001 687 L 944.6500000000001 768 Q 944.6500000000001 776 936.6500000000001 776 L 882.9 776 Q 874.9 776 874.9 784 L 874.9 792" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="paint" data-edge-to="prompt" data-edge-label="&gt;" data-edge-key="25" data-edge-id="e_paint_prompt" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="698.9,396;788.9,396" d="M 698.9 396 L 788.9 396" class="a-emphasis" data-animate="edge" style="--step:4" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="route" data-edge-to="submenus" data-edge-label="1-8, 10, 12" data-edge-key="26" data-edge-id="e_pick" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="1198.4,396;1338.3000000000002,396" d="M 1198.4 396 L 1338.3000000000002 396" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="gate_cli" data-edge-to="f_bin" data-edge-label="rename + place" data-edge-key="27" data-edge-id="e_place" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="1402.3000000000002,1258;1402.3000000000002,1482" d="M 1402.3000000000002 1258 L 1402.3000000000002 1482" class="a-emphasis" data-animate="edge" style="--step:12" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="bins" data-edge-to="f_bin" data-edge-label="probe candidates" data-edge-key="28" data-edge-id="e_probe" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="510.9,818;494.9,818;494.9,1562;1251.8000000000002,1562;1251.8000000000002,1508;1299.8000000000002,1508" d="M 510.9 818 L 502.9 818 Q 494.9 818 494.9 826 L 494.9 1554 Q 494.9 1562 502.9 1562 L 1243.8000000000002 1562 Q 1251.8000000000002 1562 1251.8000000000002 1554 L 1251.8000000000002 1516 Q 1251.8000000000002 1508 1259.8000000000002 1508 L 1299.8000000000002 1508" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="dispatch" data-edge-to="quick" data-edge-label="url arg" data-edge-key="29" data-edge-id="e_qarg" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="340.5,224;340.5,174;1008.4000000000001,174;1008.4000000000001,258;1024.4,258" d="M 340.5 224 L 340.5 182 Q 340.5 174 348.5 174 L 1000.4000000000001 174 Q 1008.4000000000001 174 1008.4000000000001 182 L 1008.4000000000001 250 Q 1008.4000000000001 258 1016.4000000000001 258 L 1024.4 258" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="w_ytdlp" data-edge-to="verdict" data-edge-label="rc + tail" data-edge-key="30" data-edge-id="e_rc" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="1500.3000000000002,689;1511,689;1511,914;1426.3000000000002,914;1426.3000000000002,930" d="M 1500.3000000000002 689 L 1508.3000000000002 689 Q 1511 689 1511 691.6999999999998 L 1511 911.3000000000002 Q 1511 914 1508.3000000000002 914 L 1429 914 Q 1426.3000000000002 914 1426.3000000000002 916.6999999999998 L 1426.3000000000002 930" class="a-emphasis" data-animate="edge" style="--step:8" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="load_cfg" data-edge-to="f_settings" data-edge-label="read" data-edge-key="31" data-edge-id="e_read_cfg" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="364.5,844;364.5,1482" d="M 364.5 844 L 364.5 1482" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="gate_cli" data-edge-to="refusal" data-edge-label="no asset published" data-edge-key="32" data-edge-id="e_refuse" data-composition-routing="workflow-v2-auto" data-edge-role="error" data-composition-points="1302.3000000000002,1232;1197.9,1232" d="M 1302.3000000000002 1232 L 1197.9 1232" class="a-security" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
-        <path data-edge-from="download" data-edge-to="w_ytdlp" data-edge-label="spawn + 2 pumps" data-edge-key="33" data-edge-id="e_spawn" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="1206.4,679;1304.3000000000002,679" d="M 1206.4 679 L 1304.3000000000002 679" class="a-emphasis" data-animate="edge" style="--step:7" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="u_start" data-edge-to="launcher" data-edge-label="start" data-edge-key="34" data-edge-id="e_start" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="48,120;30.75,120;30.75,258;61.5,258" d="M 48 120 L 38.75 120 Q 30.75 120 30.75 128 L 30.75 250 Q 30.75 258 38.75 258 L 61.5 258" class="a-emphasis" data-animate="edge" style="--step:0" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="verdict" data-edge-to="subs" data-edge-label="success + subs on" data-edge-key="35" data-edge-id="e_subs" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="1302.3000000000002,956;1198.4,956" d="M 1302.3000000000002 956 L 1198.4 956" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="item11" data-edge-to="fetch_cli" data-edge-label="then the cli" data-edge-key="36" data-edge-id="e_upd_cli" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="1110.4,1120;1110.4,1148;975.9,1148;975.9,1232;959.9,1232" d="M 1110.4 1120 L 1110.4 1140 Q 1110.4 1148 1102.4 1148 L 983.9 1148 Q 975.9 1148 975.9 1156 L 975.9 1224 Q 975.9 1232 967.9 1232 L 959.9 1232" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="item11" data-edge-to="ytdlp_up" data-edge-label="first" data-edge-key="37" data-edge-id="e_upd_ytdlp" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="1195.4,1094;1322.3000000000002,1094" d="M 1195.4 1094 L 1322.3000000000002 1094" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="route" data-edge-to="download" data-edge-label="http(s) url" data-edge-key="38" data-edge-id="e_url" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="1086.4,422;1086.4,495;998.4000000000001,495;998.4000000000001,679;1014.4000000000001,679" d="M 1086.4 422 L 1086.4 487 Q 1086.4 495 1078.4 495 L 1006.4000000000001 495 Q 998.4000000000001 495 998.4000000000001 503 L 998.4000000000001 671 Q 998.4000000000001 679 1006.4000000000001 679 L 1014.4000000000001 679" class="a-emphasis" data-animate="edge" style="--step:6" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="wiring" data-edge-to="paint" data-edge-label="session opens" data-edge-key="39" data-edge-id="e_wired_paint" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="602.9,284;602.9,362" d="M 602.9 284 L 602.9 362" class="a-emphasis" data-animate="edge" style="--step:3" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="download" data-edge-to="f_tmp" data-edge-label="work dir" data-edge-key="40" data-edge-id="e_work" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="1086.4,713;1086.4,729;992.6500000000001,729;992.6500000000001,1466;874.9,1466;874.9,1482" d="M 1086.4 713 L 1086.4 721 Q 1086.4 729 1078.4 729 L 1000.6500000000001 729 Q 992.6500000000001 729 992.6500000000001 737 L 992.6500000000001 1458 Q 992.6500000000001 1466 984.6500000000001 1466 L 882.9 1466 Q 874.9 1466 874.9 1474 L 874.9 1482" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="prompt" data-edge-to="quick0" data-edge-label="bare 0 on a tty" data-edge-key="41" data-edge-id="e_zero" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="874.9,422;874.9,500" d="M 874.9 422 L 874.9 500" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="quick0" data-edge-to="download" data-edge-label="same run" data-edge-key="42" data-edge-id="e_zero_run" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="874.9,568;874.9,644;998.4000000000001,644;998.4000000000001,661;1014.4000000000001,661" d="M 874.9 568 L 874.9 639.5 Q 874.9 644 879.4 644 L 993.9000000000001 644 Q 998.4000000000001 644 998.4000000000001 648.5 L 998.4000000000001 656.5 Q 998.4000000000001 661 1002.9000000000001 661 L 1014.4000000000001 661" class="a-emphasis" data-animate="edge" style="--step:12" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="m_route" data-edge-to="m_act" data-edge-label="1-14 or 0" data-edge-key="0" data-edge-id="e_act" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="589.6,243;650.8,243" d="M 589.6 243 L 650.8 243" class="a-default" data-animate="edge" style="--step:7" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="m_act" data-edge-to="r_do" data-edge-label="0 clipboard, 10 batch" data-edge-key="1" data-edge-id="e_batch" data-edge-role="" data-composition-points="727.8,269;727.8,494;597.6,494" d="M 727.8 269 L 727.8 486 Q 727.8 494 719.8 494 L 597.6 494" class="a-dashed" data-animate="edge" style="--step:8" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="r_verdict" data-edge-to="f_out" data-edge-label="saved file" data-edge-key="2" data-edge-id="e_final" data-edge-role="" data-composition-points="926.8,494;947,494;947,809;886.8,809" d="M 926.8 494 L 939 494 Q 947 494 947 502 L 947 801 Q 947 809 939 809 L 886.8 809" class="a-dashed" data-animate="edge" style="--step:9" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="u_cli" data-edge-to="u_gate" data-edge-label="y + download" data-edge-key="3" data-edge-id="e_gate" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="394,368;469.6,368" d="M 394 368 L 469.6 368" class="a-security" data-animate="edge" style="--step:10" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
+        <path data-edge-from="c_main" data-edge-to="m_paint" data-edge-label="no flags" data-edge-key="4" data-edge-id="e_menu" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="214,460;214,243;286,243" d="M 214 460 L 214 251 Q 214 243 222 243 L 286 243" class="a-emphasis" data-animate="edge" style="--step:1" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="m_paint" data-edge-to="m_route" data-edge-label="prompt" data-edge-key="5" data-edge-id="e_paint_route" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="382,243;493.6,243" d="M 382 243 L 493.6 243" class="a-emphasis" data-animate="edge" style="--step:2" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="r_ytdlp" data-edge-to="r_verdict" data-edge-label="rc + tail" data-edge-key="6" data-edge-id="e_rc" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="621.6,652;688.2,652;688.2,502;754.8,502" d="M 621.6 652 L 680.2 652 Q 688.2 652 688.2 644 L 688.2 510 Q 688.2 502 696.2 502 L 754.8 502" class="a-emphasis" data-animate="edge" style="--step:5" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="c_main" data-edge-to="f_settings" data-edge-label="read at start" data-edge-key="7" data-edge-id="e_read" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="214,528;214,783" d="M 214 528 L 214 783" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="r_do" data-edge-to="r_ytdlp" data-edge-label="spawn" data-edge-key="8" data-edge-id="e_spawn" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="541.6,528;541.6,626" d="M 541.6 528 L 541.6 626" class="a-emphasis" data-animate="edge" style="--step:4" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="u_start" data-edge-to="c_main" data-edge-label="start" data-edge-key="9" data-edge-id="e_start" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="140,119;190,119;190,460" d="M 140 119 L 182 119 Q 190 119 190 127 L 190 460" class="a-emphasis" data-animate="edge" style="--step:0" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="r_subs" data-edge-to="r_strip" data-edge-label="rc 0 + srt on" data-edge-key="10" data-edge-id="e_strip" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="840.8,638;840.8,666" d="M 840.8 638 L 840.8 666" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="r_verdict" data-edge-to="r_subs" data-edge-label="success + subs on" data-edge-key="11" data-edge-id="e_subs" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="840.8,520;840.8,586" d="M 840.8 520 L 840.8 586" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="u_type" data-edge-to="m_route" data-edge-label="keys + enter" data-edge-key="12" data-edge-id="e_type" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="541.6,145;541.6,217" d="M 541.6 145 L 541.6 217" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="m_act" data-edge-to="u_cli" data-edge-label="12 update" data-edge-key="13" data-edge-id="e_update" data-edge-role="" data-composition-points="713.8,269;713.8,290;334,290;334,334" d="M 713.8 269 L 713.8 282 Q 713.8 290 705.8 290 L 342 290 Q 334 290 334 298 L 334 334" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="m_route" data-edge-to="r_do" data-edge-label="http(s) link" data-edge-key="14" data-edge-id="e_url" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="565.6,217;565.6,201;956,201;956,844;452.6,844;452.6,444;541.6,444;541.6,460" d="M 565.6 217 L 565.6 209 Q 565.6 201 573.6 201 L 948 201 Q 956 201 956 209 L 956 836 Q 956 844 948 844 L 460.6 844 Q 452.6 844 452.6 836 L 452.6 452 Q 452.6 444 460.6 444 L 533.6 444 Q 541.6 444 541.6 452 L 541.6 460" class="a-emphasis" data-animate="edge" style="--step:3" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
 
         <!-- Nodes -->
-        <g id="node-u_start" data-node-id="u_start" data-node-label="open ytdlp" tabindex="0" role="button" aria-label="Focus open ytdlp, tarball | setup.exe | pkg | install.sh, human at the terminal › start + dispatch" aria-pressed="false" data-node-kind="external" data-node-sublabel="tarball | setup.exe | pkg | install.sh" data-node-context="human at the terminal › start + dispatch">
-          <title>open ytdlp · tarball | setup.exe | pkg | install.sh · human at the terminal › start + dispatch</title>
-          <rect x="48" y="94" width="192" height="52" rx="8" class="c-mask"/>
-          <rect x="48" y="94" width="192" height="52" rx="8" class="c-external" data-animate="node" style="--step:0" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="start" class="semantic-sigil s-external" transform="translate(54 100) scale(0.6875)">
+        <g id="node-u_start" data-node-id="u_start" data-node-label="open ytdlp" tabindex="0" role="button" aria-label="Focus open ytdlp, start the cli, human at the terminal" aria-pressed="false" data-node-kind="external" data-node-sublabel="start the cli" data-node-context="human at the terminal">
+          <title>open ytdlp · start the cli · human at the terminal</title>
+          <rect x="48" y="93" width="92" height="52" rx="8" class="c-mask"/>
+          <rect x="48" y="93" width="92" height="52" rx="8" class="c-external" data-animate="node" style="--step:0" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="start" class="semantic-sigil s-external" transform="translate(54 99) scale(0.6875)">
             <circle cx="8" cy="8" r="5"/>
             <path d="m7 5.4 3.6 2.6L7 10.6Z" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="144" y="115" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">open ytdlp</text>
-          <text data-detail="context" x="144" y="132" class="t-muted" font-size="8" text-anchor="middle">tarball | setup.exe | pkg | install.sh</text>
+          <text data-node-label="" data-detail-anchor="" x="100" y="114" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">open ytdlp</text>
+          <text data-detail="context" x="94" y="131" class="t-muted" font-size="8" text-anchor="middle">start the cli</text>
         </g>
 
-        <g id="node-u_typed" data-node-id="u_typed" data-node-label="type at the prompt" tabindex="0" role="button" aria-label="Focus type at the prompt, url | bare 0 | 1-13 | q, human at the terminal › menu session" aria-pressed="false" data-node-kind="external" data-node-sublabel="url | bare 0 | 1-13 | q" data-node-context="human at the terminal › menu session">
-          <title>type at the prompt · url | bare 0 | 1-13 | q · human at the terminal › menu session</title>
-          <rect x="542.9" y="94" width="120" height="52" rx="8" class="c-mask"/>
-          <rect x="542.9" y="94" width="120" height="52" rx="8" class="c-external" data-animate="node" style="--step:11" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(548.9 100) scale(0.6875)">
+        <g id="node-u_type" data-node-id="u_type" data-node-label="type at the prompt" tabindex="0" role="button" aria-label="Focus type at the prompt, url | 0 | 1-14 | q, human at the terminal" aria-pressed="false" data-node-kind="external" data-node-sublabel="url | 0 | 1-14 | q" data-node-context="human at the terminal">
+          <title>type at the prompt · url | 0 | 1-14 | q · human at the terminal</title>
+          <rect x="481.6" y="93" width="120" height="52" rx="8" class="c-mask"/>
+          <rect x="481.6" y="93" width="120" height="52" rx="8" class="c-external" data-animate="node" style="--step:8" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(487.6 99) scale(0.6875)">
             <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
             <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="602.9" y="125.4" class="t-primary" font-size="10.3" font-weight="600" text-anchor="middle">type at the prompt</text>
-          <text data-detail="context" x="602.9" y="140.1" class="t-muted" font-size="8" text-anchor="middle">url | bare 0 | 1-13 | q</text>
+          <text data-node-label="" data-detail-anchor="" x="541.6" y="124.4" class="t-primary" font-size="10.3" font-weight="600" text-anchor="middle">type at the prompt</text>
+          <text data-detail="context" x="541.6" y="139.1" class="t-muted" font-size="8" text-anchor="middle">url | 0 | 1-14 | q</text>
         </g>
 
-        <g id="node-u_esc" data-node-id="u_esc" data-node-label="press escape" tabindex="0" role="button" aria-label="Focus press escape, wipe results, back out, stop run, human at the terminal › menu session" aria-pressed="false" data-node-kind="external" data-node-sublabel="wipe results, back out, stop run" data-node-context="human at the terminal › menu session">
-          <title>press escape · wipe results, back out, stop run · human at the terminal › menu session</title>
-          <rect x="784.9" y="94" width="180" height="52" rx="8" class="c-mask"/>
-          <rect x="784.9" y="94" width="180" height="52" rx="8" class="c-external" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="stop" class="semantic-sigil s-external" transform="translate(790.9 100) scale(0.6875)">
-            <circle cx="8" cy="8" r="5.3"/>
-            <rect x="6.1" y="6.1" width="3.8" height="3.8" rx=".5" class="sigil-fill"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="874.9" y="115" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">press escape</text>
-          <text data-detail="context" x="874.9" y="132" class="t-muted" font-size="8" text-anchor="middle">wipe results, back out, stop run</text>
-        </g>
-
-        <g id="node-launcher" data-node-id="launcher" data-node-label="run-ytdlp.sh / .bat" tabindex="0" role="button" aria-label="Focus run-ytdlp.sh / .bat, thin wrapper, argv unchanged, cli process (ytdlp) › start + dispatch" aria-pressed="false" data-node-kind="backend" data-node-sublabel="thin wrapper, argv unchanged" data-node-context="cli process (ytdlp) › start + dispatch">
-          <title>run-ytdlp.sh / .bat · thin wrapper, argv unchanged · cli process (ytdlp) › start + dispatch</title>
-          <rect x="61.5" y="232" width="165" height="52" rx="8" class="c-mask"/>
-          <rect x="61.5" y="232" width="165" height="52" rx="8" class="c-backend" data-animate="node" style="--step:1" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(67.5 238) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="144" y="264" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">run-ytdlp.sh / .bat</text>
-          <text data-detail="context" x="144" y="276.3" class="t-muted" font-size="8" text-anchor="middle">thin wrapper, argv unchanged</text>
-        </g>
-
-        <g id="node-dispatch" data-node-id="dispatch" data-node-label="main() dispatch" tabindex="0" role="button" aria-label="Focus main() dispatch, parse argv, load settings once, cli process (ytdlp) › start + dispatch" aria-pressed="false" data-node-kind="backend" data-node-sublabel="parse argv, load settings once" data-node-tag="one settings load" data-node-context="cli process (ytdlp) › start + dispatch">
-          <title>main() dispatch · parse argv, load settings once · cli process (ytdlp) › start + dispatch · one settings load</title>
-          <rect x="264.5" y="224" width="200" height="68" rx="8" class="c-mask"/>
-          <rect x="264.5" y="224" width="200" height="68" rx="8" class="c-backend" data-animate="node" style="--step:2" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(270.5 230) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="364.5" y="245" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">main() dispatch</text>
-          <text data-detail="context" x="364.5" y="262" class="t-muted" font-size="8" text-anchor="middle">parse argv, load settings once</text>
-        <text data-detail="fine" x="364.5" y="280" class="t-backend" font-size="7" text-anchor="middle">one settings load</text>
-        </g>
-
-        <g id="node-wiring" data-node-id="wiring" data-node-label="run_menu wiring" tabindex="0" role="button" aria-label="Focus run_menu wiring, World + download/update closures, cli process (ytdlp) › menu session" aria-pressed="false" data-node-kind="backend" data-node-sublabel="World + download/update closures" data-node-context="cli process (ytdlp) › menu session">
-          <title>run_menu wiring · World + download/update closures · cli process (ytdlp) › menu session</title>
-          <rect x="520.9" y="232" width="164" height="52" rx="8" class="c-mask"/>
-          <rect x="520.9" y="232" width="164" height="52" rx="8" class="c-backend" data-animate="node" style="--step:3" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(526.9 238) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="593.4" y="253" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">run_menu wiring</text>
-          <text data-detail="context" x="602.9" y="270" class="t-muted" font-size="8" text-anchor="middle">World + download/update closures</text>
-        </g>
-
-        <g id="node-modes" data-node-id="modes" data-node-label="operator modes" tabindex="0" role="button" aria-label="Focus operator modes, --check/--selftest/--update exit early, cli process (ytdlp) › menu session" aria-pressed="false" data-node-kind="backend" data-node-sublabel="--check/--selftest/--update exit early" data-node-context="cli process (ytdlp) › menu session">
-          <title>operator modes · --check/--selftest/--update exit early · cli process (ytdlp) › menu session</title>
-          <rect x="767.4" y="232" width="215" height="52" rx="8" class="c-mask"/>
-          <rect x="767.4" y="232" width="215" height="52" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(773.4 238) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="874.9" y="253" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">operator modes</text>
-          <text data-detail="context" x="874.9" y="270" class="t-muted" font-size="8" text-anchor="middle">--check/--selftest/--update exit early</text>
-        </g>
-
-        <g id="node-quick" data-node-id="quick" data-node-label="quick url mode" tabindex="0" role="button" aria-label="Focus quick url mode, url arg: do_download then exit(rc), cli process (ytdlp) › act + run + update" aria-pressed="false" data-node-kind="backend" data-node-sublabel="url arg: do_download then exit(rc)" data-node-context="cli process (ytdlp) › act + run + update">
-          <title>quick url mode · url arg: do_download then exit(rc) · cli process (ytdlp) › act + run + update</title>
-          <rect x="1024.4" y="232" width="172" height="52" rx="8" class="c-mask"/>
-          <rect x="1024.4" y="232" width="172" height="52" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1030.4 238) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="1108.2" y="253" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">quick url mode</text>
-          <text data-detail="context" x="1110.4" y="270" class="t-muted" font-size="8" text-anchor="middle">url arg: do_download then exit(rc)</text>
-        </g>
-
-        <g id="node-paint" data-node-id="paint" data-node-label="paint menu + hints" tabindex="0" role="button" aria-label="Focus paint menu + hints, 13 rows, quick-paste row 0, hint block, menu session › menu session" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="13 rows, quick-paste row 0, hint block" data-node-tag="menu stays on screen" data-node-context="menu session › menu session">
-          <title>paint menu + hints · 13 rows, quick-paste row 0, hint block · menu session › menu session · menu stays on screen</title>
-          <rect x="506.9" y="362" width="192" height="68" rx="8" class="c-mask"/>
-          <rect x="506.9" y="362" width="192" height="68" rx="8" class="c-frontend" data-animate="node" style="--step:4" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(512.9 368) scale(0.6875)">
+        <g id="node-m_paint" data-node-id="m_paint" data-node-label="paint menu" tabindex="0" role="button" aria-label="Focus paint menu, rows 1-14, saved values, menu session" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="rows 1-14, saved values" data-node-context="menu session">
+          <title>paint menu · rows 1-14, saved values · menu session</title>
+          <rect x="286" y="217" width="96" height="52" rx="8" class="c-mask"/>
+          <rect x="286" y="217" width="96" height="52" rx="8" class="c-frontend" data-animate="node" style="--step:2" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(292 223) scale(0.6875)">
             <rect x="2" y="3" width="12" height="10" rx="2"/>
             <path d="M2 6.5h12"/>
             <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
             <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="597.5" y="383" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">paint menu + hints</text>
-          <text data-detail="context" x="602.9" y="400" class="t-muted" font-size="8" text-anchor="middle">13 rows, quick-paste row 0, hint block</text>
-        <text data-detail="fine" x="602.9" y="418" class="t-frontend" font-size="7" text-anchor="middle">menu stays on screen</text>
+          <text data-node-label="" data-detail-anchor="" x="334" y="251.2" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">paint menu</text>
+          <text data-detail="context" x="334" y="264.1" class="t-muted" font-size="6.3" text-anchor="middle">rows 1-14, saved values</text>
         </g>
 
-        <g id="node-prompt" data-node-id="prompt" data-node-label="prompt read" tabindex="0" role="button" aria-label="Focus prompt read, raw tty keys, history, bare-0 rule, menu session › menu session" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="raw tty keys, history, bare-0 rule" data-node-context="menu session › menu session">
-          <title>prompt read · raw tty keys, history, bare-0 rule · menu session › menu session</title>
-          <rect x="788.9" y="370" width="172" height="52" rx="8" class="c-mask"/>
-          <rect x="788.9" y="370" width="172" height="52" rx="8" class="c-frontend" data-animate="node" style="--step:5" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(794.9 376) scale(0.6875)">
-            <rect x="2" y="3" width="12" height="10" rx="2"/>
-            <path d="M2 6.5h12"/>
-            <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
-            <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="874.9" y="391" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">prompt read</text>
-          <text data-detail="context" x="874.9" y="408" class="t-muted" font-size="8" text-anchor="middle">raw tty keys, history, bare-0 rule</text>
-        </g>
-
-        <g id="node-route" data-node-id="route" data-node-label="route the input" tabindex="0" role="button" aria-label="Focus route the input, first http(s) link wins, else act(), menu session › act + run + update" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="first http(s) link wins, else act()" data-node-context="menu session › act + run + update">
-          <title>route the input · first http(s) link wins, else act() · menu session › act + run + update</title>
-          <rect x="1022.4000000000001" y="370" width="176" height="52" rx="8" class="c-mask"/>
-          <rect x="1022.4000000000001" y="370" width="176" height="52" rx="8" class="c-frontend" data-animate="node" style="--step:6" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="decision" class="semantic-sigil s-frontend" transform="translate(1028.4 376) scale(0.6875)">
+        <g id="node-m_route" data-node-id="m_route" data-node-label="route the input" tabindex="0" role="button" aria-label="Focus route the input, first http(s) link wins, menu session" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="first http(s) link wins" data-node-context="menu session">
+          <title>route the input · first http(s) link wins · menu session</title>
+          <rect x="493.6" y="217" width="96" height="52" rx="8" class="c-mask"/>
+          <rect x="493.6" y="217" width="96" height="52" rx="8" class="c-frontend" data-animate="node" style="--step:3" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="decision" class="semantic-sigil s-frontend" transform="translate(499.6 223) scale(0.6875)">
             <path d="M8 2.2 13.8 8 8 13.8 2.2 8Z"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1106.9" y="391" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">route the input</text>
-          <text data-detail="context" x="1110.4" y="408" class="t-muted" font-size="8" text-anchor="middle">first http(s) link wins, else act()</text>
+          <text data-node-label="" data-detail-anchor="" x="541.6" y="249.7" class="t-primary" font-size="9.7" font-weight="600" text-anchor="middle">route the input</text>
+          <text data-detail="context" x="541.6" y="262.2" class="t-muted" font-size="6.3" text-anchor="middle">first http(s) link wins</text>
         </g>
 
-        <g id="node-submenus" data-node-id="submenus" data-node-label="submenu pickers" tabindex="0" role="button" aria-label="Focus submenu pickers, items 1-8, 10, 12 + holds, menu session › act + run + update" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="items 1-8, 10, 12 + holds" data-node-context="menu session › act + run + update">
-          <title>submenu pickers · items 1-8, 10, 12 + holds · menu session › act + run + update</title>
-          <rect x="1338.3000000000002" y="370" width="128" height="52" rx="8" class="c-mask"/>
-          <rect x="1338.3000000000002" y="370" width="128" height="52" rx="8" class="c-frontend" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(1344.3000000000002 376) scale(0.6875)">
+        <g id="node-m_act" data-node-id="m_act" data-node-label="menu actions" tabindex="0" role="button" aria-label="Focus menu actions, items 1-14, saved each time, menu session" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="items 1-14, saved each time" data-node-context="menu session">
+          <title>menu actions · items 1-14, saved each time · menu session</title>
+          <rect x="650.8" y="217" width="140" height="52" rx="8" class="c-mask"/>
+          <rect x="650.8" y="217" width="140" height="52" rx="8" class="c-frontend" data-animate="node" style="--step:11" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(656.8 223) scale(0.6875)">
             <rect x="2" y="3" width="12" height="10" rx="2"/>
             <path d="M2 6.5h12"/>
             <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
             <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1402.3000000000002" y="402" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">submenu pickers</text>
-          <text data-detail="context" x="1402.3000000000002" y="414.3" class="t-muted" font-size="8" text-anchor="middle">items 1-8, 10, 12 + holds</text>
+          <text data-node-label="" data-detail-anchor="" x="720.8" y="249" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">menu actions</text>
+          <text data-detail="context" x="720.8" y="261.3" class="t-muted" font-size="8" text-anchor="middle">items 1-14, saved each time</text>
         </g>
 
-        <g id="node-w_clip" data-node-id="w_clip" data-node-label="system clipboard" tabindex="0" role="button" aria-label="Focus system clipboard, CF_UNICODETEXT | wl-paste/xclip/pbpaste, quick-paste + batch › menu session" aria-pressed="false" data-node-kind="external" data-node-sublabel="CF_UNICODETEXT | wl-paste/xclip/pbpaste" data-node-context="quick-paste + batch › menu session">
-          <title>system clipboard · CF_UNICODETEXT | wl-paste/xclip/pbpaste · quick-paste + batch › menu session</title>
-          <rect x="504.9" y="508" width="196" height="52" rx="8" class="c-mask"/>
-          <rect x="504.9" y="508" width="196" height="52" rx="8" class="c-external" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(510.9 514) scale(0.6875)">
-            <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
-            <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
+        <g id="node-u_cli" data-node-id="u_cli" data-node-label="releases API fetch" tabindex="0" role="button" aria-label="Focus releases API fetch, one GET: tag, asset, digest, updaters" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="one GET: tag, asset, digest" data-node-tag="no bare build: refusal" data-node-context="updaters">
+          <title>releases API fetch · one GET: tag, asset, digest · updaters · no bare build: refusal</title>
+          <rect x="274" y="334" width="120" height="68" rx="8" class="c-mask"/>
+          <rect x="274" y="334" width="120" height="68" rx="8" class="c-cloud" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(280 340) scale(0.6875)">
+            <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="602.9" y="529" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">system clipboard</text>
-          <text data-detail="context" x="602.9" y="546" class="t-muted" font-size="8" text-anchor="middle">CF_UNICODETEXT | wl-paste/xclip/pbpaste</text>
+          <text data-node-label="" data-detail-anchor="" x="334" y="367.4" class="t-primary" font-size="10.3" font-weight="600" text-anchor="middle">releases API fetch</text>
+          <text data-detail="context" x="334" y="380.8" class="t-muted" font-size="6.9" text-anchor="middle">one GET: tag, asset, digest</text>
+        <text data-detail="fine" x="334" y="393.3" class="t-cloud" font-size="7" text-anchor="middle">no bare build: refusal</text>
         </g>
 
-        <g id="node-quick0" data-node-id="quick0" data-node-label="item 0 quick-paste" tabindex="0" role="button" aria-label="Focus item 0 quick-paste, clipboard link, same run as a url, quick-paste + batch › menu session" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="clipboard link, same run as a url" data-node-tag="fires at the keypress" data-node-context="quick-paste + batch › menu session">
-          <title>item 0 quick-paste · clipboard link, same run as a url · quick-paste + batch › menu session · fires at the keypress</title>
-          <rect x="790.9" y="500" width="168" height="68" rx="8" class="c-mask"/>
-          <rect x="790.9" y="500" width="168" height="68" rx="8" class="c-frontend" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(796.9 506) scale(0.6875)">
-            <rect x="2" y="3" width="12" height="10" rx="2"/>
-            <path d="M2 6.5h12"/>
-            <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
-            <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
+        <g id="node-u_gate" data-node-id="u_gate" data-node-label="selftest gate + rename" tabindex="0" role="button" aria-label="Focus selftest gate + rename, must pass its own checks, updaters" aria-pressed="false" data-node-kind="security" data-node-sublabel="must pass its own checks" data-node-context="updaters">
+          <title>selftest gate + rename · must pass its own checks · updaters</title>
+          <rect x="469.6" y="342" width="144" height="52" rx="8" class="c-mask"/>
+          <rect x="469.6" y="342" width="144" height="52" rx="8" class="c-security" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(475.6 348) scale(0.6875)">
+            <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
+            <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="874.9" y="534.2" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">item 0 quick-paste</text>
-          <text data-detail="context" x="874.9" y="549.1" class="t-muted" font-size="8" text-anchor="middle">clipboard link, same run as a url</text>
-        <text data-detail="fine" x="874.9" y="561.9" class="t-frontend" font-size="7" text-anchor="middle">fires at the keypress</text>
+          <text data-node-label="" data-detail-anchor="" x="541.6" y="373.3" class="t-primary" font-size="10.3" font-weight="600" text-anchor="middle">selftest gate + rename</text>
+          <text data-detail="context" x="541.6" y="385.4" class="t-muted" font-size="8" text-anchor="middle">must pass its own checks</text>
         </g>
 
-        <g id="node-batch" data-node-id="batch" data-node-label="item 9 batch" tabindex="0" role="button" aria-label="Focus item 9 batch, urls one per line, bad lines skipped, quick-paste + batch › act + run + update" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="urls one per line, bad lines skipped" data-node-context="quick-paste + batch › act + run + update">
-          <title>item 9 batch · urls one per line, bad lines skipped · quick-paste + batch › act + run + update</title>
-          <rect x="1018.4000000000001" y="508" width="184" height="52" rx="8" class="c-mask"/>
-          <rect x="1018.4000000000001" y="508" width="184" height="52" rx="8" class="c-frontend" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(1024.4 514) scale(0.6875)">
-            <rect x="2" y="3" width="12" height="10" rx="2"/>
-            <path d="M2 6.5h12"/>
-            <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
-            <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="1110.4" y="529" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">item 9 batch</text>
-          <text data-detail="context" x="1110.4" y="546" class="t-muted" font-size="8" text-anchor="middle">urls one per line, bad lines skipped</text>
-        </g>
-
-        <g id="node-w_dialog" data-node-id="w_dialog" data-node-label="folder dialog" tabindex="0" role="button" aria-label="Focus folder dialog, SHBrowseForFolderW | zenity/kdialog, quick-paste + batch › act + run + update" aria-pressed="false" data-node-kind="external" data-node-sublabel="SHBrowseForFolderW | zenity/kdialog" data-node-context="quick-paste + batch › act + run + update">
-          <title>folder dialog · SHBrowseForFolderW | zenity/kdialog · quick-paste + batch › act + run + update</title>
-          <rect x="1314.3000000000002" y="508" width="176" height="52" rx="8" class="c-mask"/>
-          <rect x="1314.3000000000002" y="508" width="176" height="52" rx="8" class="c-external" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(1320.3000000000002 514) scale(0.6875)">
-            <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
-            <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="1402.3000000000002" y="529" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">folder dialog</text>
-          <text data-detail="context" x="1402.3000000000002" y="546" class="t-muted" font-size="8" text-anchor="middle">SHBrowseForFolderW | zenity/kdialog</text>
-        </g>
-
-        <g id="node-download" data-node-id="download" data-node-label="do_download" tabindex="0" role="button" aria-label="Focus do_download, scheme gate, preflight freeze, one run, download run › one download run › act + run + update" aria-pressed="false" data-node-kind="backend" data-node-sublabel="scheme gate, preflight freeze, one run" data-node-tag="escape is the only input" data-node-context="download run › one download run › act + run + update">
-          <title>do_download · scheme gate, preflight freeze, one run · download run › one download run › act + run + update · escape is the only input</title>
-          <rect x="1014.4000000000001" y="645" width="192" height="68" rx="8" class="c-mask"/>
-          <rect x="1014.4000000000001" y="645" width="192" height="68" rx="8" class="c-backend" data-animate="node" style="--step:7" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="active" class="semantic-sigil s-backend" transform="translate(1020.4000000000001 651) scale(0.6875)">
-            <path d="M2 8h3l1.5-3.5L9 12l1.6-4H14"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="1110.4" y="666" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">do_download</text>
-          <text data-detail="context" x="1110.4" y="683" class="t-muted" font-size="8" text-anchor="middle">scheme gate, preflight freeze, one run</text>
-        <text data-detail="fine" x="1110.4" y="701" class="t-backend" font-size="7" text-anchor="middle">escape is the only input</text>
-        </g>
-
-        <g id="node-w_ytdlp" data-node-id="w_ytdlp" data-node-label="yt-dlp process" tabindex="0" role="button" aria-label="Focus yt-dlp process, stdout/stderr piped, --newline progress, download run › one download run › act + run + update" aria-pressed="false" data-node-kind="external" data-node-sublabel="stdout/stderr piped, --newline progress" data-node-context="download run › one download run › act + run + update">
-          <title>yt-dlp process · stdout/stderr piped, --newline progress · download run › one download run › act + run + update</title>
-          <rect x="1304.3000000000002" y="653" width="196" height="52" rx="8" class="c-mask"/>
-          <rect x="1304.3000000000002" y="653" width="196" height="52" rx="8" class="c-external" data-animate="node" style="--step:8" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(1310.3000000000002 659) scale(0.6875)">
-            <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
-            <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="1402.3000000000002" y="674" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">yt-dlp process</text>
-          <text data-detail="context" x="1402.3000000000002" y="691" class="t-muted" font-size="8" text-anchor="middle">stdout/stderr piped, --newline progress</text>
-        </g>
-
-        <g id="node-load_cfg" data-node-id="load_cfg" data-node-label="load + coerce settings" tabindex="0" role="button" aria-label="Focus load + coerce settings, in memory, unknown keys ignored, settings + argv › start + dispatch" aria-pressed="false" data-node-kind="database" data-node-sublabel="in memory, unknown keys ignored" data-node-context="settings + argv › start + dispatch">
-          <title>load + coerce settings · in memory, unknown keys ignored · settings + argv › start + dispatch</title>
-          <rect x="266.5" y="792" width="196" height="52" rx="8" class="c-mask"/>
-          <rect x="266.5" y="792" width="196" height="52" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(272.5 798) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="364.5" y="824" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">load + coerce settings</text>
-          <text data-detail="context" x="364.5" y="836.3" class="t-muted" font-size="8" text-anchor="middle">in memory, unknown keys ignored</text>
-        </g>
-
-        <g id="node-bins" data-node-id="bins" data-node-label="find yt-dlp + ffmpeg" tabindex="0" role="button" aria-label="Focus find yt-dlp + ffmpeg, settings, bin/, then PATH (one memo), settings + argv › menu session" aria-pressed="false" data-node-kind="backend" data-node-sublabel="settings, bin/, then PATH (one memo)" data-node-context="settings + argv › menu session">
-          <title>find yt-dlp + ffmpeg · settings, bin/, then PATH (one memo) · settings + argv › menu session</title>
-          <rect x="510.9" y="792" width="184" height="52" rx="8" class="c-mask"/>
-          <rect x="510.9" y="792" width="184" height="52" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(516.9 798) scale(0.6875)">
+        <g id="node-c_main" data-node-id="c_main" data-node-label="main() dispatch" tabindex="0" role="button" aria-label="Focus main() dispatch, load settings once, ytdlp cli logic" aria-pressed="false" data-node-kind="backend" data-node-sublabel="load settings once" data-node-tag="check, selftest, update, url, menu" data-node-context="ytdlp cli logic">
+          <title>main() dispatch · load settings once · ytdlp cli logic · check, selftest, update, url, menu</title>
+          <rect x="138" y="460" width="152" height="68" rx="8" class="c-mask"/>
+          <rect x="138" y="460" width="152" height="68" rx="8" class="c-backend" data-animate="node" style="--step:1" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(144 466) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="602.9" y="824" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">find yt-dlp + ffmpeg</text>
-          <text data-detail="context" x="602.9" y="836.3" class="t-muted" font-size="8" text-anchor="middle">settings, bin/, then PATH (one memo)</text>
+          <text data-node-label="" data-detail-anchor="" x="214" y="494.2" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">main() dispatch</text>
+          <text data-detail="context" x="214" y="509.1" class="t-muted" font-size="8" text-anchor="middle">load settings once</text>
+        <text data-detail="fine" x="214" y="521.9" class="t-backend" font-size="7" text-anchor="middle">check, selftest, update, url, menu</text>
         </g>
 
-        <g id="node-outdir" data-node-id="outdir" data-node-label="resolve output folder" tabindex="0" role="button" aria-label="Focus resolve output folder, saved dir wins, else Desktop/Downloads, settings + argv › menu session" aria-pressed="false" data-node-kind="backend" data-node-sublabel="saved dir wins, else Desktop/Downloads" data-node-context="settings + argv › menu session">
-          <title>resolve output folder · saved dir wins, else Desktop/Downloads · settings + argv › menu session</title>
-          <rect x="778.9" y="792" width="192" height="52" rx="8" class="c-mask"/>
-          <rect x="778.9" y="792" width="192" height="52" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(784.9 798) scale(0.6875)">
+        <g id="node-r_do" data-node-id="r_do" data-node-label="do_download" tabindex="0" role="button" aria-label="Focus do_download, url check, tools, argv, ytdlp cli logic" aria-pressed="false" data-node-kind="backend" data-node-sublabel="url check, tools, argv" data-node-tag="offers ffmpeg if missing" data-node-context="ytdlp cli logic">
+          <title>do_download · url check, tools, argv · ytdlp cli logic · offers ffmpeg if missing</title>
+          <rect x="485.6" y="460" width="112" height="68" rx="8" class="c-mask"/>
+          <rect x="485.6" y="460" width="112" height="68" rx="8" class="c-backend" data-animate="node" style="--step:4" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(491.6 466) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="874.9" y="824" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">resolve output folder</text>
-          <text data-detail="context" x="874.9" y="836.3" class="t-muted" font-size="8" text-anchor="middle">saved dir wins, else Desktop/Downloads</text>
+          <text data-node-label="" data-detail-anchor="" x="541.6" y="494.2" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">do_download</text>
+          <text data-detail="context" x="541.6" y="508.9" class="t-muted" font-size="7.8" text-anchor="middle">url check, tools, argv</text>
+        <text data-detail="fine" x="541.6" y="521.7" class="t-backend" font-size="7" text-anchor="middle">offers ffmpeg if missing</text>
         </g>
 
-        <g id="node-argv" data-node-id="argv" data-node-label="build yt-dlp argv" tabindex="0" role="button" aria-label="Focus build yt-dlp argv, format, container, playlist, temp dir, settings + argv › act + run + update" aria-pressed="false" data-node-kind="backend" data-node-sublabel="format, container, playlist, temp dir" data-node-tag="pinned by 177 checks" data-node-context="settings + argv › act + run + update">
-          <title>build yt-dlp argv · format, container, playlist, temp dir · settings + argv › act + run + update · pinned by 177 checks</title>
-          <rect x="1016.4000000000001" y="784" width="188" height="68" rx="8" class="c-mask"/>
-          <rect x="1016.4000000000001" y="784" width="188" height="68" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1022.4000000000001 790) scale(0.6875)">
+        <g id="node-r_verdict" data-node-id="r_verdict" data-node-label="verdict" tabindex="0" role="button" aria-label="Focus verdict, finished | failed rc | stopped 130, ytdlp cli logic" aria-pressed="false" data-node-kind="backend" data-node-sublabel="finished | failed rc | stopped 130" data-node-context="ytdlp cli logic">
+          <title>verdict · finished | failed rc | stopped 130 · ytdlp cli logic</title>
+          <rect x="754.8" y="468" width="172" height="52" rx="8" class="c-mask"/>
+          <rect x="754.8" y="468" width="172" height="52" rx="8" class="c-backend" data-animate="node" style="--step:6" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(760.8 474) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1106.3000000000002" y="805" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">build yt-dlp argv</text>
-          <text data-detail="context" x="1110.4" y="822" class="t-muted" font-size="8" text-anchor="middle">format, container, playlist, temp dir</text>
-        <text data-detail="fine" x="1110.4" y="840" class="t-backend" font-size="7" text-anchor="middle">pinned by 177 checks</text>
+          <text data-node-label="" data-detail-anchor="" x="840.8" y="489" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">verdict</text>
+          <text data-detail="context" x="840.8" y="506" class="t-muted" font-size="8" text-anchor="middle">finished | failed rc | stopped 130</text>
         </g>
 
-        <g id="node-save" data-node-id="save" data-node-label="save (single point)" tabindex="0" role="button" aria-label="Focus save (single point), atomic replace, skipped when unchanged, settings + argv › act + run + update" aria-pressed="false" data-node-kind="database" data-node-sublabel="atomic replace, skipped when unchanged" data-node-context="settings + argv › act + run + update">
-          <title>save (single point) · atomic replace, skipped when unchanged · settings + argv › act + run + update</title>
-          <rect x="1306.3000000000002" y="792" width="192" height="52" rx="8" class="c-mask"/>
-          <rect x="1306.3000000000002" y="792" width="192" height="52" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1312.3000000000002 798) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="1393.6000000000001" y="813" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">save (single point)</text>
-          <text data-detail="context" x="1402.3000000000002" y="830" class="t-muted" font-size="8" text-anchor="middle">atomic replace, skipped when unchanged</text>
-        </g>
-
-        <g id="node-subs" data-node-id="subs" data-node-label="subtitle pass" tabindex="0" role="button" aria-label="Focus subtitle pass, after success: --skip-download, run outcome › act + run + update" aria-pressed="false" data-node-kind="backend" data-node-sublabel="after success: --skip-download" data-node-context="run outcome › act + run + update">
-          <title>subtitle pass · after success: --skip-download · run outcome › act + run + update</title>
-          <rect x="1022.4000000000001" y="930" width="176" height="52" rx="8" class="c-mask"/>
-          <rect x="1022.4000000000001" y="930" width="176" height="52" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1028.4 936) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="1110.4" y="951" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">subtitle pass</text>
-          <text data-detail="context" x="1110.4" y="968" class="t-muted" font-size="8" text-anchor="middle">after success: --skip-download</text>
-        </g>
-
-        <g id="node-verdict" data-node-id="verdict" data-node-label="one frozen verdict" tabindex="0" role="button" aria-label="Focus one frozen verdict, finished | failed rc | stopped 130, run outcome › act + run + update" aria-pressed="false" data-node-kind="backend" data-node-sublabel="finished | failed rc | stopped 130" data-node-context="run outcome › act + run + update">
-          <title>one frozen verdict · finished | failed rc | stopped 130 · run outcome › act + run + update</title>
-          <rect x="1302.3000000000002" y="930" width="200" height="52" rx="8" class="c-mask"/>
-          <rect x="1302.3000000000002" y="930" width="200" height="52" rx="8" class="c-backend" data-animate="node" style="--step:9" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1308.3000000000002 936) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="1400.9" y="951" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">one frozen verdict</text>
-          <text data-detail="context" x="1402.3000000000002" y="968" class="t-muted" font-size="8" text-anchor="middle">finished | failed rc | stopped 130</text>
-        </g>
-
-        <g id="node-auto_check" data-node-id="auto_check" data-node-label="daily auto-update check" tabindex="0" role="button" aria-label="Focus daily auto-update check, menu open, tty only, 6 s ceiling, updaters › menu-driven updates › menu session" aria-pressed="false" data-node-kind="backend" data-node-sublabel="menu open, tty only, 6 s ceiling" data-node-context="updaters › menu-driven updates › menu session">
-          <title>daily auto-update check · menu open, tty only, 6 s ceiling · updaters › menu-driven updates › menu session</title>
-          <rect x="782.4" y="1068" width="185" height="52" rx="8" class="c-mask"/>
-          <rect x="782.4" y="1068" width="185" height="52" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(788.4 1074) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="874.9" y="1100" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">daily auto-update check</text>
-          <text data-detail="context" x="874.9" y="1112.3" class="t-muted" font-size="8" text-anchor="middle">menu open, tty only, 6 s ceiling</text>
-        </g>
-
-        <g id="node-item11" data-node-id="item11" data-node-label="item 11 / --update" tabindex="0" role="button" aria-label="Focus item 11 / --update, yt-dlp -U first, then the cli, updaters › menu-driven updates › act + run + update" aria-pressed="false" data-node-kind="backend" data-node-sublabel="yt-dlp -U first, then the cli" data-node-context="updaters › menu-driven updates › act + run + update">
-          <title>item 11 / --update · yt-dlp -U first, then the cli · updaters › menu-driven updates › act + run + update</title>
-          <rect x="1025.4" y="1068" width="170" height="52" rx="8" class="c-mask"/>
-          <rect x="1025.4" y="1068" width="170" height="52" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1031.4 1074) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="1110.4" y="1100" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">item 11 / --update</text>
-          <text data-detail="context" x="1110.4" y="1112.3" class="t-muted" font-size="8" text-anchor="middle">yt-dlp -U first, then the cli</text>
-        </g>
-
-        <g id="node-ytdlp_up" data-node-id="ytdlp_up" data-node-label="yt-dlp -U" tabindex="0" role="button" aria-label="Focus yt-dlp -U, self-update, probe before/after, updaters › menu-driven updates › act + run + update" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="self-update, probe before/after" data-node-context="updaters › menu-driven updates › act + run + update">
-          <title>yt-dlp -U · self-update, probe before/after · updaters › menu-driven updates › act + run + update</title>
-          <rect x="1322.3000000000002" y="1068" width="160" height="52" rx="8" class="c-mask"/>
-          <rect x="1322.3000000000002" y="1068" width="160" height="52" rx="8" class="c-messagebus" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(1328.3000000000002 1074) scale(0.6875)">
+        <g id="node-r_ytdlp" data-node-id="r_ytdlp" data-node-label="yt-dlp process" tabindex="0" role="button" aria-label="Focus yt-dlp process, stdout piped; escape kills tree, child processes" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="stdout piped; escape kills tree" data-node-context="child processes">
+          <title>yt-dlp process · stdout piped; escape kills tree · child processes</title>
+          <rect x="461.6" y="626" width="160" height="52" rx="8" class="c-mask"/>
+          <rect x="461.6" y="626" width="160" height="52" rx="8" class="c-messagebus" data-animate="node" style="--step:5" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(467.6 632) scale(0.6875)">
             <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/>
             <circle cx="5" cy="4.5" r="1" class="sigil-fill"/>
             <circle cx="10.5" cy="8" r="1" class="sigil-fill"/>
             <circle cx="7" cy="11.5" r="1" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1402.3000000000002" y="1089" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">yt-dlp -U</text>
-          <text data-detail="context" x="1402.3000000000002" y="1106" class="t-muted" font-size="8" text-anchor="middle">self-update, probe before/after</text>
+          <text data-node-label="" data-detail-anchor="" x="533.4" y="647" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">yt-dlp process</text>
+          <text data-detail="context" x="541.6" y="664" class="t-muted" font-size="8" text-anchor="middle">stdout piped; escape kills tree</text>
         </g>
 
-        <g id="node-fetch_cli" data-node-id="fetch_cli" data-node-label="releases API fetch" tabindex="0" role="button" aria-label="Focus releases API fetch, one GET: tag + asset + digest, cli self-update › cli self-update chain › menu session" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="one GET: tag + asset + digest" data-node-context="cli self-update › cli self-update chain › menu session">
-          <title>releases API fetch · one GET: tag + asset + digest · cli self-update › cli self-update chain › menu session</title>
-          <rect x="789.9" y="1206" width="170" height="52" rx="8" class="c-mask"/>
-          <rect x="789.9" y="1206" width="170" height="52" rx="8" class="c-cloud" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(795.9 1212) scale(0.6875)">
-            <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
+        <g id="node-r_strip" data-node-id="r_strip" data-node-label="srt timecode stripper" tabindex="0" role="button" aria-label="Focus srt timecode stripper, only when srt on and rc 0, child processes" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="only when srt on and rc 0" data-node-context="child processes">
+          <title>srt timecode stripper · only when srt on and rc 0 · child processes</title>
+          <rect x="770.8" y="666" width="140" height="52" rx="8" class="c-mask"/>
+          <rect x="770.8" y="666" width="140" height="52" rx="8" class="c-messagebus" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(776.8 672) scale(0.6875)">
+            <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/>
+            <circle cx="5" cy="4.5" r="1" class="sigil-fill"/>
+            <circle cx="10.5" cy="8" r="1" class="sigil-fill"/>
+            <circle cx="7" cy="11.5" r="1" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="874.9" y="1238" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">releases API fetch</text>
-          <text data-detail="context" x="874.9" y="1250.3" class="t-muted" font-size="8" text-anchor="middle">one GET: tag + asset + digest</text>
+          <text data-node-label="" data-detail-anchor="" x="840.8" y="697.4" class="t-primary" font-size="10.4" font-weight="600" text-anchor="middle">srt timecode stripper</text>
+          <text data-detail="context" x="840.8" y="709.6" class="t-muted" font-size="8" text-anchor="middle">only when srt on and rc 0</text>
         </g>
 
-        <g id="node-refusal" data-node-id="refusal" data-node-label="missing-asset refusal" tabindex="0" role="button" aria-label="Focus missing-asset refusal, no bare cli image is published, cli self-update › cli self-update chain › act + run + update" aria-pressed="false" data-node-kind="security" data-node-sublabel="no bare cli image is published" data-node-context="cli self-update › cli self-update chain › act + run + update">
-          <title>missing-asset refusal · no bare cli image is published · cli self-update › cli self-update chain › act + run + update</title>
-          <rect x="1022.9000000000001" y="1206" width="175" height="52" rx="8" class="c-mask"/>
-          <rect x="1022.9000000000001" y="1206" width="175" height="52" rx="8" class="c-security" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(1028.9 1212) scale(0.6875)">
-            <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
-            <path d="m5.8 8 1.5 1.5 3-3"/>
+        <g id="node-r_subs" data-node-id="r_subs" data-node-label="subtitle pass" tabindex="0" role="button" aria-label="Focus subtitle pass, --skip-download, after success, child processes" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="--skip-download, after success" data-node-context="child processes">
+          <title>subtitle pass · --skip-download, after success · child processes</title>
+          <rect x="764.8" y="586" width="152" height="52" rx="8" class="c-mask"/>
+          <rect x="764.8" y="586" width="152" height="52" rx="8" class="c-messagebus" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(770.8 592) scale(0.6875)">
+            <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/>
+            <circle cx="5" cy="4.5" r="1" class="sigil-fill"/>
+            <circle cx="10.5" cy="8" r="1" class="sigil-fill"/>
+            <circle cx="7" cy="11.5" r="1" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1110.4" y="1238" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">missing-asset refusal</text>
-          <text data-detail="context" x="1110.4" y="1250.3" class="t-muted" font-size="8" text-anchor="middle">no bare cli image is published</text>
+          <text data-node-label="" data-detail-anchor="" x="831.9" y="607" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">subtitle pass</text>
+          <text data-detail="context" x="840.8" y="624" class="t-muted" font-size="8" text-anchor="middle">--skip-download, after success</text>
         </g>
 
-        <g id="node-gate_cli" data-node-id="gate_cli" data-node-label="selftest gate + rename" tabindex="0" role="button" aria-label="Focus selftest gate + rename, &lt;new&gt; --selftest, then .old + place, cli self-update › cli self-update chain › act + run + update" aria-pressed="false" data-node-kind="security" data-node-sublabel="&lt;new&gt; --selftest, then .old + place" data-node-context="cli self-update › cli self-update chain › act + run + update">
-          <title>selftest gate + rename · &lt;new&gt; --selftest, then .old + place · cli self-update › cli self-update chain › act + run + update</title>
-          <rect x="1302.3000000000002" y="1206" width="200" height="52" rx="8" class="c-mask"/>
-          <rect x="1302.3000000000002" y="1206" width="200" height="52" rx="8" class="c-security" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(1308.3000000000002 1212) scale(0.6875)">
-            <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
-            <path d="m5.8 8 1.5 1.5 3-3"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="1402.3000000000002" y="1238" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">selftest gate + rename</text>
-          <text data-detail="context" x="1402.3000000000002" y="1250.3" class="t-muted" font-size="8" text-anchor="middle">&lt;new&gt; --selftest, then .old + place</text>
-        </g>
-
-        <g id="node-w_ffmpeg" data-node-id="w_ffmpeg" data-node-label="ffmpeg offer + install" tabindex="0" role="button" aria-label="Focus ffmpeg offer + install, BtbN | shaka-project, digest first, external world › menu session" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="BtbN | shaka-project, digest first" data-node-context="external world › menu session">
-          <title>ffmpeg offer + install · BtbN | shaka-project, digest first · external world › menu session</title>
-          <rect x="507.9" y="1344" width="190" height="52" rx="8" class="c-mask"/>
-          <rect x="507.9" y="1344" width="190" height="52" rx="8" class="c-cloud" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(513.9 1350) scale(0.6875)">
-            <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="602.9" y="1376" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">ffmpeg offer + install</text>
-          <text data-detail="context" x="602.9" y="1388.3" class="t-muted" font-size="8" text-anchor="middle">BtbN | shaka-project, digest first</text>
-        </g>
-
-        <g id="node-f_settings" data-node-id="f_settings" data-node-label="config/settings.json" tabindex="0" role="button" aria-label="Focus config/settings.json, 16 fields, LF, written by the product, files on disk › start + dispatch" aria-pressed="false" data-node-kind="database" data-node-sublabel="16 fields, LF, written by the product" data-node-context="files on disk › start + dispatch">
-          <title>config/settings.json · 16 fields, LF, written by the product · files on disk › start + dispatch</title>
-          <rect x="270.5" y="1482" width="188" height="52" rx="8" class="c-mask"/>
-          <rect x="270.5" y="1482" width="188" height="52" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(276.5 1488) scale(0.6875)">
+        <g id="node-f_settings" data-node-id="f_settings" data-node-label="config/settings.json" tabindex="0" role="button" aria-label="Focus config/settings.json, read at start, saved on change, files on disk" aria-pressed="false" data-node-kind="database" data-node-sublabel="read at start, saved on change" data-node-context="files on disk">
+          <title>config/settings.json · read at start, saved on change · files on disk</title>
+          <rect x="148" y="783" width="132" height="52" rx="8" class="c-mask"/>
+          <rect x="148" y="783" width="132" height="52" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(154 789) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="364.5" y="1514" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">config/settings.json</text>
-          <text data-detail="context" x="364.5" y="1526.3" class="t-muted" font-size="8" text-anchor="middle">16 fields, LF, written by the product</text>
+          <text data-node-label="" data-detail-anchor="" x="214" y="816.4" class="t-primary" font-size="10.3" font-weight="600" text-anchor="middle">config/settings.json</text>
+          <text data-detail="context" x="214" y="829.7" class="t-muted" font-size="6.8" text-anchor="middle">read at start, saved on change</text>
         </g>
 
-        <g id="node-f_tmp" data-node-id="f_tmp" data-node-label=".ytdlp-tmp work folder" tabindex="0" role="button" aria-label="Focus .ytdlp-tmp work folder, fragments and parts, wiped at run end, files on disk › menu session" aria-pressed="false" data-node-kind="database" data-node-sublabel="fragments and parts, wiped at run end" data-node-context="files on disk › menu session">
-          <title>.ytdlp-tmp work folder · fragments and parts, wiped at run end · files on disk › menu session</title>
-          <rect x="767.4" y="1482" width="215" height="52" rx="8" class="c-mask"/>
-          <rect x="767.4" y="1482" width="215" height="52" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(773.4 1488) scale(0.6875)">
+        <g id="node-f_out" data-node-id="f_out" data-node-label="output folder" tabindex="0" role="button" aria-label="Focus output folder, partials in .ytdlp-tmp, files on disk" aria-pressed="false" data-node-kind="database" data-node-sublabel="partials in .ytdlp-tmp" data-node-context="files on disk">
+          <title>output folder · partials in .ytdlp-tmp · files on disk</title>
+          <rect x="794.8" y="783" width="92" height="52" rx="8" class="c-mask"/>
+          <rect x="794.8" y="783" width="92" height="52" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(800.8 789) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="867.8" y="1503" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">.ytdlp-tmp work folder</text>
-          <text data-detail="context" x="874.9" y="1520" class="t-muted" font-size="8" text-anchor="middle">fragments and parts, wiped at run end</text>
-        </g>
-
-        <g id="node-f_downloads" data-node-id="f_downloads" data-node-label="output folder" tabindex="0" role="button" aria-label="Focus output folder, finished files only, files on disk › act + run + update" aria-pressed="false" data-node-kind="database" data-node-sublabel="finished files only" data-node-context="files on disk › act + run + update">
-          <title>output folder · finished files only · files on disk › act + run + update</title>
-          <rect x="1052.9" y="1482" width="115" height="52" rx="8" class="c-mask"/>
-          <rect x="1052.9" y="1482" width="115" height="52" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1058.9 1488) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="1110.4" y="1514" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">output folder</text>
-          <text data-detail="context" x="1110.4" y="1526.3" class="t-muted" font-size="8" text-anchor="middle">finished files only</text>
-        </g>
-
-        <g id="node-f_bin" data-node-id="f_bin" data-node-label="bin/ payloads" tabindex="0" role="button" aria-label="Focus bin/ payloads, yt-dlp, ffmpeg, .old cleaned at start, files on disk › act + run + update" aria-pressed="false" data-node-kind="database" data-node-sublabel="yt-dlp, ffmpeg, .old cleaned at start" data-node-context="files on disk › act + run + update">
-          <title>bin/ payloads · yt-dlp, ffmpeg, .old cleaned at start · files on disk › act + run + update</title>
-          <rect x="1299.8000000000002" y="1482" width="205" height="52" rx="8" class="c-mask"/>
-          <rect x="1299.8000000000002" y="1482" width="205" height="52" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1305.8000000000002 1488) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="1402.3000000000002" y="1503" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">bin/ payloads</text>
-          <text data-detail="context" x="1402.3000000000002" y="1520" class="t-muted" font-size="8" text-anchor="middle">yt-dlp, ffmpeg, .old cleaned at start</text>
+          <text data-node-label="" data-detail-anchor="" x="840.8" y="816.9" class="t-primary" font-size="10.7" font-weight="600" text-anchor="middle">output folder</text>
+          <text data-detail="context" x="840.8" y="829.7" class="t-muted" font-size="6.3" text-anchor="middle">partials in .ytdlp-tmp</text>
         </g>
 
         <!-- Edge labels -->
-        <g data-detail="context" data-edge-from="verdict" data-edge-to="prompt" data-edge-label="results stay, prompt again" data-edge-key="0" data-edge-id="e_again">
-          <rect x="1133.55" y="334" width="134.8" height="14" rx="3" class="c-mask"/>
-          <text x="1200.95" y="344" class="t-muted" font-size="8" text-anchor="middle">results stay, prompt again</text>
+        <g data-detail="context" data-edge-from="m_route" data-edge-to="m_act" data-edge-label="1-14 or 0" data-edge-key="0" data-edge-id="e_act">
+          <rect x="593.6" y="223" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
+          <text x="620.2" y="233" class="t-muted" font-size="8" text-anchor="middle">1-14 or 0</text>
         </g>
-        <g data-detail="context" data-edge-from="download" data-edge-to="argv" data-edge-label="build args" data-edge-key="1" data-edge-id="e_args">
-          <rect x="1081.4" y="738.5" width="58" height="14" rx="3" class="c-mask"/>
-          <text x="1110.4" y="748.5" class="t-edge-dashed" font-size="8" text-anchor="middle">build args</text>
+        <g data-detail="context" data-edge-from="m_act" data-edge-to="r_do" data-edge-label="0 clipboard, 10 batch" data-edge-key="1" data-edge-id="e_batch">
+          <rect x="607.3000000000001" y="474" width="110.8" height="14" rx="3" class="c-mask"/>
+          <text x="662.7" y="484" class="t-edge-dashed" font-size="8" text-anchor="middle">0 clipboard, 10 batch</text>
         </g>
-        <g data-detail="context" data-edge-from="batch" data-edge-to="download" data-edge-label="sequential" data-edge-key="2" data-edge-id="e_batch_run">
-          <rect x="1081.4" y="592.5" width="58" height="14" rx="3" class="c-mask"/>
-          <text x="1110.4" y="602.5" class="t-edge-dashed" font-size="8" text-anchor="middle">sequential</text>
+        <g data-detail="context" data-edge-from="r_verdict" data-edge-to="f_out" data-edge-label="saved file" data-edge-key="2" data-edge-id="e_final">
+          <rect x="887.9" y="789" width="58" height="14" rx="3" class="c-mask"/>
+          <text x="916.9" y="799" class="t-edge-dashed" font-size="8" text-anchor="middle">saved file</text>
         </g>
-        <g data-detail="context" data-edge-from="download" data-edge-to="bins" data-edge-label="preflight" data-edge-key="3" data-edge-id="e_bins">
-          <rect x="782.0500000000001" y="650" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
-          <text x="808.6500000000001" y="660" class="t-edge-dashed" font-size="8" text-anchor="middle">preflight</text>
+        <g data-detail="context" data-edge-from="u_cli" data-edge-to="u_gate" data-edge-label="y + download" data-edge-key="3" data-edge-id="e_gate">
+          <rect x="398" y="348" width="67.6" height="14" rx="3" class="c-mask"/>
+          <text x="431.8" y="358" class="t-edge-security" font-size="8" text-anchor="middle">y + download</text>
         </g>
-        <g data-detail="context" data-edge-from="submenus" data-edge-to="save" data-edge-label="every change" data-edge-key="4" data-edge-id="e_changed">
-          <rect x="1422.8500000000001" y="756" width="67.6" height="14" rx="3" class="c-mask"/>
-          <text x="1456.65" y="766" class="t-edge-emphasis" font-size="8" text-anchor="middle">every change</text>
+        <g data-detail="context" data-edge-from="c_main" data-edge-to="m_paint" data-edge-label="no flags" data-edge-key="4" data-edge-id="e_menu">
+          <rect x="225.8" y="223" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="250" y="233" class="t-edge-emphasis" font-size="8" text-anchor="middle">no flags</text>
         </g>
-        <g data-detail="context" data-edge-from="auto_check" data-edge-to="fetch_cli" data-edge-label="silent, 6 s" data-edge-key="5" data-edge-id="e_check_api">
-          <rect x="793" y="1128" width="62.8" height="14" rx="3" class="c-mask"/>
-          <text x="824.4" y="1138" class="t-edge-dashed" font-size="8" text-anchor="middle">silent, 6 s</text>
+        <g data-detail="context" data-edge-from="m_paint" data-edge-to="m_route" data-edge-label="prompt" data-edge-key="5" data-edge-id="e_paint_route">
+          <rect x="418.40000000000003" y="223" width="38.8" height="14" rx="3" class="c-mask"/>
+          <text x="437.8" y="233" class="t-edge-emphasis" font-size="8" text-anchor="middle">prompt</text>
         </g>
-        <g data-detail="context" data-edge-from="verdict" data-edge-to="f_tmp" data-edge-label="force-remove every end" data-edge-key="6" data-edge-id="e_clean">
-          <rect x="1142.5500000000002" y="852" width="115.6" height="14" rx="3" class="c-mask"/>
-          <text x="1200.3500000000001" y="862" class="t-edge-security" font-size="8" text-anchor="middle">force-remove every end</text>
+        <g data-detail="context" data-edge-from="r_ytdlp" data-edge-to="r_verdict" data-edge-label="rc + tail" data-edge-key="6" data-edge-id="e_rc">
+          <rect x="628.3000000000001" y="632" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
+          <text x="654.9000000000001" y="642" class="t-edge-emphasis" font-size="8" text-anchor="middle">rc + tail</text>
         </g>
-        <g data-detail="context" data-edge-from="quick0" data-edge-to="w_clip" data-edge-label="first http link" data-edge-key="7" data-edge-id="e_clip">
-          <rect x="704.9" y="514" width="82" height="14" rx="3" class="c-mask"/>
-          <text x="745.9" y="524" class="t-edge-dashed" font-size="8" text-anchor="middle">first http link</text>
+        <g data-detail="context" data-edge-from="c_main" data-edge-to="f_settings" data-edge-label="read at start" data-edge-key="7" data-edge-id="e_read">
+          <rect x="177.8" y="645.5" width="72.4" height="14" rx="3" class="c-mask"/>
+          <text x="214" y="655.5" class="t-edge-dashed" font-size="8" text-anchor="middle">read at start</text>
         </g>
-        <g data-detail="context" data-edge-from="submenus" data-edge-to="w_dialog" data-edge-label="item 5" data-edge-key="8" data-edge-id="e_dialog">
-          <rect x="1382.9" y="455" width="38.8" height="14" rx="3" class="c-mask"/>
-          <text x="1402.3000000000002" y="465" class="t-edge-dashed" font-size="8" text-anchor="middle">item 5</text>
+        <g data-detail="context" data-edge-from="r_do" data-edge-to="r_ytdlp" data-edge-label="spawn" data-edge-key="8" data-edge-id="e_spawn">
+          <rect x="524.6" y="567" width="34" height="14" rx="3" class="c-mask"/>
+          <text x="541.6" y="577" class="t-edge-emphasis" font-size="8" text-anchor="middle">spawn</text>
         </g>
-        <g data-detail="context" data-edge-from="u_esc" data-edge-to="prompt" data-edge-label="escape" data-edge-key="9" data-edge-id="e_esc_read">
-          <rect x="901.25" y="318" width="38.8" height="14" rx="3" class="c-mask"/>
-          <text x="920.65" y="328" class="t-edge-dashed" font-size="8" text-anchor="middle">escape</text>
+        <g data-detail="context" data-edge-from="u_start" data-edge-to="c_main" data-edge-label="start" data-edge-key="9" data-edge-id="e_start">
+          <rect x="148" y="99" width="34" height="14" rx="3" class="c-mask"/>
+          <text x="165" y="109" class="t-edge-emphasis" font-size="8" text-anchor="middle">start</text>
         </g>
-        <g data-detail="context" data-edge-from="u_esc" data-edge-to="verdict" data-edge-label="during a run: kill tree" data-edge-key="10" data-edge-id="e_escape_run">
-          <rect x="1193.75" y="100" width="120.39999999999999" height="14" rx="3" class="c-mask"/>
-          <text x="1253.95" y="110" class="t-edge-security" font-size="8" text-anchor="middle">during a run: kill tree</text>
+        <g data-detail="context" data-edge-from="r_subs" data-edge-to="r_strip" data-edge-label="rc 0 + srt on" data-edge-key="10" data-edge-id="e_strip">
+          <rect x="804.5999999999999" y="642" width="72.4" height="14" rx="3" class="c-mask"/>
+          <text x="840.8" y="652" class="t-edge-dashed" font-size="8" text-anchor="middle">rc 0 + srt on</text>
         </g>
-        <g data-detail="context" data-edge-from="launcher" data-edge-to="dispatch" data-edge-label="exec" data-edge-key="11" data-edge-id="e_exec">
-          <rect x="230.5" y="238" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="245.5" y="248" class="t-edge-emphasis" font-size="8" text-anchor="middle">exec</text>
+        <g data-detail="context" data-edge-from="r_verdict" data-edge-to="r_subs" data-edge-label="success + subs on" data-edge-key="11" data-edge-id="e_subs">
+          <rect x="795" y="543" width="91.6" height="14" rx="3" class="c-mask"/>
+          <text x="840.8" y="553" class="t-edge-dashed" font-size="8" text-anchor="middle">success + subs on</text>
         </g>
-        <g data-detail="context" data-edge-from="w_ffmpeg" data-edge-to="f_bin" data-edge-label="install 0755" data-edge-key="12" data-edge-id="e_ff_install">
-          <rect x="968.8000000000002" y="1542" width="67.6" height="14" rx="3" class="c-mask"/>
-          <text x="1002.6000000000001" y="1552" class="t-edge-dashed" font-size="8" text-anchor="middle">install 0755</text>
+        <g data-detail="context" data-edge-from="u_type" data-edge-to="m_route" data-edge-label="keys + enter" data-edge-key="12" data-edge-id="e_type">
+          <rect x="507.8" y="171" width="67.6" height="14" rx="3" class="c-mask"/>
+          <text x="541.6" y="181" class="t-muted" font-size="8" text-anchor="middle">keys + enter</text>
         </g>
-        <g data-detail="context" data-edge-from="download" data-edge-to="w_ffmpeg" data-edge-label="no ffmpeg?" data-edge-key="13" data-edge-id="e_ff_offer">
-          <rect x="763.6500000000001" y="966" width="58" height="14" rx="3" class="c-mask"/>
-          <text x="792.6500000000001" y="976" class="t-edge-dashed" font-size="8" text-anchor="middle">no ffmpeg?</text>
+        <g data-detail="context" data-edge-from="m_act" data-edge-to="u_cli" data-edge-label="12 update" data-edge-key="13" data-edge-id="e_update">
+          <rect x="497.29999999999995" y="270" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
+          <text x="523.9" y="280" class="t-edge-dashed" font-size="8" text-anchor="middle">12 update</text>
         </g>
-        <g data-detail="context" data-edge-from="verdict" data-edge-to="f_downloads" data-edge-label="final rename" data-edge-key="14" data-edge-id="e_file">
-          <rect x="1284.9" y="1446" width="67.6" height="14" rx="3" class="c-mask"/>
-          <text x="1318.7" y="1456" class="t-edge-dashed" font-size="8" text-anchor="middle">final rename</text>
-        </g>
-        <g data-detail="context" data-edge-from="paint" data-edge-to="auto_check" data-edge-label="after first paint" data-edge-key="15" data-edge-id="e_first_check">
-          <rect x="649.1" y="1128" width="91.6" height="14" rx="3" class="c-mask"/>
-          <text x="694.9" y="1138" class="t-edge-dashed" font-size="8" text-anchor="middle">after first paint</text>
-        </g>
-        <g data-detail="context" data-edge-from="fetch_cli" data-edge-to="gate_cli" data-edge-label="asset + digest" data-edge-key="16" data-edge-id="e_gate">
-          <rect x="1088.0000000000002" y="1266" width="77.2" height="14" rx="3" class="c-mask"/>
-          <text x="1126.6000000000001" y="1276" class="t-edge-security" font-size="8" text-anchor="middle">asset + digest</text>
-        </g>
-        <g data-detail="context" data-edge-from="route" data-edge-to="item11" data-edge-label="11" data-edge-key="17" data-edge-id="e_item11">
-          <rect x="1311.7" y="334" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="1326.7" y="344" class="t-edge-dashed" font-size="8" text-anchor="middle">11</text>
-        </g>
-        <g data-detail="context" data-edge-from="u_typed" data-edge-to="prompt" data-edge-label="keys" data-edge-key="18" data-edge-id="e_keys">
-          <rect x="646.4" y="58" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="661.4" y="68" class="t-muted" font-size="8" text-anchor="middle">keys</text>
-        </g>
-        <g data-detail="context" data-edge-from="prompt" data-edge-to="route" data-edge-label="line" data-edge-key="19" data-edge-id="e_line">
-          <rect x="976.6500000000001" y="376" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="991.6500000000001" y="386" class="t-edge-emphasis" font-size="8" text-anchor="middle">line</text>
-        </g>
-        <g data-detail="context" data-edge-from="dispatch" data-edge-to="load_cfg" data-edge-label="load once" data-edge-key="20" data-edge-id="e_load">
-          <rect x="337.9" y="532" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
-          <text x="364.5" y="542" class="t-edge-emphasis" font-size="8" text-anchor="middle">load once</text>
-        </g>
-        <g data-detail="context" data-edge-from="dispatch" data-edge-to="wiring" data-edge-label="no flags" data-edge-key="21" data-edge-id="e_menu">
-          <rect x="468.5" y="238" width="48.4" height="14" rx="3" class="c-mask"/>
-          <text x="492.7" y="248" class="t-edge-emphasis" font-size="8" text-anchor="middle">no flags</text>
-        </g>
-        <g data-detail="context" data-edge-from="dispatch" data-edge-to="modes" data-edge-label="mode flag?" data-edge-key="22" data-edge-id="e_mode">
-          <rect x="590.7" y="178" width="58" height="14" rx="3" class="c-mask"/>
-          <text x="619.7" y="188" class="t-edge-dashed" font-size="8" text-anchor="middle">mode flag?</text>
-        </g>
-        <g data-detail="context" data-edge-from="route" data-edge-to="batch" data-edge-label="9" data-edge-key="23" data-edge-id="e_nine">
-          <rect x="1095.4" y="455" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="1110.4" y="465" class="t-muted" font-size="8" text-anchor="middle">9</text>
-        </g>
-        <g data-detail="context" data-edge-from="download" data-edge-to="outdir" data-edge-label="resolve" data-edge-key="24" data-edge-id="e_outdir">
-          <rect x="887.9750000000001" y="756" width="43.6" height="14" rx="3" class="c-mask"/>
-          <text x="909.7750000000001" y="766" class="t-edge-dashed" font-size="8" text-anchor="middle">resolve</text>
-        </g>
-        <g data-detail="context" data-edge-from="paint" data-edge-to="prompt" data-edge-label="&gt;" data-edge-key="25" data-edge-id="e_paint_prompt">
-          <rect x="728.9" y="376" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="743.9" y="386" class="t-edge-emphasis" font-size="8" text-anchor="middle">&gt;</text>
-        </g>
-        <g data-detail="context" data-edge-from="route" data-edge-to="submenus" data-edge-label="1-8, 10, 12" data-edge-key="26" data-edge-id="e_pick">
-          <rect x="1236.95" y="376" width="62.8" height="14" rx="3" class="c-mask"/>
-          <text x="1268.3500000000001" y="386" class="t-muted" font-size="8" text-anchor="middle">1-8, 10, 12</text>
-        </g>
-        <g data-detail="context" data-edge-from="gate_cli" data-edge-to="f_bin" data-edge-label="rename + place" data-edge-key="27" data-edge-id="e_place">
-          <rect x="1363.7000000000003" y="1360" width="77.2" height="14" rx="3" class="c-mask"/>
-          <text x="1402.3000000000002" y="1370" class="t-edge-emphasis" font-size="8" text-anchor="middle">rename + place</text>
-        </g>
-        <g data-detail="context" data-edge-from="bins" data-edge-to="f_bin" data-edge-label="probe candidates" data-edge-key="28" data-edge-id="e_probe">
-          <rect x="829.9500000000002" y="1542" width="86.8" height="14" rx="3" class="c-mask"/>
-          <text x="873.3500000000001" y="1552" class="t-edge-dashed" font-size="8" text-anchor="middle">probe candidates</text>
-        </g>
-        <g data-detail="context" data-edge-from="dispatch" data-edge-to="quick" data-edge-label="url arg" data-edge-key="29" data-edge-id="e_qarg">
-          <rect x="652.6500000000001" y="154" width="43.6" height="14" rx="3" class="c-mask"/>
-          <text x="674.45" y="164" class="t-edge-dashed" font-size="8" text-anchor="middle">url arg</text>
-        </g>
-        <g data-detail="context" data-edge-from="w_ytdlp" data-edge-to="verdict" data-edge-label="rc + tail" data-edge-key="30" data-edge-id="e_rc">
-          <rect x="1442.0500000000002" y="894" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
-          <text x="1468.65" y="904" class="t-edge-emphasis" font-size="8" text-anchor="middle">rc + tail</text>
-        </g>
-        <g data-detail="context" data-edge-from="load_cfg" data-edge-to="f_settings" data-edge-label="read" data-edge-key="31" data-edge-id="e_read_cfg">
-          <rect x="349.5" y="1153" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="364.5" y="1163" class="t-edge-dashed" font-size="8" text-anchor="middle">read</text>
-        </g>
-        <g data-detail="context" data-edge-from="gate_cli" data-edge-to="refusal" data-edge-label="no asset published" data-edge-key="32" data-edge-id="e_refuse">
-          <rect x="1201.9" y="1212" width="96.39999999999999" height="14" rx="3" class="c-mask"/>
-          <text x="1250.1000000000001" y="1222" class="t-edge-security" font-size="8" text-anchor="middle">no asset published</text>
-        </g>
-        <g data-detail="context" data-edge-from="download" data-edge-to="w_ytdlp" data-edge-label="spawn + 2 pumps" data-edge-key="33" data-edge-id="e_spawn">
-          <rect x="1214.3500000000001" y="659" width="82" height="14" rx="3" class="c-mask"/>
-          <text x="1255.3500000000001" y="669" class="t-edge-emphasis" font-size="8" text-anchor="middle">spawn + 2 pumps</text>
-        </g>
-        <g data-detail="context" data-edge-from="u_start" data-edge-to="launcher" data-edge-label="start" data-edge-key="34" data-edge-id="e_start">
-          <rect x="29.125" y="238" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="46.125" y="248" class="t-edge-emphasis" font-size="8" text-anchor="middle">start</text>
-        </g>
-        <g data-detail="context" data-edge-from="verdict" data-edge-to="subs" data-edge-label="success + subs on" data-edge-key="35" data-edge-id="e_subs">
-          <rect x="1204.5500000000002" y="936" width="91.6" height="14" rx="3" class="c-mask"/>
-          <text x="1250.3500000000001" y="946" class="t-edge-dashed" font-size="8" text-anchor="middle">success + subs on</text>
-        </g>
-        <g data-detail="context" data-edge-from="item11" data-edge-to="fetch_cli" data-edge-label="then the cli" data-edge-key="36" data-edge-id="e_upd_cli">
-          <rect x="1009.3500000000001" y="1128" width="67.6" height="14" rx="3" class="c-mask"/>
-          <text x="1043.15" y="1138" class="t-muted" font-size="8" text-anchor="middle">then the cli</text>
-        </g>
-        <g data-detail="context" data-edge-from="item11" data-edge-to="ytdlp_up" data-edge-label="first" data-edge-key="37" data-edge-id="e_upd_ytdlp">
-          <rect x="1241.8500000000001" y="1074" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="1258.8500000000001" y="1084" class="t-muted" font-size="8" text-anchor="middle">first</text>
-        </g>
-        <g data-detail="context" data-edge-from="route" data-edge-to="download" data-edge-label="http(s) url" data-edge-key="38" data-edge-id="e_url">
-          <rect x="1011.0000000000001" y="475" width="62.8" height="14" rx="3" class="c-mask"/>
-          <text x="1042.4" y="485" class="t-edge-emphasis" font-size="8" text-anchor="middle">http(s) url</text>
-        </g>
-        <g data-detail="context" data-edge-from="wiring" data-edge-to="paint" data-edge-label="session opens" data-edge-key="39" data-edge-id="e_wired_paint">
-          <rect x="566.6999999999999" y="313" width="72.4" height="14" rx="3" class="c-mask"/>
-          <text x="602.9" y="323" class="t-edge-emphasis" font-size="8" text-anchor="middle">session opens</text>
-        </g>
-        <g data-detail="context" data-edge-from="download" data-edge-to="f_tmp" data-edge-label="work dir" data-edge-key="40" data-edge-id="e_work">
-          <rect x="909.575" y="1446" width="48.4" height="14" rx="3" class="c-mask"/>
-          <text x="933.7750000000001" y="1456" class="t-edge-dashed" font-size="8" text-anchor="middle">work dir</text>
-        </g>
-        <g data-detail="context" data-edge-from="prompt" data-edge-to="quick0" data-edge-label="bare 0 on a tty" data-edge-key="41" data-edge-id="e_zero">
-          <rect x="833.9" y="451" width="82" height="14" rx="3" class="c-mask"/>
-          <text x="874.9" y="461" class="t-muted" font-size="8" text-anchor="middle">bare 0 on a tty</text>
-        </g>
-        <g data-detail="context" data-edge-from="quick0" data-edge-to="download" data-edge-label="same run" data-edge-key="42" data-edge-id="e_zero_run">
-          <rect x="912.45" y="624" width="48.4" height="14" rx="3" class="c-mask"/>
-          <text x="936.6500000000001" y="634" class="t-edge-emphasis" font-size="8" text-anchor="middle">same run</text>
+        <g data-detail="context" data-edge-from="m_route" data-edge-to="r_do" data-edge-label="http(s) link" data-edge-key="14" data-edge-id="e_url">
+          <rect x="670.5" y="824" width="67.6" height="14" rx="3" class="c-mask"/>
+          <text x="704.3" y="834" class="t-edge-emphasis" font-size="8" text-anchor="middle">http(s) link</text>
         </g>
 
         <!-- Legend -->
         <g data-legend="" data-legend-bridge="">
-          <text x="20" y="1570" class="t-primary" font-size="12" font-weight="650">Legend</text>
-          <g data-legend-semantic-kind="frontend" data-legend-kind="frontend" data-legend-label="User UI" data-legend-x="20" data-legend-baseline="1590" data-legend-width="76">
-            <rect x="20" y="1582" width="14" height="9" rx="2" class="c-frontend" stroke-width="1"/>
-            <text x="42" y="1590" class="t-muted" font-size="7.5" font-weight="500">User UI</text>
+          <text x="20" y="870" class="t-primary" font-size="12" font-weight="650">Legend</text>
+          <g data-legend-semantic-kind="frontend" data-legend-kind="frontend" data-legend-label="User UI" data-legend-x="20" data-legend-baseline="890" data-legend-width="76">
+            <rect x="20" y="882" width="14" height="9" rx="2" class="c-frontend" stroke-width="1"/>
+            <text x="42" y="890" class="t-muted" font-size="7.5" font-weight="500">User UI</text>
           </g>
-          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Agent logic" data-legend-x="103" data-legend-baseline="1590" data-legend-width="95">
-            <rect x="103" y="1582" width="14" height="9" rx="2" class="c-backend" stroke-width="1"/>
-            <text x="125" y="1590" class="t-muted" font-size="7.5" font-weight="500">Agent logic</text>
+          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Agent logic" data-legend-x="103" data-legend-baseline="890" data-legend-width="95">
+            <rect x="103" y="882" width="14" height="9" rx="2" class="c-backend" stroke-width="1"/>
+            <text x="125" y="890" class="t-muted" font-size="7.5" font-weight="500">Agent logic</text>
           </g>
-          <g data-legend-semantic-kind="security" data-legend-kind="security" data-legend-label="Policy" data-legend-x="205" data-legend-baseline="1590" data-legend-width="71">
-            <rect x="205" y="1582" width="14" height="9" rx="2" class="c-security" stroke-width="1"/>
-            <text x="227" y="1590" class="t-muted" font-size="7.5" font-weight="500">Policy</text>
+          <g data-legend-semantic-kind="security" data-legend-kind="security" data-legend-label="Policy" data-legend-x="205" data-legend-baseline="890" data-legend-width="71">
+            <rect x="205" y="882" width="14" height="9" rx="2" class="c-security" stroke-width="1"/>
+            <text x="227" y="890" class="t-muted" font-size="7.5" font-weight="500">Policy</text>
           </g>
-          <g data-legend-semantic-kind="messagebus" data-legend-kind="messagebus" data-legend-label="Tool action" data-legend-x="283" data-legend-baseline="1590" data-legend-width="95">
-            <rect x="283" y="1582" width="14" height="9" rx="2" class="c-messagebus" stroke-width="1"/>
-            <text x="305" y="1590" class="t-muted" font-size="7.5" font-weight="500">Tool action</text>
+          <g data-legend-semantic-kind="messagebus" data-legend-kind="messagebus" data-legend-label="Tool action" data-legend-x="283" data-legend-baseline="890" data-legend-width="95">
+            <rect x="283" y="882" width="14" height="9" rx="2" class="c-messagebus" stroke-width="1"/>
+            <text x="305" y="890" class="t-muted" font-size="7.5" font-weight="500">Tool action</text>
           </g>
-          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="Context / trace" data-legend-x="385" data-legend-baseline="1590" data-legend-width="113">
-            <rect x="385" y="1582" width="14" height="9" rx="2" class="c-database" stroke-width="1"/>
-            <text x="407" y="1590" class="t-muted" font-size="7.5" font-weight="500">Context / trace</text>
+          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="Context / trace" data-legend-x="385" data-legend-baseline="890" data-legend-width="113">
+            <rect x="385" y="882" width="14" height="9" rx="2" class="c-database" stroke-width="1"/>
+            <text x="407" y="890" class="t-muted" font-size="7.5" font-weight="500">Context / trace</text>
           </g>
-          <g data-legend-semantic-kind="cloud" data-legend-kind="cloud" data-legend-label="Cloud service" data-legend-x="505" data-legend-baseline="1590" data-legend-width="104">
-            <rect x="505" y="1582" width="14" height="9" rx="2" class="c-cloud" stroke-width="1"/>
-            <text x="527" y="1590" class="t-muted" font-size="7.5" font-weight="500">Cloud service</text>
+          <g data-legend-semantic-kind="cloud" data-legend-kind="cloud" data-legend-label="Cloud service" data-legend-x="505" data-legend-baseline="890" data-legend-width="104">
+            <rect x="505" y="882" width="14" height="9" rx="2" class="c-cloud" stroke-width="1"/>
+            <text x="527" y="890" class="t-muted" font-size="7.5" font-weight="500">Cloud service</text>
           </g>
-          <g data-legend-semantic-kind="external" data-legend-kind="external" data-legend-label="External system" data-legend-x="616" data-legend-baseline="1590" data-legend-width="113">
-            <rect x="616" y="1582" width="14" height="9" rx="2" class="c-external" stroke-width="1"/>
-            <text x="638" y="1590" class="t-muted" font-size="7.5" font-weight="500">External system</text>
+          <g data-legend-semantic-kind="external" data-legend-kind="external" data-legend-label="External system" data-legend-x="616" data-legend-baseline="890" data-legend-width="113">
+            <rect x="616" y="882" width="14" height="9" rx="2" class="c-external" stroke-width="1"/>
+            <text x="638" y="890" class="t-muted" font-size="7.5" font-weight="500">External system</text>
           </g>
         </g>
       </svg>
@@ -6120,41 +5707,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     </div>
     <!-- Info Cards -->
     <div class="cards">
-      <div class="card">
-        <div class="card-header">
-          <div class="card-dot cyan"></div>
-          <h3>Download contract (FR-7, FR-8)</h3>
-        </div>
-        <ul>
-          <li>Escape is the only accepted input while yt-dlp runs; it kills the tree and returns rc 130</li>
-          <li>yt-dlp argv is pinned by the 177-check --selftest; audio-only or missing ffmpeg degrade instead of failing</li>
-          <li>Subtitles are a separate best-effort pass after a successful video download (rate-limited api must not block the video)</li>
-        </ul>
-      </div>
 
-      <div class="card">
-        <div class="card-header">
-          <div class="card-dot rose"></div>
-          <h3>Updater contract (FR-13)</h3>
-        </div>
-        <ul>
-          <li>Daily check: one call site at menu open, real tty only, throttled by an 86400 s stamp</li>
-          <li>New cli binary: digest and version arrive in one GET, then &lt;new&gt; --selftest gates the rename-into-place</li>
-          <li>No release publishes a bare cli image, so the self-update always resolves to the missing-asset refusal</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="card-dot amber"></div>
-          <h3>Work folder rule (FR-11)</h3>
-        </div>
-        <ul>
-          <li>.ytdlp-tmp inside the output folder holds fragments, .part files and resume markers</li>
-          <li>Every run end force-removes it: success, failure, escape and Ctrl+C</li>
-          <li>The output folder shows finished files only; the final move is a same-volume rename</li>
-        </ul>
-      </div>
     </div>
     <nav class="node-outline no-print" id="node-outline" hidden aria-labelledby="node-outline-title">
       <div class="node-outline-head">
