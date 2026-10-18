@@ -44,6 +44,10 @@ jobs:
           sudo apt-get install -y musl-tools
           rustup target add --toolchain 1.98.0 x86_64-unknown-linux-musl
           cargo check --workspace --target x86_64-unknown-linux-musl
+      - uses: actions/setup-python@v5
+        if: runner.os == 'Linux'
+        with:
+          python-version: '3.14.4'
       - name: east-asian width table matches the pinned reference (ubuntu only)
         if: runner.os == 'Linux'
         run: python tools/gen_width_table.py --check

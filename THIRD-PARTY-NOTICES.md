@@ -1,15 +1,15 @@
 third-party notices
 ===================
 
-This bundle contains three independently licensed projects. They are separate
+This bundle contains four independently licensed projects. They are separate
 programs that work together because one invokes the other; each keeps its own
 license.
 
-Which of the three are inside a given artifact: the platform bundles carry
-yt-dlp (the portable ones also ffmpeg), the macOS pkg carries all three, and
-the linux-musl bundle carries ytdlp-cli only - there yt-dlp and ffmpeg come
-from the system package manager (on Alpine, apk add yt-dlp pulls ffmpeg with
-it).
+Which of the four are inside a given artifact: the platform bundles carry
+yt-dlp and srtstripper (the portable ones also ffmpeg), the macOS pkg carries
+yt-dlp, ffmpeg and srtstripper, and the linux-musl bundle carries ytdlp-cli and
+the musl build of srtstripper only - there yt-dlp and ffmpeg come from the
+system package manager (on Alpine, apk add yt-dlp pulls ffmpeg with it).
 
 1. ytdlp-cli - the menu, the launchers and the defaults
    MIT License. See LICENSE in this bundle.
@@ -64,3 +64,19 @@ it).
    Nothing in this bundle, and nothing in ytdlp-cli's own license or
    documentation, adds to, limits or restricts the rights the GPL grants you
    for ffmpeg.
+
+4. srtstripper - writes the timecode-stripped copy next to a downloaded
+   subtitle (menu item 8)
+   MIT License, same author as ytdlp-cli (chezhenkie).
+   https://github.com/chezhenkie/srt-subtitle-stripper
+   Released as v1.0.1; the pinned builds shipped in bin/:
+   - Windows: srtstripper-windows-x86_64.exe,
+     sha256 05230e669c4ec9badcb04c20cc81ca74f97c5d593898e82a22206799aacc07ca
+   - Linux (glibc): srtstripper-linux-x86_64,
+     sha256 c0b5b8066f6ac3af0eaf6bdcd3e7589f5b1e07787d3c79d9c5151b06413f585c
+   - Linux (musl, static): srtstripper-linux-x86_64-musl,
+     sha256 77def542f57c45cb8b02c92d2110a7e374fb9f767342cc71dd555ce8830be098
+   - macOS (arm64): srtstripper-macos-arm64,
+     sha256 2d5cc6e9a0baba2b5d3a656e3db4c00bdfb601fd545ef7e3f8f7f9748b772961
+   The linux-musl bundle ships the musl build; the glibc and macOS builds are
+   not present there.

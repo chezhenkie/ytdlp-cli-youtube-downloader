@@ -17,6 +17,13 @@ name: bundles
 # proves it here: static link, extract, packaged selftest 181/0, and no
 # bin/yt-dlp inside the tar. The release is eight files.
 #
+# Owner call 2026-10-18 (FR-20) adds the standalone srtstripper binary to every
+# bundle's bin/: the windows exe for the windows bundles and the setup.exe, the
+# linux glibc build for the linux bundles, the musl build for the musl bundle
+# (first-party, same MIT author - the NFR-1 deviation stays about yt-dlp and
+# ffmpeg), the arm64 build for the macos pkg. Pinned to the v1.0.1 assets and
+# digest-checked like every other payload.
+#
 # The installers are built here and proven here, not just assembled: the
 # windows job silently installs the setup.exe, runs the installed binary's
 # selftest (181 checks, 0 failed), checks the PATH entry and uninstalls again;
@@ -57,6 +64,11 @@ env:
   FFMPEG_LINUX_SHA256: 50e0ede136e3545758a8dfb2e6cd12ec865643cd138af9ce6cd36a9015f395c2
   FFMPEG_MACOS_URL: https://github.com/shaka-project/static-ffmpeg-binaries/releases/download/n8.1.2-1/ffmpeg-osx-arm64
   FFMPEG_MACOS_SHA256: e7b9fcd97f95f333512d6e8b8ac24d9dbc08f189f36047695499bd7b57214b22
+  SRTSTRIPPER_URL_BASE: https://github.com/chezhenkie/srt-subtitle-stripper/releases/download/v1.0.1
+  SRTSTRIPPER_WINDOWS_SHA256: 05230e669c4ec9badcb04c20cc81ca74f97c5d593898e82a22206799aacc07ca
+  SRTSTRIPPER_LINUX_SHA256: c0b5b8066f6ac3af0eaf6bdcd3e7589f5b1e07787d3c79d9c5151b06413f585c
+  SRTSTRIPPER_MUSL_SHA256: 77def542f57c45cb8b02c92d2110a7e374fb9f767342cc71dd555ce8830be098
+  SRTSTRIPPER_MACOS_SHA256: 2d5cc6e9a0baba2b5d3a656e3db4c00bdfb601fd545ef7e3f8f7f9748b772961
   GPL2_SHA256: edaef632cbb643e4e7a221717a6c441a4c1a7c918e6e4d56debc3d8739b233f6
   GPL3_SHA256: 3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986
 
@@ -91,6 +103,7 @@ jobs:
           New-Item -ItemType Directory -Force payload, dist | Out-Null
           Get-Pinned "$env:YTDLP_URL_BASE/yt-dlp.exe" payload/yt-dlp.exe $env:YTDLP_WINDOWS_SHA256
           Get-Pinned $env:FFMPEG_WINDOWS_URL payload/ffmpeg-windows.zip $env:FFMPEG_WINDOWS_SHA256
+          Get-Pinned "$env:SRTSTRIPPER_URL_BASE/srtstripper-windows-x86_64.exe" payload/srtstripper.exe $env:SRTSTRIPPER_WINDOWS_SHA256
           $g2 = (Get-FileHash -Algorithm SHA256 rust-src/packaging/GPL-2.0.txt).Hash.ToLower()
           if ($g2 -ne $env:GPL2_SHA256) { throw "GPL-2.0.txt digest mismatch: $g2" }
           $g3 = (Get-FileHash -Algorithm SHA256 rust-src/packaging/GPL-3.0.txt).Hash.ToLower()
@@ -101,6 +114,7 @@ jobs:
           Copy-Item rust-src/packaging/run-ytdlp.bat, rust-src/packaging/run-ytdlp.sh "$stage/"
           Copy-Item README.md, CHANGELOG.md, LICENSE, THIRD-PARTY-NOTICES.md "$stage/"
           Copy-Item payload/yt-dlp.exe "$stage/bin/yt-dlp.exe"
+          Copy-Item payload/srtstripper.exe "$stage/bin/srtstripper.exe"
           Compress-Archive -Path $stage -DestinationPath "dist/ytdlp-cli-v$ver-windows-lean.zip"
           Expand-Archive -Path payload/ffmpeg-windows.zip -DestinationPath payload/ffmpeg-windows
           $ff = Get-ChildItem payload/ffmpeg-windows -Recurse -Filter ffmpeg.exe | Where-Object { $_.Directory.Name -eq "bin" } | Select-Object -First 1
@@ -145,7 +159,7 @@ jobs:
           if ($pe.FileDescription -ne "ytdlp") { throw "FileDescription: $($pe.FileDescription)" }
           if ($pe.ProductName -ne "yt-dlp cli") { throw "ProductName: $($pe.ProductName)" }
           if ($pe.FileVersion -notlike "$ver*") { throw "FileVersion: $($pe.FileVersion)" }
-          foreach ($f in @("bin/yt-dlp.exe", "bin/ffmpeg.exe", "run-ytdlp.bat", "README.md", "GPL-2.0.txt", "GPL-3.0.txt")) {
+          foreach ($f in @("bin/yt-dlp.exe", "bin/ffmpeg.exe", "bin/srtstripper.exe", "run-ytdlp.bat", "README.md", "GPL-2.0.txt", "GPL-3.0.txt")) {
             if (-not (Test-Path "$tdir/$f")) { throw "installed file missing: $f" }
           }
           $pathNow = (Get-ItemProperty -Path "HKCU:\Environment" -Name Path).Path
@@ -201,6 +215,7 @@ jobs:
           }
           get_pinned "$YTDLP_URL_BASE/yt-dlp_linux" payload/yt-dlp_linux "$YTDLP_LINUX_SHA256"
           get_pinned "$FFMPEG_LINUX_URL" payload/btbn.tar.xz "$FFMPEG_LINUX_SHA256"
+          get_pinned "$SRTSTRIPPER_URL_BASE/srtstripper-linux-x86_64" payload/srtstripper "$SRTSTRIPPER_LINUX_SHA256"
           echo "$GPL2_SHA256  rust-src/packaging/GPL-2.0.txt" | sha256sum -c -
           echo "$GPL3_SHA256  rust-src/packaging/GPL-3.0.txt" | sha256sum -c -
           tar -xJf payload/btbn.tar.xz -C payload
@@ -213,6 +228,7 @@ jobs:
           install -m 0644 rust-src/packaging/run-ytdlp.bat "$stage/run-ytdlp.bat"
           install -m 0644 README.md CHANGELOG.md LICENSE THIRD-PARTY-NOTICES.md "$stage/"
           install -m 0755 payload/yt-dlp_linux "$stage/bin/yt-dlp"
+          install -m 0755 payload/srtstripper "$stage/bin/srtstripper"
           tar -czf "dist/ytdlp-cli-v$ver-linux-lean.tar.gz" -C dist "ytdlp-cli-v$ver"
           install -m 0755 "$ff" "$stage/bin/ffmpeg"
           install -m 0644 rust-src/packaging/GPL-2.0.txt rust-src/packaging/GPL-3.0.txt "$stage/"
@@ -246,18 +262,24 @@ jobs:
       - name: build the musl release binary
         working-directory: rust-src
         run: cargo build --release -p ytdlp-cli --target x86_64-unknown-linux-musl
-      - name: assemble the bundle (cli only - no yt-dlp, no ffmpeg)
+      - name: assemble the bundle (no yt-dlp, no ffmpeg - apk provides the runtime; the first-party srtstripper rides along)
         run: |
           set -euo pipefail
           ver=$(sed -n 's/^version = "\(.*\)"$/\1/p' rust-src/Cargo.toml | head -n1)
           echo "assembling v$ver (linux musl)"
-          mkdir -p dist
+          mkdir -p payload dist
+          get_pinned() { # url out want
+            curl -fsSL --retry 3 -o "$2" "$1"
+            echo "$3  $2" | sha256sum -c -
+          }
+          get_pinned "$SRTSTRIPPER_URL_BASE/srtstripper-linux-x86_64-musl" payload/srtstripper-musl "$SRTSTRIPPER_MUSL_SHA256"
           stage="dist/ytdlp-cli-v$ver"
-          mkdir -p "$stage"
+          mkdir -p "$stage/bin"
           install -m 0755 rust-src/target/x86_64-unknown-linux-musl/release/ytdlp "$stage/ytdlp"
           install -m 0755 rust-src/packaging/run-ytdlp.sh "$stage/run-ytdlp.sh"
           install -m 0644 rust-src/packaging/run-ytdlp.bat "$stage/run-ytdlp.bat"
           install -m 0644 README.md CHANGELOG.md LICENSE THIRD-PARTY-NOTICES.md "$stage/"
+          install -m 0755 payload/srtstripper-musl "$stage/bin/srtstripper"
           tar -czf "dist/ytdlp-cli-v$ver-linux-musl.tar.gz" -C dist "ytdlp-cli-v$ver"
           cd dist
           sha256sum ytdlp-cli-v$ver-linux-musl.tar.gz > SHA256SUMS
@@ -277,10 +299,11 @@ jobs:
           if tar -tzf "dist/ytdlp-cli-v$ver-linux-musl.tar.gz" | grep -q 'bin/yt-dlp'; then
             echo "the musl bundle must not carry yt-dlp"; exit 1
           fi
+          echo "$SRTSTRIPPER_MUSL_SHA256  dist/run/ytdlp-cli-v$ver/bin/srtstripper" | sha256sum -c -
           report=$("$bin" --selftest)
           echo "$report" | grep -q "selftest: 181 checks, 0 failed"
           echo "$report" | tail -n 3
-          echo "musl run proof passed: static, selftest 181/0, cli-only"
+          echo "musl run proof passed: static, selftest 181/0, no bundled yt-dlp, srtstripper pinned"
       - uses: actions/upload-artifact@v4
         with:
           name: linux-musl-bundle
@@ -313,6 +336,7 @@ jobs:
           }
           get_pinned "$YTDLP_URL_BASE/yt-dlp_macos" payload/yt-dlp_macos "$YTDLP_MACOS_SHA256"
           get_pinned "$FFMPEG_MACOS_URL" payload/ffmpeg-osx-arm64 "$FFMPEG_MACOS_SHA256"
+          get_pinned "$SRTSTRIPPER_URL_BASE/srtstripper-macos-arm64" payload/srtstripper-macos "$SRTSTRIPPER_MACOS_SHA256"
           echo "$GPL2_SHA256  rust-src/packaging/GPL-2.0.txt" | shasum -a 256 -c -
           echo "$GPL3_SHA256  rust-src/packaging/GPL-3.0.txt" | shasum -a 256 -c -
           # the payload tree, shaped for the pkg's --install-location /:
@@ -328,9 +352,10 @@ jobs:
           install -m 0644 README.md CHANGELOG.md LICENSE THIRD-PARTY-NOTICES.md "$app/"
           install -m 0755 payload/yt-dlp_macos "$app/bin/yt-dlp"
           install -m 0755 payload/ffmpeg-osx-arm64 "$app/bin/ffmpeg"
+          install -m 0755 payload/srtstripper-macos "$app/bin/srtstripper"
           install -m 0644 rust-src/packaging/GPL-2.0.txt rust-src/packaging/GPL-3.0.txt "$app/"
           ln -s ../ytdlp-cli/ytdlp "$root/usr/local/bin/ytdlp"
-          file "$app/ytdlp" "$app/bin/yt-dlp" "$app/bin/ffmpeg"
+          file "$app/ytdlp" "$app/bin/yt-dlp" "$app/bin/ffmpeg" "$app/bin/srtstripper"
           mkdir -p dist/pkg-scripts
           install -m 0755 rust-src/packaging/macos-pkg-postinstall.sh dist/pkg-scripts/postinstall
           pkgbuild --root "$root" --install-location / --scripts dist/pkg-scripts \
@@ -352,6 +377,7 @@ jobs:
           touch /usr/local/ytdlp-cli/.wtest && rm /usr/local/ytdlp-cli/.wtest
           echo "$YTDLP_MACOS_SHA256  /usr/local/ytdlp-cli/bin/yt-dlp" | shasum -a 256 -c -
           echo "$FFMPEG_MACOS_SHA256  /usr/local/ytdlp-cli/bin/ffmpeg" | shasum -a 256 -c -
+          echo "$SRTSTRIPPER_MACOS_SHA256  /usr/local/ytdlp-cli/bin/srtstripper" | shasum -a 256 -c -
           /usr/local/ytdlp-cli/run-ytdlp.sh --check > dist/installed-check.txt
           grep -q "ffmpeg dir" dist/installed-check.txt
           grep -q "yt-dlp" dist/installed-check.txt

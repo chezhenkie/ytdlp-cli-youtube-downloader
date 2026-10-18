@@ -57,9 +57,9 @@ curl -fsSL https://raw.githubusercontent.com/chezhenkie/ytdlp-cli-youtube-downlo
 
 The portable bundle (with ffmpeg) is the default; `sh -s -- --lean` installs the smaller bundle without ffmpeg instead, `sh -s -- --version v2.3.0` pins a release, and `sh -s -- --uninstall` removes the install and the link.
 
-On Alpine and other musl systems the script installs the musl bundle automatically - the cli only; get the runtime with `apk add yt-dlp`, which pulls ffmpeg and the JS runtime with it. `--lean` and `--portable` name the glibc bundles and are refused on musl.
+On Alpine and other musl systems the script installs the musl bundle automatically - the cli and the srtstripper; get the download runtime with `apk add yt-dlp`, which pulls ffmpeg and the JS runtime with it. `--lean` and `--portable` name the glibc bundles and are refused on musl.
 
-Linux builds are x86_64: glibc bundles plus a musl bundle for Alpine (cli only, the runtime comes from apk), and the macOS build is arm64 (Apple silicon). On any other architecture put `yt-dlp` on PATH or set `yt_dlp_path` in `config/settings.json`. No release publishes a bare cli image on any platform, so menu item 12 updates yt-dlp and a newer cli always comes from this page.
+Linux builds are x86_64: glibc bundles plus a musl bundle for Alpine (cli plus the srtstripper, the download runtime comes from apk), and the macOS build is arm64 (Apple silicon). On any other architecture put `yt-dlp` on PATH or set `yt_dlp_path` in `config/settings.json`. No release publishes a bare cli image on any platform, so menu item 12 updates yt-dlp and a newer cli always comes from this page.
 
 v1.5.0 was the final Python release; its bundles remain on the v1.5.0 release page.
 
@@ -73,7 +73,7 @@ ytdlp.exe https://youtu.be/xxxx
 
 One-shot overrides look like `-f mkv -r 720 --subs`, also `-a`, `--af`, `-o`, `--template`, `--playlist`. Overrides apply to that run only and are never written to your settings.
 
-The menu itself is where the defaults live: type/video mode, container, resolution, audio format, output folder, filename template, subtitles, the srt timecode stripper, playlists, and reset. Item 10 takes several URLs and downloads them one after another. Escape stops a running download and removes the partial files.
+The menu itself is where the defaults live: type/video mode, container, resolution, audio format, output folder, filename template, subtitles, the srt timecode stripper, playlists, and reset. Item 10 takes several URLs and downloads them one after another. Every bundle ships the stripper in `bin/`, so with subtitles on and item 8 turned on, a stripped copy lands next to each downloaded subtitle. Escape stops a running download and removes the partial files.
 
 Output goes to your desktop by default, falling back to your downloads folder. Change it with menu item 5.
 
