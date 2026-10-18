@@ -1,7 +1,7 @@
 //! ytdlp cli - native binary.
 //!
 //! Phase 8 wires the updaters: `--update` runs
-//! python's `update_all`, menu item 11 runs it inside the session, the
+//! python's `update_all`, menu item 12 runs it inside the session, the
 //! menu start runs the once-a-day auto-update check, and the self-update
 //! gates the new image on its own `--selftest` (which refuses until
 //! phase 9, so an install attempt is inert by construction). The
@@ -285,7 +285,7 @@ fn self_path() -> String {
 
 /// One updater run with the production world. `mode` is python's own
 /// split: `Check` is the menu start's quiet `auto_update_check(s)`,
-/// `All` is `update_all(s)` (`--update` and menu item 11). The fresh
+/// `All` is `update_all(s)` (`--update` and menu item 12). The fresh
 /// agent and memo per call match `probe_closure`'s
 /// note; an agent is a config clone plus a connection pool, and both
 /// updater paths are one-shot.
@@ -391,7 +391,7 @@ impl UpdWorld {
     }
 }
 
-/// `--update`: python's non-interactive form of item 11 (FR-15),
+/// `--update`: python's non-interactive form of item 12 (FR-15),
 /// `return 0 if update_all(s) else 1`.
 fn run_update(
     settings: &mut Obj,
@@ -484,7 +484,7 @@ fn run_menu(
         exec::do_download(s, url, &mut ctx, &mut rt)
     };
     // FR-13's trigger rule: the check lives at exactly one call site, the
-    // top of the menu, tty only, once a day. `--update` and item 11 are
+    // top of the menu, tty only, once a day. `--update` and item 12 are
     // the forced forms and run no check of their own.
     let mut updater = UpdWorld::new(root, is_windows, use_color, &shared);
     updater.cache = std::rc::Rc::clone(&memo);

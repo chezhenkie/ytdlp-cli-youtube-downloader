@@ -4,16 +4,16 @@
 //! through the tty seams, so the whole menu runs in tests and in the
 //! differential harness without a terminal.
 //!
-//! Port rules recorded in the phase-6 notes: items 1-8, 10, 12 and 13
-//! are wired in full; the batch downloads, the item 11 updaters and the
-//! URL quick mode are the caller's jobs (phase 7/8) and arrive here as
-//! typed refusals or injected closures. "keep current" answers return
-//! None instead of python's raw-value round-trip: a loaded settings
-//! object always carries every key, so the two are indistinguishable in
-//! every reachable state.
+//! Port rules recorded in the phase-6 notes: items 1-9, 11, 13 and 14
+//! are wired in full; the batch downloads (item 10), the item 12
+//! updaters and the URL quick mode are the caller's jobs (phase 7/8)
+//! and arrive here as typed refusals or injected closures. "keep
+//! current" answers return None instead of python's raw-value
+//! round-trip: a loaded settings object always carries every key, so
+//! the two are indistinguishable in every reachable state.
 
 use crate::args::{TEMPLATE_DEFAULT, clean_url, parse_lang_input};
-use crate::config::{self, AUDIO_FORMATS, CONTAINERS, Obj, RESOLUTIONS, TYPES, Value};
+use crate::config::{self, AUDIO_FORMATS, CONTAINERS, Obj, RESOLUTIONS, SRT_MODES, TYPES, Value};
 use crate::resolve::{self, ShapeKind};
 use crate::term::{A_AMBER, A_DARKGREY, A_GREY, CLEAR, c};
 use crate::tty::{self, Out, ReadOutcome, Reader};
@@ -616,6 +616,25 @@ pub fn act(
             true
         }
         "8" => {
+            let answer = ask_bool("srt timecode stripper", config::get(s, "srt_stripper"), io)?;
+            if let Some(value) = answer {
+                config::set(s, "srt_stripper", value);
+            }
+            if config::get(s, "srt_stripper").is_some_and(config::py_truthy) {
+                let picked = pick_list(
+                    "stripper mode",
+                    &SRT_MODES,
+                    config::get(s, "srt_stripper_mode"),
+                    io,
+                    world,
+                )?;
+                if let Some(value) = picked {
+                    config::set(s, "srt_stripper_mode", value);
+                }
+            }
+            true
+        }
+        "9" => {
             let answer = ask_bool("playlist mode", config::get(s, "playlist"), io)?;
             if let Some(value) = answer {
                 config::set(s, "playlist", value);
@@ -646,8 +665,8 @@ pub fn act(
             }
             true
         }
-        "9" => return Ok(ActOutcome::Repaint(multi_url(s, io, world, download)?)),
-        "10" => {
+        "10" => return Ok(ActOutcome::Repaint(multi_url(s, io, world, download)?)),
+        "11" => {
             for (key, value) in config::defaults() {
                 config::set(s, &key, value);
             }
@@ -655,7 +674,7 @@ pub fn act(
             tty::hold(io.out, io.reader);
             true
         }
-        "11" => {
+        "12" => {
             // the updaters run here (phase 8): both halves behind
             // update_all, then python's "press enter to go back" hold
             update(s, io)?;
@@ -666,7 +685,7 @@ pub fn act(
             }
             true
         }
-        "12" => {
+        "13" => {
             let new_value = !config::get(s, "auto_update").is_some_and(config::py_truthy);
             config::set(s, "auto_update", Value::Bool(new_value));
             // no save here (audit F8): main_menu saves after act returns,
@@ -687,14 +706,14 @@ pub fn act(
             tty::hold(io.out, io.reader);
             true
         }
-        "13" | "q" | "quit" | "exit" => {
+        "14" | "q" | "quit" | "exit" => {
             save(s, world)?;
             print_line(io, &format!("bye. defaults saved to {}", world.config_path));
             return Ok(ActOutcome::Exit);
         }
         _ => {
             if !choice.is_empty() {
-                print_line(io, "  pick 1-13 or paste a url");
+                print_line(io, "  pick 1-14 or paste a url");
             }
             true
         }
@@ -1010,7 +1029,7 @@ mod tests {
         assert_eq!(run(""), None);
     }
 
-    /// Audit F8-style save discipline: item 12 changes the value but
+    /// Audit F8-style save discipline: item 13 changes the value but
     /// saves nothing; the quit path saves; main_menu saves after act.
     #[test]
     fn save_points() {
@@ -1030,17 +1049,17 @@ mod tests {
                 out: &mut rec,
                 reader: &mut reader,
             };
-            let outcome = act("12", &mut s, &mut io, &w, &mut download, &mut update).unwrap();
+            let outcome = act("13", &mut s, &mut io, &w, &mut download, &mut update).unwrap();
             assert!(matches!(outcome, ActOutcome::Repaint(true)));
         }
         assert_eq!(config::get(&s, "auto_update"), Some(&Value::Bool(false)));
-        assert_eq!(tmp.read(), seeded, "item 12 must not save");
+        assert_eq!(tmp.read(), seeded, "item 13 must not save");
 
         let mut rec = RecordingOut::default();
         let mut reader = ScriptedReader::new(vec![
-            ScriptItem::Line("12".to_string()),
-            ScriptItem::Line(String::new()),
             ScriptItem::Line("13".to_string()),
+            ScriptItem::Line(String::new()),
+            ScriptItem::Line("14".to_string()),
         ]);
         let mut s = config::defaults();
         std::fs::write(&path, config::render_settings_file(&s)).expect("seed");
@@ -1065,11 +1084,11 @@ mod tests {
     /// unlabelled read, so the menu repaint cannot eat the message.
     #[test]
     fn hold_sites() {
-        // item 8 with a non-numeric max
+        // item 9 with a non-numeric max
         let mut s = config::defaults();
         config::set(&mut s, "playlist", Value::Bool(true));
         let (text, prompts) = mega(
-            "8",
+            "9",
             vec![
                 ScriptItem::Line("y".to_string()),
                 ScriptItem::Line("abc".to_string()),
@@ -1078,25 +1097,89 @@ mod tests {
             &mut s,
         );
         assert!(text.contains("  not a number - kept 0"), "{text}");
-        assert_eq!(prompts.last().unwrap(), "", "item 8 holds");
+        assert_eq!(prompts.last().unwrap(), "", "item 9 holds");
 
-        // item 10's notice
+        // item 11's notice
         let mut s = config::defaults();
         config::set(&mut s, "auto_update", Value::Bool(false));
-        let (text, prompts) = mega("10", vec![ScriptItem::Line(String::new())], &mut s);
+        let (text, prompts) = mega("11", vec![ScriptItem::Line(String::new())], &mut s);
         assert!(text.contains("  defaults restored"));
-        assert_eq!(prompts.last().unwrap(), "", "item 10 holds");
+        assert_eq!(prompts.last().unwrap(), "", "item 11 holds");
         assert_eq!(config::get(&s, "auto_update"), Some(&Value::Bool(true)));
 
-        // item 12's notice
+        // item 13's notice
         let mut s = config::defaults();
-        let (text, prompts) = mega("12", vec![ScriptItem::Line(String::new())], &mut s);
+        let (text, prompts) = mega("13", vec![ScriptItem::Line(String::new())], &mut s);
         assert!(text.contains("  auto update off - no startup check"));
-        assert_eq!(prompts.last().unwrap(), "", "item 12 holds");
+        assert_eq!(prompts.last().unwrap(), "", "item 13 holds");
         let mut s = config::defaults();
         config::set(&mut s, "auto_update", Value::Bool(false));
-        let (text, _) = mega("12", vec![ScriptItem::Line(String::new())], &mut s);
+        let (text, _) = mega("13", vec![ScriptItem::Line(String::new())], &mut s);
         assert!(text.contains("  auto update on - checked once a day at start"));
+    }
+
+    /// FR-20: item 8 toggles the stripper and, when on, asks the mode
+    /// with the pick list; off answers stop before the mode prompt.
+    #[test]
+    fn item8_toggles_and_picks_the_mode() {
+        let mut s = config::defaults();
+        let (text, prompts) = mega(
+            "8",
+            vec![
+                ScriptItem::Line("y".to_string()),
+                ScriptItem::Line("3".to_string()),
+            ],
+            &mut s,
+        );
+        assert!(text.contains("  stripper mode"), "{text}");
+        assert!(text.contains("  3  numbered"), "{text}");
+        assert_eq!(
+            prompts[0], "  srt timecode stripper (now off) y/n (enter = keep): ",
+            "the bool prompt names the item"
+        );
+        assert_eq!(prompts.len(), 2, "bool prompt then the pick prompt");
+        assert_eq!(
+            config::get(&s, "srt_stripper"),
+            Some(&Value::Bool(true)),
+            "y turns the stripper on"
+        );
+        assert_eq!(
+            config::get(&s, "srt_stripper_mode")
+                .map(config::py_str)
+                .as_deref(),
+            Some("numbered"),
+            "pick 3 stores the mode"
+        );
+
+        let mut s = config::defaults();
+        let (text, prompts) = mega("8", vec![ScriptItem::Line("n".to_string())], &mut s);
+        assert_eq!(config::get(&s, "srt_stripper"), Some(&Value::Bool(false)));
+        assert!(
+            config::get(&s, "srt_stripper_mode")
+                .map(config::py_str)
+                .as_deref()
+                == Some("alpha")
+        );
+        assert!(!text.contains("  stripper mode"), "off asks no mode");
+        assert_eq!(prompts.len(), 1);
+
+        let mut s = config::defaults();
+        config::set(&mut s, "srt_stripper", Value::Bool(true));
+        let (_, prompts) = mega(
+            "8",
+            vec![
+                ScriptItem::Line(String::new()),
+                ScriptItem::Line(String::new()),
+            ],
+            &mut s,
+        );
+        assert_eq!(prompts.len(), 2, "keep-current still asks the mode when on");
+        assert_eq!(
+            config::get(&s, "srt_stripper_mode")
+                .map(config::py_str)
+                .as_deref(),
+            Some("alpha")
+        );
     }
 
     /// FR-17: zero reads the clipboard seam; a link runs the url path's
@@ -1238,24 +1321,24 @@ mod tests {
             rec.text()
         };
 
-        // item 9 with one url and an empty line runs the batch (no
+        // item 10 with one url and an empty line runs the batch (no
         // repaint requested); the escape then wipes the screen
         let with_escape = run(vec![
-            ScriptItem::Line("9".to_string()),
+            ScriptItem::Line("10".to_string()),
             ScriptItem::Line("https://a/1".to_string()),
             ScriptItem::Line(String::new()),
             ScriptItem::Escape,
-            ScriptItem::Line("13".to_string()),
+            ScriptItem::Line("14".to_string()),
         ]);
         let headers_with = with_escape.matches("yt-dlp cli  v1.5.0").count();
         assert_eq!(headers_with, 5, "boot + 3 batch paints + escape wipe");
 
         // the same session without the escape never repaints again
         let no_escape = run(vec![
-            ScriptItem::Line("9".to_string()),
+            ScriptItem::Line("10".to_string()),
             ScriptItem::Line("https://a/1".to_string()),
             ScriptItem::Line(String::new()),
-            ScriptItem::Line("13".to_string()),
+            ScriptItem::Line("14".to_string()),
         ]);
         let headers_without = no_escape.matches("yt-dlp cli  v1.5.0").count();
         assert_eq!(headers_without, 4, "boot + 3 batch paints");
@@ -1285,7 +1368,7 @@ mod tests {
         };
 
         // quit exits zero and says bye
-        let (result, text) = run(vec![ScriptItem::Line("13".to_string())]);
+        let (result, text) = run(vec![ScriptItem::Line("14".to_string())]);
         assert_eq!(result.unwrap(), 0);
         assert!(text.contains("bye. defaults saved to "));
 
@@ -1318,7 +1401,7 @@ mod tests {
         let mut reader = ScriptedReader::new(vec![
             ScriptItem::Line("7".to_string()),
             ScriptItem::Escape,
-            ScriptItem::Line("13".to_string()),
+            ScriptItem::Line("14".to_string()),
         ]);
         let mut download = |_s: &mut Obj, _url: &str, _io: &mut Io| -> i32 { 0 };
         let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };

@@ -29,6 +29,8 @@ pub use run::{
     interrupt_pending, set_interrupt,
 };
 
+mod srtstripper;
+
 /// Frozen sentence for a failed run: the rc always, yt-dlp's error line
 /// when there is one, full length - the old `err[:WIDTH]` cut kept the
 /// error class but dropped the tail (FR-10).
@@ -539,6 +541,7 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
             if !miss.is_empty() {
                 st2.done(Some(&miss));
             }
+            strip_subtitles(s, ctx, &outdir, started, rt);
         } else {
             let lines = sub_fail_lines(Some(&err2));
             st2.done(Some(&lines[0]));
@@ -547,6 +550,44 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
     }
     drop_temp_dir_force(s, ctx.auto, ctx.root);
     0
+}
+
+/// The srt timecode stripper pass (FR-20): when the setting is on, the
+/// standalone srtstripper binary runs over the subtitle files the
+/// subtitle pass wrote and the stripped copies land next to them. A
+/// missing binary or a failing run is a report line; the download stays
+/// successful. Called only after a subtitle pass exited 0, so subs off
+/// or a failed pass never reach it.
+fn strip_subtitles(s: &Obj, ctx: &mut DownloadCtx, outdir: &str, started: f64, rt: &mut RunRt) {
+    if !config::get(s, "srt_stripper").is_some_and(config::py_truthy) {
+        return;
+    }
+    let mode = match config::get(s, "srt_stripper_mode") {
+        Some(v) => config::py_str(v),
+        None => "alpha".to_string(),
+    };
+    let mut st = tty::dot_stage("srt timecode stripper", ctx.use_color, ctx.sink.clone());
+    st.start();
+    let bin_dir = resolve::py_path_join(ctx.root, "bin");
+    let binary = resolve::find_srtstripper(&bin_dir, ctx.is_windows, &mut *ctx.which);
+    let Some(binary) = binary else {
+        st.done(Some("srt timecode stripper - not found (bin/ or PATH)"));
+        return;
+    };
+    let paths = srtstripper::subs_since(outdir, started, 2.0);
+    if paths.is_empty() {
+        st.done(None);
+        return;
+    }
+    for path in &paths {
+        match srtstripper::run_one(&binary, path, &mode, &mut rt.spawn) {
+            Ok(out_path) if out_path.is_empty() => {
+                st.done(Some(&format!("srt timecode stripper - {path}")))
+            }
+            Ok(out_path) => st.done(Some(&format!("srt timecode stripper - {out_path}"))),
+            Err(text) => st.done(Some(&text)),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1477,5 +1518,127 @@ mod tests {
         );
         let expected = crate::term::color_progress("9.94MiB/s at ETA 00:12");
         assert_eq!(stage.live().as_deref(), Some(expected.as_str()));
+    }
+
+    /// FR-20: the stripper pass over a scripted srtstripper spawn - the
+    /// PASS line's path is reported, the download text stays plain.
+    /// The binary comes from `bin/`, which is what a bundle ships.
+    #[test]
+    fn strip_subtitles_reports_the_stripped_files() {
+        let mut world = InstallWorld::new("strip-hit", "linux");
+        std::fs::create_dir_all(resolve::py_path_join(&world.dir, "out")).unwrap();
+        let outdir = resolve::py_path_join(&world.dir, "out");
+        let sub = resolve::py_path_join(&outdir, "video.en.srt");
+        std::fs::write(&sub, b"1\n00:00:00,000 --> 00:00:01,000\nhi\n").unwrap();
+        let bin_path = resolve::py_path_join(&world.bin_dir, "srtstripper");
+        std::fs::write(&bin_path, b"fake").unwrap();
+        let expect_args = vec![sub.clone()];
+        let lines = Arc::clone(&world.lines);
+        let mut s = config::defaults();
+        config::set(&mut s, "srt_stripper", Value::Bool(true));
+        let sink = world.sink();
+        let mut rt = RunRt {
+            spawn: Box::new(move |binary, args| {
+                assert_eq!(binary, bin_path);
+                assert_eq!(args, expect_args, "alpha takes no flag");
+                Ok(Spawned {
+                    stdout: Box::new(std::io::Cursor::new(
+                        b"PASS: mode=alpha, wrote 1 lines from 3 input lines -> /out/video.en - alpha.txt\n"
+                            .to_vec(),
+                    )),
+                    stderr: Box::new(std::io::Cursor::new(Vec::new())),
+                    child: Box::new(ScriptedHandle { polls: Vec::new().into() }),
+                })
+            }),
+            watch: Box::new(|| {
+                Box::new(ScriptedWatch {
+                    hits: Vec::new().into(),
+                })
+            }),
+            kill: Box::new(|_| {}),
+            interrupted: Box::new(|| false),
+            sleep_frame: Box::new(|| {}),
+            interrupt_scope: None,
+        };
+        with_ctx!(&mut world, sink, |ctx| {
+            strip_subtitles(&s, &mut ctx, &outdir, 0.0, &mut rt);
+        });
+        let printed = lines.lock().unwrap().join("\n");
+        assert!(
+            printed.contains("srt timecode stripper - /out/video.en - alpha.txt"),
+            "the verdict names the stage and the file: {printed}"
+        );
+    }
+
+    /// FR-20: no binary found - one report line, still not an error.
+    #[test]
+    fn strip_subtitles_reports_a_missing_binary() {
+        let mut world = InstallWorld::new("strip-miss", "linux");
+        std::fs::create_dir_all(resolve::py_path_join(&world.dir, "out")).unwrap();
+        let outdir = resolve::py_path_join(&world.dir, "out");
+        let sub = resolve::py_path_join(&outdir, "video.en.srt");
+        std::fs::write(&sub, b"1\n").unwrap();
+        let lines = Arc::clone(&world.lines);
+        let mut s = config::defaults();
+        config::set(&mut s, "srt_stripper", Value::Bool(true));
+        let sink = world.sink();
+        let mut rt = RunRt {
+            spawn: Box::new(|_binary, _args| {
+                panic!("no spawn when the binary is missing");
+            }),
+            watch: Box::new(|| {
+                Box::new(ScriptedWatch {
+                    hits: Vec::new().into(),
+                })
+            }),
+            kill: Box::new(|_| {}),
+            interrupted: Box::new(|| false),
+            sleep_frame: Box::new(|| {}),
+            interrupt_scope: None,
+        };
+        with_ctx!(&mut world, sink, |ctx| {
+            strip_subtitles(&s, &mut ctx, &outdir, 0.0, &mut rt);
+        });
+        let printed = lines.lock().unwrap().join("\n");
+        assert!(
+            printed.contains("srt timecode stripper - not found (bin/ or PATH)"),
+            "{printed}"
+        );
+    }
+
+    /// FR-20: the setting off does nothing, and subs off never reach the
+    /// stripper (that gate sits in do_download, asserted here for the fn).
+    #[test]
+    fn strip_subtitles_is_silent_when_off() {
+        let mut world = InstallWorld::new("strip-off", "linux");
+        std::fs::create_dir_all(resolve::py_path_join(&world.dir, "out")).unwrap();
+        let outdir = resolve::py_path_join(&world.dir, "out");
+        let sub = resolve::py_path_join(&outdir, "video.en.srt");
+        std::fs::write(&sub, b"1\n").unwrap();
+        let lines = Arc::clone(&world.lines);
+        let s = config::defaults();
+        let sink = world.sink();
+        let mut rt = RunRt {
+            spawn: Box::new(|_binary, _args| {
+                panic!("no spawn when the stripper is off");
+            }),
+            watch: Box::new(|| {
+                Box::new(ScriptedWatch {
+                    hits: Vec::new().into(),
+                })
+            }),
+            kill: Box::new(|_| {}),
+            interrupted: Box::new(|| false),
+            sleep_frame: Box::new(|| {}),
+            interrupt_scope: None,
+        };
+        with_ctx!(&mut world, sink, |ctx| {
+            strip_subtitles(&s, &mut ctx, &outdir, 0.0, &mut rt);
+        });
+        let printed = lines.lock().unwrap().join("\n");
+        assert!(
+            !printed.contains("srt timecode stripper"),
+            "no stage line when off: {printed}"
+        );
     }
 }

@@ -843,6 +843,29 @@ pub fn find_yt_dlp(
     Ok(first_existing(cands))
 }
 
+/// `find_srtstripper`: `bin/srtstripper[.exe]`, then `which("srtstripper")`
+/// and `which("srtstripper.exe")`. No saved-path override: the stripper
+/// ships in `bin/` or lives on PATH. None when nowhere.
+pub fn find_srtstripper(
+    bin_dir: &str,
+    is_windows: bool,
+    which: &mut dyn FnMut(&str) -> Option<String>,
+) -> Option<String> {
+    let binname = if is_windows {
+        "srtstripper.exe"
+    } else {
+        "srtstripper"
+    };
+    let mut cands = vec![py_path_join(bin_dir, binname)];
+    if let Some(hit) = which("srtstripper") {
+        cands.push(path_render(&hit));
+    }
+    if let Some(hit) = which("srtstripper.exe") {
+        cands.push(path_render(&hit));
+    }
+    first_existing(cands)
+}
+
 /// `find_ffmpeg_dir`: saved path used as a dir, else its parent when the
 /// parent exists; then `bin/ffmpeg[.exe]`; then `which("ffmpeg")`'s
 /// parent directory.

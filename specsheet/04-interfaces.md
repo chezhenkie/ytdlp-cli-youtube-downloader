@@ -21,28 +21,28 @@ touches require either the menu (user action) or auto_update on plus a tty; a fa
 PROXY (decided 2026-10-15): the native HTTP layer resolves the environment first (HTTPS_PROXY/https_proxy, HTTP_PROXY/http_proxy, ALL_PROXY/all_proxy, with NO_PROXY honoured) and, on Windows when no such variable is set, the HKCU Internet Settings fallback (ProxyEnable/ProxyServer) through ureq's win-system-proxy feature (winreg 0.55, a windows-only target dependency); posix has no registry step.
   The environment path is pinned offline: a loopback fake proxy must be dialed by the built binary in a test.
 
-IF-8 CI and selftest (IF to developers): offline; every push and pull request runs fmt, clippy with warnings denied, unit tests, the differential harness, --check byte-parity and the piped + pty session transcripts on windows/ubuntu/macos (.github/workflows/rust.yml); bundles.yml (workflow_dispatch) assembles the five release bundles (windows/linux lean+portable each plus the linux-musl cli bundle - FR-19; that job also proves it: static link, extract, packaged selftest 177/0, no bundled yt-dlp), the windows setup.exe and the macos-arm64 pkg (FR-18; both installers are installed and run on their own runners in the job) plus RELEASE-NOTES.md. No workflow contacts the network in a test (NFR-4).
+IF-8 CI and selftest (IF to developers): offline; every push and pull request runs fmt, clippy with warnings denied, unit tests, the musl cross-check and the pinned width/printable table checks on windows/ubuntu/macos (.github/workflows/rust.yml); bundles.yml (workflow_dispatch) assembles the five release bundles (windows/linux lean+portable each plus the linux-musl cli bundle - FR-19; that job also proves it: static link, extract, packaged selftest 181/0, no bundled yt-dlp), the windows setup.exe and the macos-arm64 pkg (FR-18; both installers are installed and run on their own runners in the job) plus RELEASE-NOTES.md. No workflow contacts the network in a test (NFR-4).
 
 ## 6. Functionality
 
-Startup journey: enable ANSI/VT where needed (tty.rs), paint the menu box (header "yt-dlp cli  v<version>" centered, the FR-17 quick-paste row, 13 rows, "press escape to exit submenu", rules), print the hint block above the input line - verbatim, amber then grey then divider:
+Startup journey: enable ANSI/VT where needed (tty.rs), paint the menu box (header "yt-dlp cli  v<version>" centered, the FR-17 quick-paste row, 14 rows, "press escape to exit submenu", rules), print the hint block above the input line - verbatim, amber then grey then divider:
 
     paste url, press enter and download will start.
     enter number to change default settings
     change download location by choosing menu item: 5
-    download several urls at once by choosing menu item: 9
+    download several urls at once by choosing menu item: 10
     DL location: <resolved folder>
 
-then auto-update check (FR-13) and first save. The menu never disappears: everything paints under it, nothing prints beyond the hint block, item-9 entry lines, and stage/verdict lines (`main_menu`, menu.rs).
+then auto-update check (FR-13) and first save. The menu never disappears: everything paints under it, nothing prints beyond the hint block, item-10 entry lines, and stage/verdict lines (`main_menu`, menu.rs).
 
 Primary flow (single url): prompt accepts text; first http(s) substring is the url (before any number is consulted) - when no url is present, text goes to `act()`; on a real tty a bare 0 goes there at the keypress with no enter (FR-17's quick-key read; piped and scripted reads keep the 0-then-enter line path); do_download per FR-7: preflight freeze, then the spinner stage with live progress, then exactly one of three justified verdicts: finished (plus "... <name> (<MB>)" file line via `newest_since`, 2 s slack), failed (full error line), or stopped-by-escape (partial cleanup count). States covered: not a url (message),
 yt-dlp missing (guidance), yt-dlp fails its check (frozen rc), no ffmpeg (offer per FR-14 or declined continuation), success, failure (always ends in a readable frozen line), escape (kill + clean). Stage lines persist until the next url, menu pick, repaint or escape (the results/dirty management in `main_menu`).
 
-Batch flow (item 9): FR-12 above; states: empty entry closes and starts, escape returns without downloads, bad line marked and skipped, per-url header line, batch aborted by escape only.
+Batch flow (item 10): FR-12 above; states: empty entry closes and starts, escape returns without downloads, bad line marked and skipped, per-url header line, batch aborted by escape only.
 
-Updaters (items 11/12): FR-13; states: current version ("already current"), newer version offered with enter = no, network down (silent or, when forced, one explanatory line), older published file (no version found message when forced).
+Updaters (items 12/13): FR-13; states: current version ("already current"), newer version offered with enter = no, network down (silent or, when forced, one explanatory line), older published file (no version found message when forced).
 
-Settings flows (items) each end in: new value shown, a hold read, menu repaint; item 10 restores DEFAULTS and answers "defaults restored"; item 13 saves and prints the settings path.
+Settings flows (items) each end in: new value shown, a hold read, menu repaint; item 11 restores DEFAULTS and answers "defaults restored"; item 14 saves and prints the settings path (the quit path).
 
 Failure handling pattern: every detectable failure (missing binary, failed probe, refused install, checksum mismatch, unreadable archive, network loss) ends in a specific user-visible line describing the fix or the kept state; nothing fails silently except non-forced network contact (IF-7, FR-13).
 

@@ -14,12 +14,12 @@ name: bundles
 # file, the cli built for x86_64-unknown-linux-musl, cli-only (no yt-dlp, no
 # ffmpeg - the system package manager provides them; apk add yt-dlp pulls
 # ffmpeg and the JS runtime along on Alpine). Its job builds, assembles and
-# proves it here: static link, extract, packaged selftest 177/0, and no
+# proves it here: static link, extract, packaged selftest 181/0, and no
 # bin/yt-dlp inside the tar. The release is eight files.
 #
 # The installers are built here and proven here, not just assembled: the
 # windows job silently installs the setup.exe, runs the installed binary's
-# selftest (177 checks, 0 failed), checks the PATH entry and uninstalls again;
+# selftest (181 checks, 0 failed), checks the PATH entry and uninstalls again;
 # the macos job installs the pkg with `installer -pkg` on the runner, runs the
 # installed binary, checks writability, the launcher and the shipped uninstall
 # script. Both installers carry the same portable payload the zip/tar bundles
@@ -124,7 +124,7 @@ jobs:
           & $iscc "/DAppVer=$ver" "/DStage=$stage" "/O$PWD/dist" "rust-src/packaging/windows-installer.iss"
           if ($LASTEXITCODE -ne 0) { throw "ISCC failed with $LASTEXITCODE" }
           if (-not (Test-Path "dist/ytdlp-cli-v$ver-windows-setup.exe")) { throw "setup.exe not produced" }
-      - name: installer proof - silent install, selftest 177/0, PATH add/remove, uninstall
+      - name: installer proof - silent install, selftest 181/0, PATH add/remove, uninstall
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -140,7 +140,7 @@ jobs:
           $report = & "$tdir/ytdlp.exe" --selftest | Out-String
           $rc = $LASTEXITCODE
           if ($rc -ne 0) { throw "installed selftest rc $rc" }
-          if ($report -notmatch "selftest: 177 checks, 0 failed") { throw "selftest report mismatch: $report" }
+          if ($report -notmatch "selftest: 181 checks, 0 failed") { throw "selftest report mismatch: $report" }
           $pe = (Get-Item "$tdir/ytdlp.exe").VersionInfo
           if ($pe.FileDescription -ne "ytdlp") { throw "FileDescription: $($pe.FileDescription)" }
           if ($pe.ProductName -ne "yt-dlp cli") { throw "ProductName: $($pe.ProductName)" }
@@ -157,7 +157,7 @@ jobs:
           $pathAfter = (Get-ItemProperty -Path "HKCU:\Environment" -Name Path).Path
           if ($pathAfter.Replace('/', '\') -like "*$tdirN*") { Write-Host "HKCU Path after uninstall: $pathAfter"; throw "PATH entry survived uninstall" }
           Remove-Item -Recurse -Force "$PWD/inst-test" -ErrorAction SilentlyContinue
-          Write-Host "installer proof passed: install, selftest 177/0, PE fields, PATH add/remove, clean uninstall"
+          Write-Host "installer proof passed: install, selftest 181/0, PE fields, PATH add/remove, clean uninstall"
       - name: checksums and sizes
         shell: pwsh
         run: |
@@ -278,9 +278,9 @@ jobs:
             echo "the musl bundle must not carry yt-dlp"; exit 1
           fi
           report=$("$bin" --selftest)
-          echo "$report" | grep -q "selftest: 177 checks, 0 failed"
+          echo "$report" | grep -q "selftest: 181 checks, 0 failed"
           echo "$report" | tail -n 3
-          echo "musl run proof passed: static, selftest 177/0, cli-only"
+          echo "musl run proof passed: static, selftest 181/0, cli-only"
       - uses: actions/upload-artifact@v4
         with:
           name: linux-musl-bundle
@@ -346,7 +346,7 @@ jobs:
           test -L /usr/local/bin/ytdlp
           report=$(/usr/local/bin/ytdlp --selftest)
           echo "$report" | tail -3
-          echo "$report" | grep -q "selftest: 177 checks, 0 failed"
+          echo "$report" | grep -q "selftest: 181 checks, 0 failed"
           # the tree must be writable by the user running it (settings.json,
           # yt-dlp -U and the ffmpeg offer all write into the tree)
           touch /usr/local/ytdlp-cli/.wtest && rm /usr/local/ytdlp-cli/.wtest
@@ -365,7 +365,7 @@ jobs:
             echo "pkg receipt survived the uninstall" >&2
             exit 1
           fi
-          echo "pkg proof passed: install, selftest 177/0, pins, writability, launcher, uninstall"
+          echo "pkg proof passed: install, selftest 181/0, pins, writability, launcher, uninstall"
       - name: checksums and sizes
         run: |
           set -euo pipefail

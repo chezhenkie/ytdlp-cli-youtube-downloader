@@ -1,8 +1,9 @@
 //! The packaged selftest (phase 9): python's `selftest()` as a runtime
 //! command.
 //!
-//! Check names, order and count follow the python selftest one to one
-//! (177 checks), so `rust-src/tools/selftest_compare.py` can run both
+//! Check names, order and count follow the python selftest one to one,
+//! plus the four native stripper checks the menu row 8 stage added (181
+//! total), so `rust-src/tools/selftest_compare.py` can run both
 //! reports and diff the decoded name/verdict stream. Where python
 //! monkeypatched a module global this module injects the seam the
 //! ported function already takes - the same rule the crate tests and
@@ -25,7 +26,7 @@ mod sections;
 use plumbing::*;
 use sections::*;
 
-/// The entry point: python's `selftest()` - the 177-check report, rc 0
+/// The entry point: python's `selftest()` - the 181-check report, rc 0
 /// when all pass and rc 1 like python's return.
 pub fn run_selftest(
     version: &str,

@@ -14,7 +14,7 @@
 
 ## Short description
 
-A desktop CLI that wraps standalone yt-dlp: open it, paste a url, press enter, and the download runs with saved defaults. The menu changes those defaults and every change persists immediately to config/settings.json beside the executable; menu item 9 collects several urls and downloads them in sequence. Windows and Linux are fully supported, with no hardcoded paths anywhere.
+A desktop CLI that wraps standalone yt-dlp: open it, paste a url, press enter, and the download runs with saved defaults. The menu changes those defaults and every change persists immediately to config/settings.json beside the executable; menu item 10 collects several urls and downloads them in sequence. Windows and Linux are fully supported, with no hardcoded paths anywhere.
 
 ## Table of contents
 
@@ -22,7 +22,7 @@ This file is 00-overview.md; the parts are numbered in reading order (01-06) and
 
 | part | sections | describes |
 |---|---|---|
-| [01-problem-goals.md](01-problem-goals.md) | 1-3 | problem, goals, non-goals; FR-1..FR-19 the functional requirements; NFR-1..NFR-8 the non-functional requirements |
+| [01-problem-goals.md](01-problem-goals.md) | 1-3 | problem, goals, non-goals; FR-1..FR-20 the functional requirements; NFR-1..NFR-8 the non-functional requirements |
 | [02-architecture.md](02-architecture.md) | 4 | components and layers, capability map, crate policy, language gates, build matrix, data ownership, third-party licensing |
 | [03-native-decisions.md](03-native-decisions.md) | 4 | section 4 continuation: the per-phase native decision record - binding decisions, recorded deviations, evidence method |
 | [04-interfaces.md](04-interfaces.md) | 5-7 | IF-1..IF-8 launchers, argv, settings schema, subprocess contracts, endpoints, CI; startup journey, user flows, states, failure handling; implementation rules, observability, process hygiene |

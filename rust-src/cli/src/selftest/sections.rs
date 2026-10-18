@@ -707,34 +707,36 @@ pub(super) fn section_menu(
         }
     };
     let mut nums: Vec<i64> = rows.iter().map(|r| r.idx).collect();
-    let sequential = rows.len() == 13 && {
-        let want: Vec<i64> = (1..=13).collect();
+    let sequential = rows.len() == 14 && {
+        let want: Vec<i64> = (1..=14).collect();
         nums == want
     };
     nums.sort_unstable();
-    c.check("menu has 13 rows", sequential, &format!("{nums:?}"));
-    let row_nine = rows.get(8).map(|r| r.label.clone()).unwrap_or_default();
+    c.check("menu has 14 rows", sequential, &format!("{nums:?}"));
+    let row_eight = rows.get(7).map(|r| r.label.clone()).unwrap_or_default();
     c.check(
-        "menu row 9 is multi url",
-        row_nine == "add multiple youtube urls",
-        &got_strs(&[&row_nine]),
+        "menu row 8 is srt timecode stripper",
+        row_eight == "srt timecode stripper",
+        &got_strs(&[&row_eight]),
     );
-    let row_thirteen = rows.get(12).map(|r| r.label.clone()).unwrap_or_default();
+    let row_ten = rows.get(9).map(|r| r.label.clone()).unwrap_or_default();
     c.check(
-        "menu row 13 is quit",
-        row_thirteen == "quit",
-        &got_strs(&[&row_thirteen]),
+        "menu row 10 is multi url",
+        row_ten == "add multiple youtube urls",
+        &got_strs(&[&row_ten]),
     );
-    let nine_value = rows.get(8).map(|r| r.value.clone()).unwrap_or_default();
-    let nine_grey = rows.get(8).map(|r| r.grey).unwrap_or(false);
-    let nine_ok = nine_value.is_empty() && nine_grey;
+    let row_fourteen = rows.get(13).map(|r| r.label.clone()).unwrap_or_default();
+    c.check(
+        "menu row 14 is quit",
+        row_fourteen == "quit",
+        &got_strs(&[&row_fourteen]),
+    );
+    let ten_value = rows.get(9).map(|r| r.value.clone()).unwrap_or_default();
+    let ten_grey = rows.get(9).map(|r| r.grey).unwrap_or(false);
+    let ten_ok = ten_value.is_empty() && ten_grey;
     let _ = &nums;
-    c.check(
-        "menu row 9 has no value",
-        nine_ok,
-        &got_strs(&[&nine_value]),
-    );
-    let labels: Vec<String> = (9..12)
+    c.check("menu row 10 has no value", ten_ok, &got_strs(&[&ten_value]));
+    let labels: Vec<String> = (10..13)
         .map(|i| {
             rows.get(i as usize)
                 .map(|r| r.label.clone())
@@ -745,7 +747,7 @@ pub(super) fn section_menu(
         && labels.get(1).map(String::as_str) == Some("update yt-dlp + cli")
         && labels.get(2).map(String::as_str) == Some("auto update");
     c.check(
-        "menu rows 10 to 12 shifted",
+        "menu rows 11 to 13 shifted",
         shifted,
         &got_strs(&[
             labels.first().map(String::as_str).unwrap_or(""),
@@ -753,7 +755,7 @@ pub(super) fn section_menu(
             labels.get(2).map(String::as_str).unwrap_or(""),
         ]),
     );
-    let auto_state = rows.get(11).map(|r| r.value.clone()).unwrap_or_default();
+    let auto_state = rows.get(12).map(|r| r.value.clone()).unwrap_or_default();
     c.check(
         "auto update row shows its state",
         auto_state == "on" || auto_state == "off",
@@ -770,6 +772,24 @@ pub(super) fn section_menu(
         "auto update stamps its last check",
         config::get(&d, "auto_update_last_check").is_some(),
         &py_value(Some(&Value::Null)),
+    );
+    c.check(
+        "srt stripper default is off",
+        config::get(&d, "srt_stripper") == Some(&Value::Bool(false)),
+        &py_value(Some(&Value::Bool(false))),
+    );
+    c.check(
+        "srt stripper default mode is alpha",
+        config::get(&d, "srt_stripper_mode")
+            .map(config::py_str)
+            .as_deref()
+            == Some("alpha"),
+        &got_strs(&["alpha"]),
+    );
+    c.check(
+        "srt stripper has four modes",
+        config::SRT_MODES == ["alpha", "timecodes", "numbered", "numbered-only"],
+        &got_strs(&config::SRT_MODES),
     );
 
     // ffmpeg sources: windows BtbN zip (FR-14 amendment 2026-10-16c),
@@ -1252,10 +1272,10 @@ pub(super) fn section_holds(
         c.check(name, picked && held, &got_strs(&[reply]));
     }
 
-    // item 8 and item 10 print after their last read and must hold too
+    // item 9 and item 11 print after their last read and must hold too
     let actions: Vec<(&str, Vec<&str>, &str)> = vec![
-        ("8", vec!["y", "abc"], "not a number - kept"),
-        ("10", vec![], "defaults restored"),
+        ("9", vec!["y", "abc"], "not a number - kept"),
+        ("11", vec![], "defaults restored"),
     ];
     for (choice, replies, marker) in actions {
         let mut capture = CaptureOut::default();
@@ -1503,7 +1523,7 @@ pub(super) fn section_batch(
         &got_list(&attempts.borrow().clone()),
     );
 
-    // hint + act 14 + act 9
+    // hint + act 15 + act 10
     let mut capture3 = CaptureOut::default();
     {
         let outdir = outdir_of(&s, root, auto);
@@ -1519,8 +1539,8 @@ pub(super) fn section_batch(
         reader: &mut reader3,
     };
     let mut defaults = config::defaults();
-    let result14 = menu::act(
-        "14",
+    let result15 = menu::act(
+        "15",
         &mut defaults,
         &mut io3,
         &world,
@@ -1528,14 +1548,14 @@ pub(super) fn section_batch(
         &mut no_update,
     );
     c.check(
-        "hint points at item 9",
-        capture3.text().contains("menu item: 9"),
+        "hint points at item 10",
+        capture3.text().contains("menu item: 10"),
         &got_strs(&["hint"]),
     );
     c.check(
-        "act rejects 14 with new range",
-        matches!(result14, Ok(ActOutcome::Repaint(true))) && capture3.text().contains("1-13"),
-        &got_strs(&["1-13"]),
+        "act rejects 15 with new range",
+        matches!(result15, Ok(ActOutcome::Repaint(true))) && capture3.text().contains("1-14"),
+        &got_strs(&["1-14"]),
     );
     let mut capture4 = CaptureOut::default();
     let mut reader4 = ScriptedReader::new(&[""]);
@@ -1543,28 +1563,28 @@ pub(super) fn section_batch(
         out: &mut capture4,
         reader: &mut reader4,
     };
-    let mut defaults9 = config::defaults();
-    let result9 = menu::act(
-        "9",
-        &mut defaults9,
+    let mut defaults10 = config::defaults();
+    let result10 = menu::act(
+        "10",
+        &mut defaults10,
         &mut io4,
         &world,
         &mut no_download,
         &mut no_update,
     );
-    let text9 = capture4.text();
-    let multi_screen = text9.contains("multiple urls");
+    let text10 = capture4.text();
+    let multi_screen = text10.contains("multiple urls");
     // python drove a fake `multi_url`; the real spread with zero entries
     // answers multi_url's own repaint(value True), so the screen content
     // and the non-repaint falseness carry the same pin natively
-    let reached = matches!(result9, Ok(ActOutcome::Repaint(true)));
+    let reached = matches!(result10, Ok(ActOutcome::Repaint(true)));
     if !(reached && multi_screen) {
-        eprintln!("act9-debug reached={reached} multi={multi_screen} text={text9:?}");
+        eprintln!("act10-debug reached={reached} multi={multi_screen} text={text10:?}");
     }
     c.check(
-        "act 9 is multi url",
+        "act 10 is multi url",
         reached && multi_screen,
-        &got_strs(&["act 9"]),
+        &got_strs(&["act 10"]),
     );
 }
 
@@ -1625,7 +1645,7 @@ pub(super) fn section_audit(
     );
     c.check(
         "coerce renders the menu without raising",
-        menu_rows.len() == 13,
+        menu_rows.len() == 14,
         &format!("{}", menu_rows.len()),
     );
     let after = file_bytes(config_path);

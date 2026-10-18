@@ -67,6 +67,8 @@ pub fn defaults() -> Obj {
         ("filename_template", str_value("%(title)s")),
         ("subtitles", Value::Bool(true)),
         ("subtitle_langs", str_value("en")),
+        ("srt_stripper", Value::Bool(false)),
+        ("srt_stripper_mode", str_value("alpha")),
         ("playlist", Value::Bool(false)),
         ("playlist_max_items", Value::Int(0)),
     ]
@@ -79,6 +81,7 @@ pub const RESOLUTIONS: [&str; 7] = ["2160", "1440", "1080", "720", "480", "360",
 pub const CONTAINERS: [&str; 4] = ["mp4", "mkv", "webm", "best"];
 pub const AUDIO_FORMATS: [&str; 5] = ["mp3", "m4a", "opus", "wav", "best"];
 pub const TYPES: [&str; 3] = ["video", "video no audio", "audio only"];
+pub const SRT_MODES: [&str; 4] = ["alpha", "timecodes", "numbered", "numbered-only"];
 
 /// Python `%r` for the values the defaults carry (int and plain string;
 /// the bool/null/float arms are spelled out for completeness - none of
@@ -819,7 +822,7 @@ mod tests {
             &Value::Str("720".into())
         );
         assert_eq!(get(&settings, "zz"), None);
-        assert_eq!(to_map(&settings).len(), 16);
+        assert_eq!(to_map(&settings).len(), 18);
         assert_eq!(
             get(&settings, "type").unwrap(),
             &Value::Str("audio only".into())
