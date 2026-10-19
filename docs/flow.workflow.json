@@ -1,0 +1,127 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "yt-dlp cli - process flow",
+    "quality_profile": "showcase",
+    "output": "ytdlp-process-flow.html",
+    "repository": {
+      "url": "https://github.com/chezhenkie/ytdlp-cli-youtube-downloader.git",
+      "revision": "40a24288a76b8aa07ab95f4059ddf1393d032b23"
+    }
+  },
+  "lanes": [
+    { "id": "human", "label": "human at the terminal" },
+    { "id": "menu", "label": "menu session" },
+    { "id": "updates", "label": "updaters" },
+    { "id": "cli", "label": "ytdlp cli logic" },
+    { "id": "child", "label": "child processes" },
+    { "id": "files", "label": "files on disk" }
+  ],
+  "mainPath": ["u_start", "c_main", "m_paint", "m_route", "r_do", "r_ytdlp", "r_verdict"],
+  "nodes": [
+    { "id": "u_start", "lane": "human", "col": 0, "type": "external", "label": "open ytdlp", "sublabel": "start the cli", "icon": "start" },
+    { "id": "u_type", "lane": "human", "col": 3, "type": "external", "label": "type at the prompt", "sublabel": "url | 0 | 1-14 | q" },
+    { "id": "m_paint", "lane": "menu", "col": 2, "type": "frontend", "label": "paint menu", "sublabel": "rows 1-14, saved values",
+      "sources": [
+        { "path": "rust-src/cli/src/menu.rs", "line": 744, "end_line": 757, "label": "paint when dirty" },
+        { "path": "rust-src/cli/src/menu.rs", "line": 758, "end_line": 763, "label": "first paint: quiet update check, then save" },
+        { "path": "rust-src/cli/src/ui.rs", "line": 179, "end_line": 322, "label": "menu_items: rows 1-14" }
+      ]
+    },
+    { "id": "m_route", "lane": "menu", "col": 3, "type": "frontend", "icon": "decision", "label": "route the input", "sublabel": "first http(s) link wins",
+      "sources": [
+        { "path": "rust-src/cli/src/menu.rs", "line": 778, "end_line": 800, "label": "url in prompt: download run" },
+        { "path": "rust-src/cli/src/args.rs", "line": 23, "end_line": 53, "label": "clean_url: first http(s) link" }
+      ]
+    },
+    { "id": "m_act", "lane": "menu", "col": 4, "type": "frontend", "label": "menu actions", "sublabel": "items 1-14, saved each time",
+      "sources": [
+        { "path": "rust-src/cli/src/menu.rs", "line": 383, "end_line": 722, "label": "act(): items 0-14" },
+        { "path": "rust-src/cli/src/menu.rs", "line": 811, "label": "save after each action (single line)" },
+        { "path": "rust-src/cli/src/update.rs", "line": 565, "end_line": 571, "label": "update_all: yt-dlp update, then cli check" }
+      ]
+    },
+    { "id": "u_cli", "lane": "updates", "col": 2, "type": "cloud", "label": "releases API fetch", "sublabel": "one GET: tag, asset, digest", "tag": "no bare build: refusal",
+      "sources": [
+        { "path": "rust-src/cli/src/update.rs", "line": 246, "end_line": 289, "label": "fetch_cli: one GET" },
+        { "path": "rust-src/cli/src/update.rs", "line": 509, "end_line": 517, "label": "refusal: no published cli build" },
+        { "path": "rust-src/cli/src/net.rs", "line": 35, "label": "CHECK_TIMEOUT: 6 s check ceiling (single line)" }
+      ]
+    },
+    { "id": "u_gate", "lane": "updates", "col": 3, "type": "security", "label": "selftest gate + rename", "sublabel": "must pass its own checks",
+      "sources": [
+        { "path": "rust-src/cli/src/update.rs", "line": 296, "end_line": 332, "label": "install_cli: selftest, then place" }
+      ]
+    },
+    { "id": "c_main", "lane": "cli", "col": 1, "type": "backend", "label": "main() dispatch", "sublabel": "load settings once", "tag": "check, selftest, update, url, menu",
+      "sources": [
+        { "path": "rust-src/cli/src/main.rs", "line": 36, "end_line": 95, "label": "run(): load settings once, dispatch order" },
+        { "path": "rust-src/cli/src/main.rs", "line": 196, "end_line": 241, "label": "run_quick: url argv, one run, exit" }
+      ]
+    },
+    { "id": "r_do", "lane": "cli", "col": 3, "type": "backend", "label": "do_download", "sublabel": "url check, tools, argv", "tag": "offers ffmpeg if missing",
+      "sources": [
+        { "path": "rust-src/cli/src/exec.rs", "line": 386, "end_line": 553, "label": "do_download: one run" },
+        { "path": "rust-src/cli/src/resolve.rs", "line": 818, "end_line": 844, "label": "find_yt_dlp: settings, bin/, PATH" },
+        { "path": "rust-src/cli/src/args.rs", "line": 255, "end_line": 327, "label": "build_args: yt-dlp argv" }
+      ]
+    },
+    { "id": "r_verdict", "lane": "cli", "col": 5, "type": "backend", "label": "verdict", "sublabel": "finished | failed rc | stopped 130",
+      "sources": [
+        { "path": "rust-src/cli/src/exec.rs", "line": 37, "end_line": 43, "label": "fail_sentence: failed rc text" },
+        { "path": "rust-src/cli/src/exec.rs", "line": 465, "end_line": 482, "label": "stopped: rc 130" },
+        { "path": "rust-src/cli/src/exec.rs", "line": 126, "end_line": 130, "label": "drop_temp_dir_force: removes work folder" }
+      ]
+    },
+    { "id": "r_ytdlp", "lane": "child", "col": 3, "type": "messagebus", "label": "yt-dlp process", "sublabel": "stdout piped; escape kills tree",
+      "sources": [
+        { "path": "rust-src/cli/src/exec.rs", "line": 221, "end_line": 342, "label": "run_download: spawn, pumps, poll" },
+        { "path": "rust-src/cli/src/exec/run.rs", "line": 142, "end_line": 165, "label": "kill_tree_real: tree kill on escape" }
+      ]
+    },
+    { "id": "r_subs", "lane": "child", "col": 5, "yOffset": -40, "type": "messagebus", "label": "subtitle pass", "sublabel": "--skip-download, after success",
+      "sources": [
+        { "path": "rust-src/cli/src/args.rs", "line": 334, "end_line": 371, "label": "build_sub_args: --skip-download" },
+        { "path": "rust-src/cli/src/exec.rs", "line": 515, "end_line": 550, "label": "subtitle branch: when subtitles on" }
+      ]
+    },
+    { "id": "r_strip", "lane": "child", "col": 5, "yOffset": 40, "type": "messagebus", "label": "srt timecode stripper", "sublabel": "only when srt on and rc 0",
+      "sources": [
+        { "path": "rust-src/cli/src/exec.rs", "line": 561, "end_line": 591, "label": "strip_subtitles: loop over new subs" },
+        { "path": "rust-src/cli/src/exec/srtstripper.rs", "line": 97, "end_line": 129, "label": "run_one: one spawn per file" },
+        { "path": "rust-src/cli/src/exec/srtstripper.rs", "line": 16, "end_line": 24, "label": "mode_flag: stripper mode to flag" }
+      ]
+    },
+    { "id": "f_settings", "lane": "files", "col": 1, "type": "database", "label": "config/settings.json", "sublabel": "read at start, saved on change",
+      "sources": [
+        { "path": "rust-src/cli/src/config.rs", "line": 425, "end_line": 524, "label": "load_settings: read once" },
+        { "path": "rust-src/cli/src/config.rs", "line": 530, "end_line": 552, "label": "save_settings: atomic, skipped when unchanged" }
+      ]
+    },
+    { "id": "f_out", "lane": "files", "col": 5, "type": "database", "label": "output folder", "sublabel": "partials in .ytdlp-tmp",
+      "sources": [
+        { "path": "rust-src/cli/src/args.rs", "line": 178, "end_line": 201, "label": "output_args: -P home and temp dirs" },
+        { "path": "rust-src/cli/src/resolve.rs", "line": 304, "label": "TEMP_DIR_NAME = .ytdlp-tmp (single line)" },
+        { "path": "rust-src/cli/src/exec.rs", "line": 139, "end_line": 156, "label": "newest_since: finished file" }
+      ]
+    }
+  ],
+  "edges": [
+    { "id": "e_start", "from": "u_start", "to": "c_main", "label": "start", "role": "main", "variant": "emphasis" },
+    { "id": "e_menu", "from": "c_main", "to": "m_paint", "label": "no flags", "role": "main", "variant": "emphasis" },
+    { "id": "e_read", "from": "c_main", "to": "f_settings", "label": "read at start", "variant": "dashed" },
+    { "id": "e_type", "from": "u_type", "to": "m_route", "label": "keys + enter", "variant": "default" },
+    { "id": "e_paint_route", "from": "m_paint", "to": "m_route", "label": "prompt", "role": "main", "variant": "emphasis" },
+    { "id": "e_url", "from": "m_route", "to": "r_do", "label": "http(s) link", "role": "main", "variant": "emphasis" },
+    { "id": "e_act", "from": "m_route", "to": "m_act", "label": "1-14 or 0", "role": "branch", "variant": "default" },
+    { "id": "e_batch", "from": "m_act", "to": "r_do", "label": "0 clipboard, 10 batch", "variant": "dashed", "fromSide": "bottom", "toSide": "right" },
+    { "id": "e_update", "from": "m_act", "to": "u_cli", "label": "12 update", "variant": "dashed", "fromSide": "bottom", "toSide": "top" },
+    { "id": "e_gate", "from": "u_cli", "to": "u_gate", "label": "y + download", "variant": "security" },
+    { "id": "e_spawn", "from": "r_do", "to": "r_ytdlp", "label": "spawn", "role": "main", "variant": "emphasis" },
+    { "id": "e_rc", "from": "r_ytdlp", "to": "r_verdict", "label": "rc + tail", "role": "main", "variant": "emphasis" },
+    { "id": "e_final", "from": "r_verdict", "to": "f_out", "label": "saved file", "variant": "dashed", "route": "outside-right", "fromSide": "right", "toSide": "right" },
+    { "id": "e_subs", "from": "r_verdict", "to": "r_subs", "label": "success + subs on", "role": "branch", "variant": "dashed" },
+    { "id": "e_strip", "from": "r_subs", "to": "r_strip", "label": "rc 0 + srt on", "variant": "dashed" }
+  ]
+}
