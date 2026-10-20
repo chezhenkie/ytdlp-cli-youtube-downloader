@@ -562,10 +562,7 @@ fn strip_subtitles(s: &Obj, ctx: &mut DownloadCtx, outdir: &str, started: f64, r
     if !config::get(s, "srt_stripper").is_some_and(config::py_truthy) {
         return;
     }
-    let mode = match config::get(s, "srt_stripper_mode") {
-        Some(v) => config::py_str(v),
-        None => "alpha".to_string(),
-    };
+    let mode = config::srt_mode(config::get(s, "srt_stripper_mode")).to_string();
     let mut st = tty::dot_stage("srt timecode stripper", ctx.use_color, ctx.sink.clone());
     st.start();
     let bin_dir = resolve::py_path_join(ctx.root, "bin");
@@ -1540,10 +1537,10 @@ mod tests {
         let mut rt = RunRt {
             spawn: Box::new(move |binary, args| {
                 assert_eq!(binary, bin_path);
-                assert_eq!(args, expect_args, "alpha takes no flag");
+                assert_eq!(args, expect_args, "text takes no flag");
                 Ok(Spawned {
                     stdout: Box::new(std::io::Cursor::new(
-                        b"PASS: mode=alpha, wrote 1 lines from 3 input lines -> /out/video.en - alpha.txt\n"
+                        b"PASS: mode=default, wrote 1 lines from 3 input lines -> /out/video.en - alpha.txt\n"
                             .to_vec(),
                     )),
                     stderr: Box::new(std::io::Cursor::new(Vec::new())),

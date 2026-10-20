@@ -779,16 +779,16 @@ pub(super) fn section_menu(
         &py_value(Some(&Value::Bool(false))),
     );
     c.check(
-        "srt stripper default mode is alpha",
+        "srt stripper default mode is text",
         config::get(&d, "srt_stripper_mode")
             .map(config::py_str)
             .as_deref()
-            == Some("alpha"),
-        &got_strs(&["alpha"]),
+            == Some("text"),
+        &got_strs(&["text"]),
     );
     c.check(
-        "srt stripper has four modes",
-        config::SRT_MODES == ["alpha", "timecodes", "numbered", "numbered-only"],
+        "srt stripper has three modes",
+        config::SRT_MODES == ["text", "timecode", "numbered"],
         &got_strs(&config::SRT_MODES),
     );
 

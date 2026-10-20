@@ -21,7 +21,7 @@ only - playlist_max_items int-parsed with fallback 0 (= all), the three vocabula
 | subtitles | bool | true | on/off | do_download (exec.rs) |
 | subtitle_langs | str | "en" | comma list, wildcards pass | build_sub_args (args.rs) |
 | srt_stripper | bool | false | on/off | strip_subtitles (exec.rs) |
-| srt_stripper_mode | str | "alpha" | alpha timecodes numbered numbered-only | strip_subtitles (exec.rs) |
+| srt_stripper_mode | str | "text" | text timecode numbered | strip_subtitles (exec.rs) |
 | playlist | bool | false | on/off | build_args (args.rs) |
 | playlist_max_items | int | 0 | 0 = all | build_args (args.rs) |
 

@@ -10,7 +10,7 @@
   "playlist_max_items": 0,
   "settings_version": 1,
   "srt_stripper": false,
-  "srt_stripper_mode": "alpha",
+  "srt_stripper_mode": "text",
   "subtitle_langs": "en",
   "subtitles": true,
   "type": "video",

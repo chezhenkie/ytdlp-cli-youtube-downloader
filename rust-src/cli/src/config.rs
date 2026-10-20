@@ -68,7 +68,7 @@ pub fn defaults() -> Obj {
         ("subtitles", Value::Bool(true)),
         ("subtitle_langs", str_value("en")),
         ("srt_stripper", Value::Bool(false)),
-        ("srt_stripper_mode", str_value("alpha")),
+        ("srt_stripper_mode", str_value("text")),
         ("playlist", Value::Bool(false)),
         ("playlist_max_items", Value::Int(0)),
     ]
@@ -81,7 +81,24 @@ pub const RESOLUTIONS: [&str; 7] = ["2160", "1440", "1080", "720", "480", "360",
 pub const CONTAINERS: [&str; 4] = ["mp4", "mkv", "webm", "best"];
 pub const AUDIO_FORMATS: [&str; 5] = ["mp3", "m4a", "opus", "wav", "best"];
 pub const TYPES: [&str; 3] = ["video", "video no audio", "audio only"];
-pub const SRT_MODES: [&str; 4] = ["alpha", "timecodes", "numbered", "numbered-only"];
+pub const SRT_MODES: [&str; 3] = ["text", "timecode", "numbered"];
+
+/// Canonical stripper mode for a stored settings value: the three modes
+/// the stripper publishes (text, timecode, numbered). Values written by
+/// older cli versions migrate by meaning - alpha was the plain text mode,
+/// timecodes the cue-stamp mode, and numbered-only the block-number mode
+/// the tool now calls numbered. Anything else falls back to text, the
+/// same fallback the flag map uses.
+pub fn srt_mode(v: Option<&Value>) -> &'static str {
+    match v {
+        Some(Value::Str(mode)) => match mode.as_str() {
+            "timecode" | "timecodes" => "timecode",
+            "numbered" | "numbered-only" => "numbered",
+            _ => "text",
+        },
+        _ => "text",
+    }
+}
 
 /// Python `%r` for the values the defaults carry (int and plain string;
 /// the bool/null/float arms are spelled out for completeness - none of
@@ -566,6 +583,24 @@ mod tests {
 
     fn to_map(s: &Obj) -> HashMap<String, Value> {
         s.iter().cloned().collect()
+    }
+
+    /// FR-20: the stored mode name is canonicalized before any consumer
+    /// sees it. The three older names keep their meaning (alpha was the
+    /// plain text mode, timecodes the cue-stamp mode, numbered-only the
+    /// block-number mode) and anything unknown falls back to text.
+    #[test]
+    fn srt_mode_maps_published_names_and_legacy_values() {
+        let mode = |text: &str| Value::Str(text.to_string());
+        assert_eq!(srt_mode(Some(&mode("text"))), "text");
+        assert_eq!(srt_mode(Some(&mode("timecode"))), "timecode");
+        assert_eq!(srt_mode(Some(&mode("numbered"))), "numbered");
+        assert_eq!(srt_mode(Some(&mode("alpha"))), "text");
+        assert_eq!(srt_mode(Some(&mode("timecodes"))), "timecode");
+        assert_eq!(srt_mode(Some(&mode("numbered-only"))), "numbered");
+        assert_eq!(srt_mode(Some(&mode("junk"))), "text");
+        assert_eq!(srt_mode(Some(&Value::Bool(true))), "text");
+        assert_eq!(srt_mode(None), "text");
     }
 
     /// F1/F2 junk set from the python selftest: coerce fixes the values,

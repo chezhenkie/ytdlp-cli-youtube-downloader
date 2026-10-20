@@ -21,7 +21,7 @@ name: bundles
 # bundle's bin/: the windows exe for the windows bundles and the setup.exe, the
 # linux glibc build for the linux bundles, the musl build for the musl bundle
 # (first-party, same MIT author - the NFR-1 deviation stays about yt-dlp and
-# ffmpeg), the arm64 build for the macos pkg. Pinned to the v1.0.1 assets and
+# ffmpeg), the arm64 build for the macos pkg. Pinned to the v1.6.4 assets and
 # digest-checked like every other payload.
 #
 # The installers are built here and proven here, not just assembled: the
@@ -64,11 +64,11 @@ env:
   FFMPEG_LINUX_SHA256: 50e0ede136e3545758a8dfb2e6cd12ec865643cd138af9ce6cd36a9015f395c2
   FFMPEG_MACOS_URL: https://github.com/shaka-project/static-ffmpeg-binaries/releases/download/n8.1.2-1/ffmpeg-osx-arm64
   FFMPEG_MACOS_SHA256: e7b9fcd97f95f333512d6e8b8ac24d9dbc08f189f36047695499bd7b57214b22
-  SRTSTRIPPER_URL_BASE: https://github.com/chezhenkie/srt-subtitle-stripper/releases/download/v1.0.1
-  SRTSTRIPPER_WINDOWS_SHA256: 05230e669c4ec9badcb04c20cc81ca74f97c5d593898e82a22206799aacc07ca
-  SRTSTRIPPER_LINUX_SHA256: c0b5b8066f6ac3af0eaf6bdcd3e7589f5b1e07787d3c79d9c5151b06413f585c
-  SRTSTRIPPER_MUSL_SHA256: 77def542f57c45cb8b02c92d2110a7e374fb9f767342cc71dd555ce8830be098
-  SRTSTRIPPER_MACOS_SHA256: 2d5cc6e9a0baba2b5d3a656e3db4c00bdfb601fd545ef7e3f8f7f9748b772961
+  SRTSTRIPPER_URL_BASE: https://github.com/chezhenkie/srt-subtitle-stripper/releases/download/v1.6.4
+  SRTSTRIPPER_WINDOWS_SHA256: 8cd030d4db776e3db1ca16bb286c1eeaecc71dd99c4ddb162331b0d68cb14cbb
+  SRTSTRIPPER_LINUX_SHA256: 85196f96349cdc0ea6c2bb54b8aee9bc5fc2d28d8ad2a51df00453c8cdac2fd1
+  SRTSTRIPPER_MUSL_SHA256: 0a1a7ae08b4b54fc97da2313fe78b0c02185c4110994e9e45e3d3f60498fef9b
+  SRTSTRIPPER_MACOS_SHA256: 4d70f0049be33ca63faf0cad6bc0c2a73ea29ff8bc1fd8f52c3cffea6566913c
   GPL2_SHA256: edaef632cbb643e4e7a221717a6c441a4c1a7c918e6e4d56debc3d8739b233f6
   GPL3_SHA256: 3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986
 

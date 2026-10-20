@@ -621,13 +621,9 @@ pub fn act(
                 config::set(s, "srt_stripper", value);
             }
             if config::get(s, "srt_stripper").is_some_and(config::py_truthy) {
-                let picked = pick_list(
-                    "stripper mode",
-                    &SRT_MODES,
-                    config::get(s, "srt_stripper_mode"),
-                    io,
-                    world,
-                )?;
+                let current =
+                    Value::Str(config::srt_mode(config::get(s, "srt_stripper_mode")).to_string());
+                let picked = pick_list("stripper mode", &SRT_MODES, Some(&current), io, world)?;
                 if let Some(value) = picked {
                     config::set(s, "srt_stripper_mode", value);
                 }
@@ -1158,7 +1154,7 @@ mod tests {
             config::get(&s, "srt_stripper_mode")
                 .map(config::py_str)
                 .as_deref()
-                == Some("alpha")
+                == Some("text")
         );
         assert!(!text.contains("  stripper mode"), "off asks no mode");
         assert_eq!(prompts.len(), 1);
@@ -1178,7 +1174,7 @@ mod tests {
             config::get(&s, "srt_stripper_mode")
                 .map(config::py_str)
                 .as_deref(),
-            Some("alpha")
+            Some("text")
         );
     }
 

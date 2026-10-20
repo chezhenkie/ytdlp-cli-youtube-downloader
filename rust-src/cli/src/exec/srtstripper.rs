@@ -10,15 +10,14 @@ use super::run::Spawned;
 use crate::resolve;
 use std::io::BufRead;
 
-/// The srtstripper flag for a menu mode name. The default mode takes no
-/// flag; an unknown mode string falls back to it (settings.json is
-/// hand-editable, the menu only ever writes the four known names).
+/// The srtstripper flag for a menu mode name. The text mode takes no
+/// flag; an unknown mode string falls back to it. Stored settings values
+/// are canonicalized by `config::srt_mode` before they reach this map.
 pub fn mode_flag(mode: &str) -> Option<&'static str> {
     match mode {
-        "alpha" => None,
-        "timecodes" => Some("--keep-timecodes"),
+        "text" => None,
+        "timecode" => Some("--timecode"),
         "numbered" => Some("--numbered"),
-        "numbered-only" => Some("--numbered-only"),
         _ => None,
     }
 }
@@ -163,25 +162,24 @@ mod tests {
 
     #[test]
     fn mode_flag_maps_the_menu_modes() {
-        assert_eq!(mode_flag("alpha"), None);
-        assert_eq!(mode_flag("timecodes"), Some("--keep-timecodes"));
+        assert_eq!(mode_flag("text"), None);
+        assert_eq!(mode_flag("timecode"), Some("--timecode"));
         assert_eq!(mode_flag("numbered"), Some("--numbered"));
-        assert_eq!(mode_flag("numbered-only"), Some("--numbered-only"));
         assert_eq!(
             mode_flag("junk"),
             None,
-            "unknown mode falls back to default"
+            "unknown mode falls back to the text mode"
         );
     }
 
     #[test]
     fn run_one_reads_the_pass_line() {
         let mut spawn = scripted_spawn(
-            "PASS: mode=alpha, wrote 5 lines from 9 input lines -> /out/video.en - alpha.txt\n",
+            "PASS: mode=default, wrote 5 lines from 9 input lines -> /out/video.en - alpha.txt\n",
             "",
             0,
         );
-        let got = run_one("srtstripper", "/in/video.en.srt", "alpha", &mut spawn).unwrap();
+        let got = run_one("srtstripper", "/in/video.en.srt", "text", &mut spawn).unwrap();
         assert_eq!(got, "/out/video.en - alpha.txt");
     }
 
@@ -198,14 +196,13 @@ mod tests {
             })
         };
         assert_eq!(
-            run_one("srtstripper", "x.srt", "timecodes", &mut spawn).unwrap(),
+            run_one("srtstripper", "x.srt", "timecode", &mut spawn).unwrap(),
             ""
         );
-        let want: Vec<Vec<String>> =
-            vec![vec!["x.srt".to_string(), "--keep-timecodes".to_string()]];
+        let want: Vec<Vec<String>> = vec![vec!["x.srt".to_string(), "--timecode".to_string()]];
         assert_eq!(*seen.borrow(), want);
         assert_eq!(
-            run_one("srtstripper", "x.srt", "alpha", &mut spawn).unwrap(),
+            run_one("srtstripper", "x.srt", "text", &mut spawn).unwrap(),
             ""
         );
         assert_eq!(seen.borrow().last().unwrap(), &vec!["x.srt".to_string()]);
@@ -214,7 +211,7 @@ mod tests {
     #[test]
     fn run_one_reports_the_failure() {
         let mut spawn = scripted_spawn("", "FAIL: input not found: x.srt\n", 2);
-        let got = run_one("srtstripper", "x.srt", "alpha", &mut spawn);
+        let got = run_one("srtstripper", "x.srt", "text", &mut spawn);
         assert_eq!(
             got,
             Err("srtstripper failed (rc=2): FAIL: input not found: x.srt".to_string())
@@ -226,7 +223,7 @@ mod tests {
         let mut spawn = |_binary: &str, _args: &[String]| -> std::io::Result<Spawned> {
             Err(std::io::Error::new(std::io::ErrorKind::NotFound, "no exe"))
         };
-        let got = run_one("srtstripper", "x.srt", "alpha", &mut spawn);
+        let got = run_one("srtstripper", "x.srt", "text", &mut spawn);
         assert!(
             got.unwrap_err()
                 .starts_with("srtstripper failed: could not start")

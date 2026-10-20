@@ -69,14 +69,14 @@ system package manager (on Alpine, apk add yt-dlp pulls ffmpeg with it).
    subtitle (menu item 8)
    MIT License, same author as ytdlp-cli (chezhenkie).
    https://github.com/chezhenkie/srt-subtitle-stripper
-   Released as v1.0.1; the pinned builds shipped in bin/:
+   Released as v1.6.4; the pinned builds shipped in bin/:
    - Windows: srtstripper-windows-x86_64.exe,
-     sha256 05230e669c4ec9badcb04c20cc81ca74f97c5d593898e82a22206799aacc07ca
+     sha256 8cd030d4db776e3db1ca16bb286c1eeaecc71dd99c4ddb162331b0d68cb14cbb
    - Linux (glibc): srtstripper-linux-x86_64,
-     sha256 c0b5b8066f6ac3af0eaf6bdcd3e7589f5b1e07787d3c79d9c5151b06413f585c
+     sha256 85196f96349cdc0ea6c2bb54b8aee9bc5fc2d28d8ad2a51df00453c8cdac2fd1
    - Linux (musl, static): srtstripper-linux-x86_64-musl,
-     sha256 77def542f57c45cb8b02c92d2110a7e374fb9f767342cc71dd555ce8830be098
+     sha256 0a1a7ae08b4b54fc97da2313fe78b0c02185c4110994e9e45e3d3f60498fef9b
    - macOS (arm64): srtstripper-macos-arm64,
-     sha256 2d5cc6e9a0baba2b5d3a656e3db4c00bdfb601fd545ef7e3f8f7f9748b772961
+     sha256 4d70f0049be33ca63faf0cad6bc0c2a73ea29ff8bc1fd8f52c3cffea6566913c
    The linux-musl bundle ships the musl build; the glibc and macOS builds are
    not present there.

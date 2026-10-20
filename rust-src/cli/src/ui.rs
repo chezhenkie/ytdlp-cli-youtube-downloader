@@ -277,7 +277,7 @@ pub fn menu_items(s: &Obj, outdir: &str, is_windows: bool) -> Result<Vec<MenuRow
             value: format!(
                 "{} ({})",
                 onoff(config::get(s, "srt_stripper")),
-                config::py_str(required(s, "srt_stripper_mode")?)
+                config::srt_mode(config::get(s, "srt_stripper_mode"))
             ),
             grey: true,
         },

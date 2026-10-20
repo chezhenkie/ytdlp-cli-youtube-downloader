@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.5.0
+
+### Fixes
+
+#### All platforms
+
+* Updated the bundled srtstripper to 1.6.4 and followed its renamed mode flags (`--timecode`, `--numbered`). The menu offers three modes now - text, timecode, numbered - and stored values keep their meaning (alpha reads as text, timecodes as timecode, numbered-only as numbered).
+* The stripper's old counter-prefix mode no longer exists; numbered writes a number line per text block.
+* On Windows the stripper no longer opens a console window while a download runs.
+
 ## 2.4.0
 
 ### New features
