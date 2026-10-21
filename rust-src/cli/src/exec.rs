@@ -155,6 +155,24 @@ pub fn newest_since(folder: &str, since: f64, slack: f64) -> Option<String> {
     best.map(|(_, path)| resolve::path_render(&path))
 }
 
+/// FR-21: yt-dlp writes the info field as a fixed `...description` file;
+/// the field reads as a text file, so the successful run renames every
+/// `*.description` next to the media to `.txt` (best effort, silent).
+/// Returns the rename count.
+pub fn rename_descriptions(folder: &str) -> usize {
+    let mut n = 0;
+    if let Ok(entries) = std::fs::read_dir(folder) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|x| x.to_str()) == Some("description") {
+                let txt = path.with_extension("txt");
+                n += std::fs::rename(&path, &txt).is_ok() as usize;
+            }
+        }
+    }
+    n
+}
+
 /// One `*.part*` match (python `folder.glob("*.part*")`; fnmatch is
 /// case-insensitive on windows).
 fn name_is_part(name: &str) -> bool {
@@ -510,6 +528,12 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
                 ),
             );
         }
+    }
+
+    // FR-21: the description file lands as `.description`; the menu
+    // field reads as text, so the successful run renames it to `.txt`
+    if config::get(s, "info_field").is_some_and(config::py_truthy) {
+        rename_descriptions(&outdir);
     }
 
     if config::get(s, "subtitles").is_some_and(config::py_truthy) {

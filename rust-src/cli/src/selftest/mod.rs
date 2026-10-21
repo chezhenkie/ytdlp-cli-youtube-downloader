@@ -3,7 +3,8 @@
 //!
 //! Check names, order and count follow the python selftest one to one,
 //! plus the four native stripper checks the menu row 8 stage added and
-//! the info-field checks the menu row 9 stage added (186 total),
+//! the info-field checks the menu row 9 stage added and the two
+//! description-rename checks the 2.5.2 stage added (188 total),
 //! so `rust-src/tools/selftest_compare.py` can run both
 //! reports and diff the decoded name/verdict stream. Where python
 //! monkeypatched a module global this module injects the seam the
@@ -27,7 +28,7 @@ mod sections;
 use plumbing::*;
 use sections::*;
 
-/// The entry point: python's `selftest()` - the 186-check report, rc 0
+/// The entry point: python's `selftest()` - the 188-check report, rc 0
 /// when all pass and rc 1 like python's return.
 pub fn run_selftest(
     version: &str,
@@ -42,8 +43,9 @@ pub fn run_selftest(
     let is_windows = cfg!(windows);
 
     // python's dispatch order: history, subs, args, progress, spinners,
-    // args tail, partials, urls, menus+updaters pins, parsers, archive
-    // probes, langs, item 7, block, holds, batch, then the audit set
+    // args tail, partials, info field, urls, menus+updaters pins,
+    // parsers, archive probes, langs, item 7, block, holds, batch, then
+    // the audit set
     section_history(&mut c, &capture);
     section_subs(&mut c);
     section_args(&mut c, root, config_path, auto.as_deref());
@@ -54,6 +56,7 @@ pub fn run_selftest(
     section_spinners(&mut c, &capture);
     section_args2(&mut c, root, auto.as_deref());
     section_partials(&mut c);
+    section_info_field(&mut c);
     section_misc(&mut c);
     section_menu(&mut c, root, config_path, auto.as_deref(), is_windows);
     section_parsers(&mut c, root, image_path, is_windows);

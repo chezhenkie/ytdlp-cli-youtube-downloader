@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.5.2
+
+### Fixes
+
+#### All platforms
+
+* The download info field (menu item 9) now writes the description as a `"<name>.txt"` text file. yt-dlp names its own `.description` suffix; the cli renames the file right after a successful download.
+
 ## 2.5.1
 
 ### New features

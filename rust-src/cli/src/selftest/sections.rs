@@ -452,6 +452,36 @@ pub(super) fn section_args2(c: &mut Checker<'_>, root: &str, auto: Option<&str>)
     );
 }
 
+pub(super) fn section_info_field(c: &mut Checker<'_>) {
+    // FR-21: the description file arrives as `.description` and the run
+    // renames it to `.txt`; a media file and an unrelated file stay put
+    let wt = mkdtemp("ytdlp-info-");
+    let desc = resolve::py_path_join(&wt, "video [abc].description");
+    let media = resolve::py_path_join(&wt, "video [abc].mp4");
+    let other = resolve::py_path_join(&wt, "other.en.vtt");
+    write_bytes(&desc, b"d");
+    write_bytes(&media, b"m");
+    write_bytes(&other, b"o");
+    let counted = exec::rename_descriptions(&wt);
+    let txt = resolve::py_path_join(&wt, "video [abc].txt");
+    c.check(
+        "description rename to txt",
+        counted == 1
+            && std::path::Path::new(&txt).is_file()
+            && !std::path::Path::new(&desc).exists()
+            && std::path::Path::new(&media).is_file()
+            && std::path::Path::new(&other).is_file(),
+        &got_strs(&[&txt, &counted.to_string()]),
+    );
+    // an empty folder renames nothing
+    let counted2 = exec::rename_descriptions(&wt);
+    c.check(
+        "description rename is idempotent",
+        counted2 == 0,
+        &got_strs(&[&counted2.to_string()]),
+    );
+}
+
 pub(super) fn section_partials(c: &mut Checker<'_>) {
     let wt = mkdtemp("ytdlp-wf-");
     let j = |name: &str| resolve::py_path_join(&wt, name);
