@@ -70,7 +70,7 @@ impl<'a> Checker<'a> {
     }
 
     /// The report's own sink, for the one menu subcall python printed
-    /// straight into the report (item 12's hold; audit F8).
+    /// straight into the report (item 13's hold; audit F8).
     pub(super) fn report_out(&mut self) -> &mut dyn Out {
         self.out
     }

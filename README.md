@@ -3,9 +3,9 @@ Copy youtube link, open app, type '0' and download starts. This project is only 
 
 The yt-dlp runtime is used exactly as published - nothing in it is patched or rebuilt by this project. Bit for bit.
 
-**Updates.** The updater covers the yt-dlp runtime: menu item 12 runs yt-dlp's own update on demand and menu item 13 toggles the daily update check. The cli never replaces itself; a newer cli comes from this page. The check runs only at the start of the interactive menu, in a real console window.
+**Updates.** The updater covers the yt-dlp runtime: menu item 13 runs yt-dlp's own update on demand and menu item 14 toggles the daily update check. The cli never replaces itself; a newer cli comes from this page. The check runs only at the start of the interactive menu, in a real console window.
 
-One-shot URL runs, scripts, CI and piped runs never trigger it: no network contact, nothing written. There is no background process either - the check is a single event when you open the menu yourself. If updates have not happened for a while, start the program normally, or run menu item 12 to update on demand.
+One-shot URL runs, scripts, CI and piped runs never trigger it: no network contact, nothing written. There is no background process either - the check is a single event when you open the menu yourself. If updates have not happened for a while, start the program normally, or run menu item 13 to update on demand.
 
 **ffmpeg.** The lean bundles ship without it: when none is found on the machine, the CLI offers to fetch a published build - BtbN/FFmpeg-Builds on Windows and Linux, shaka-project/static-ffmpeg-binaries on macOS - and checks it against the provider's published checksum or digest before installing. FFmpeg's own repository is source code only and publishes no binaries, so that is not where a binary can come from.
 
@@ -59,7 +59,7 @@ The portable bundle (with ffmpeg) is the default; `sh -s -- --lean` installs the
 
 On Alpine and other musl systems the script installs the musl bundle automatically - the cli and the srtstripper; get the download runtime with `apk add yt-dlp`, which pulls ffmpeg and the JS runtime with it. `--lean` and `--portable` name the glibc bundles and are refused on musl.
 
-Linux builds are x86_64: glibc bundles plus a musl bundle for Alpine (cli plus the srtstripper, the download runtime comes from apk), and the macOS build is arm64 (Apple silicon). On any other architecture put `yt-dlp` on PATH or set `yt_dlp_path` in `config/settings.json`. No release publishes a bare cli image on any platform, so menu item 12 updates yt-dlp and a newer cli always comes from this page.
+Linux builds are x86_64: glibc bundles plus a musl bundle for Alpine (cli plus the srtstripper, the download runtime comes from apk), and the macOS build is arm64 (Apple silicon). On any other architecture put `yt-dlp` on PATH or set `yt_dlp_path` in `config/settings.json`. No release publishes a bare cli image on any platform, so menu item 13 updates yt-dlp and a newer cli always comes from this page.
 
 v1.5.0 was the final Python release; its bundles remain on the v1.5.0 release page.
 

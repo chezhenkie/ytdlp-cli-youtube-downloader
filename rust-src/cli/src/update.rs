@@ -433,7 +433,7 @@ pub fn update_yt_dlp(s: &Obj, ctx: &mut UpdateCtx) -> bool {
 }
 
 /// `auto_update_check(s, force)`: the startup notice for a newer
-/// published version, and the forced form `--update` and menu item 11
+/// published version, and the forced form `--update` and menu item 13
 /// run. It asks before it touches anything and, unless forced,
 /// throttles itself to one network check a day and stays silent when the
 /// network is gone. Returns true only when the image was replaced.
@@ -560,7 +560,7 @@ pub fn auto_update_check(s: &mut Obj, force: bool, ctx: &mut UpdateCtx) -> Resul
     Ok(ok)
 }
 
-/// `update_all(s)`: menu item 11 and `--update`, both updatable halves.
+/// `update_all(s)`: menu item 13 and `--update`, both updatable halves.
 /// Returns true when either one moved.
 pub fn update_all(s: &mut Obj, ctx: &mut UpdateCtx) -> Result<bool, UpdErr> {
     tty::emit_line(&ctx.sink, "  yt-dlp");
@@ -716,7 +716,7 @@ mod tests {
             auto_update_check(s, force, &mut ctx)
         }
 
-        /// Run `update_all` (menu item 11 and `--update`).
+        /// Run `update_all` (menu item 13 and `--update`).
         fn all(&mut self, s: &mut Obj) -> Result<bool, UpdErr> {
             let sink = self.sink();
             let Self {

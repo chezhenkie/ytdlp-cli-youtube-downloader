@@ -69,6 +69,7 @@ pub fn defaults() -> Obj {
         ("subtitle_langs", str_value("en")),
         ("srt_stripper", Value::Bool(false)),
         ("srt_stripper_mode", str_value("text")),
+        ("info_field", Value::Bool(false)),
         ("playlist", Value::Bool(false)),
         ("playlist_max_items", Value::Int(0)),
     ]
@@ -857,7 +858,7 @@ mod tests {
             &Value::Str("720".into())
         );
         assert_eq!(get(&settings, "zz"), None);
-        assert_eq!(to_map(&settings).len(), 18);
+        assert_eq!(to_map(&settings).len(), 19);
         assert_eq!(
             get(&settings, "type").unwrap(),
             &Value::Str("audio only".into())

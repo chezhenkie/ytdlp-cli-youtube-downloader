@@ -2,8 +2,9 @@
 //! command.
 //!
 //! Check names, order and count follow the python selftest one to one,
-//! plus the four native stripper checks the menu row 8 stage added (181
-//! total), so `rust-src/tools/selftest_compare.py` can run both
+//! plus the four native stripper checks the menu row 8 stage added and
+//! the info-field checks the menu row 9 stage added (186 total),
+//! so `rust-src/tools/selftest_compare.py` can run both
 //! reports and diff the decoded name/verdict stream. Where python
 //! monkeypatched a module global this module injects the seam the
 //! ported function already takes - the same rule the crate tests and
@@ -15,7 +16,7 @@
 //! and the production `Out` handles windows' newline translation, like
 //! python's `print`. Captured menu subcalls go through a local capture
 //! `Out`; where python printed a subcall straight into the report
-//! (item 12's hold), this module does the same.
+//! (item 13's hold), this module does the same.
 
 use crate::tty::Out;
 use crate::ui::WIDTH;
@@ -26,7 +27,7 @@ mod sections;
 use plumbing::*;
 use sections::*;
 
-/// The entry point: python's `selftest()` - the 181-check report, rc 0
+/// The entry point: python's `selftest()` - the 186-check report, rc 0
 /// when all pass and rc 1 like python's return.
 pub fn run_selftest(
     version: &str,

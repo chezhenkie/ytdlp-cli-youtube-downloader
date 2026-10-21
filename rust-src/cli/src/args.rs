@@ -321,6 +321,13 @@ pub fn build_args(
         opts.push("--no-playlist".to_string());
     }
 
+    // FR-21: when the info field setting is on, the video run writes the
+    // description (the info field below the video) as yt-dlp's
+    // "<name> [<id>].description" file next to the media
+    if config::get(s, "info_field").is_some_and(config::py_truthy) {
+        opts.push("--write-description".to_string());
+    }
+
     opts.push("--newline".to_string());
     opts.push(url.to_string());
     Ok(opts)
@@ -555,6 +562,30 @@ mod tests {
         config::set(&mut s, "playlist", Value::Null);
         let argv = build_args(&s, "u", None, "root", None, &mut || false).unwrap();
         assert!(argv.contains(&"--no-playlist".to_string()));
+    }
+
+    /// FR-21: the info field flag rides the video run only - on adds
+    /// --write-description before --newline; off, absent and falsy carry
+    /// no description flag.
+    #[test]
+    fn build_args_info_field_flag() {
+        let base = settings(&[("output_dir", Value::Str("out".into()))]);
+        let argv = build_args(&base, "u", None, "root", None, &mut || false).unwrap();
+        assert!(!argv.contains(&"--write-description".to_string()));
+
+        let mut s = base.clone();
+        config::set(&mut s, "info_field", Value::Bool(true));
+        let argv = build_args(&s, "u", None, "root", None, &mut || false).unwrap();
+        let at = argv
+            .iter()
+            .position(|a| a == "--write-description")
+            .unwrap();
+        assert_eq!(argv[at + 1], "--newline");
+        assert_eq!(argv[at + 2], "u");
+
+        config::set(&mut s, "info_field", Value::Null);
+        let argv = build_args(&s, "u", None, "root", None, &mut || false).unwrap();
+        assert!(!argv.contains(&"--write-description".to_string()));
     }
 
     #[test]

@@ -4,8 +4,8 @@
 //! through the tty seams, so the whole menu runs in tests and in the
 //! differential harness without a terminal.
 //!
-//! Port rules recorded in the phase-6 notes: items 1-9, 11, 13 and 14
-//! are wired in full; the batch downloads (item 10), the item 12
+//! Port rules recorded in the phase-6 notes: items 1-10, 12, 14 and 15
+//! are wired in full; the batch downloads (item 11), the item 13
 //! updaters and the URL quick mode are the caller's jobs (phase 7/8)
 //! and arrive here as typed refusals or injected closures. "keep
 //! current" answers return None instead of python's raw-value
@@ -379,7 +379,7 @@ fn posix_folder_dialog(initial: &str) -> Option<String> {
 
 /// `act(choice, s)`: one menu pick. Returns Repaint(needs_repaint),
 /// python's bool(act(...)) with the None branches as Repaint(false), or
-/// Exit for item 13.
+/// Exit for item 15.
 pub fn act(
     choice: &str,
     s: &mut Obj,
@@ -631,6 +631,14 @@ pub fn act(
             true
         }
         "9" => {
+            // FR-21: the plain on/off toggle; no follow-up prompt
+            let answer = ask_bool("download info field", config::get(s, "info_field"), io)?;
+            if let Some(value) = answer {
+                config::set(s, "info_field", value);
+            }
+            true
+        }
+        "10" => {
             let answer = ask_bool("playlist mode", config::get(s, "playlist"), io)?;
             if let Some(value) = answer {
                 config::set(s, "playlist", value);
@@ -661,8 +669,8 @@ pub fn act(
             }
             true
         }
-        "10" => return Ok(ActOutcome::Repaint(multi_url(s, io, world, download)?)),
-        "11" => {
+        "11" => return Ok(ActOutcome::Repaint(multi_url(s, io, world, download)?)),
+        "12" => {
             for (key, value) in config::defaults() {
                 config::set(s, &key, value);
             }
@@ -670,7 +678,7 @@ pub fn act(
             tty::hold(io.out, io.reader);
             true
         }
-        "12" => {
+        "13" => {
             // the updaters run here (phase 8): both halves behind
             // update_all, then python's "press enter to go back" hold
             update(s, io)?;
@@ -681,7 +689,7 @@ pub fn act(
             }
             true
         }
-        "13" => {
+        "14" => {
             let new_value = !config::get(s, "auto_update").is_some_and(config::py_truthy);
             config::set(s, "auto_update", Value::Bool(new_value));
             // no save here (audit F8): main_menu saves after act returns,
@@ -702,14 +710,14 @@ pub fn act(
             tty::hold(io.out, io.reader);
             true
         }
-        "14" | "q" | "quit" | "exit" => {
+        "15" | "q" | "quit" | "exit" => {
             save(s, world)?;
             print_line(io, &format!("bye. defaults saved to {}", world.config_path));
             return Ok(ActOutcome::Exit);
         }
         _ => {
             if !choice.is_empty() {
-                print_line(io, "  pick 1-14 or paste a url");
+                print_line(io, "  pick 1-15 or paste a url");
             }
             true
         }
@@ -721,7 +729,7 @@ pub fn act(
 
 /// `main_menu`: the loop the whole interactive product runs in.
 /// `download` is the phase-7 downloader (a typed refusal until then);
-/// `update` is the phase-8 updater pair item 11 runs; `quiet_check` is
+/// `update` is the phase-8 updater pair item 13 runs; `quiet_check` is
 /// the startup auto-update check - python's `auto_update_check(s)` at
 /// the one call site FR-13 pins, which now really fetches.
 pub fn main_menu(
@@ -800,7 +808,7 @@ pub fn main_menu(
                     Err(MenuErr::GoBack) => true,
                     Err(other) => return Err(other),
                 };
-                // item 9 answers false when downloads ran: the screen then
+                // item 11 answers false when downloads ran: the screen then
                 // already holds the menu with the last result lines under it
                 dirty = repaint;
                 results = !dirty;
@@ -1045,17 +1053,17 @@ mod tests {
                 out: &mut rec,
                 reader: &mut reader,
             };
-            let outcome = act("13", &mut s, &mut io, &w, &mut download, &mut update).unwrap();
+            let outcome = act("14", &mut s, &mut io, &w, &mut download, &mut update).unwrap();
             assert!(matches!(outcome, ActOutcome::Repaint(true)));
         }
         assert_eq!(config::get(&s, "auto_update"), Some(&Value::Bool(false)));
-        assert_eq!(tmp.read(), seeded, "item 13 must not save");
+        assert_eq!(tmp.read(), seeded, "item 14 must not save");
 
         let mut rec = RecordingOut::default();
         let mut reader = ScriptedReader::new(vec![
-            ScriptItem::Line("13".to_string()),
-            ScriptItem::Line(String::new()),
             ScriptItem::Line("14".to_string()),
+            ScriptItem::Line(String::new()),
+            ScriptItem::Line("15".to_string()),
         ]);
         let mut s = config::defaults();
         std::fs::write(&path, config::render_settings_file(&s)).expect("seed");
@@ -1080,11 +1088,11 @@ mod tests {
     /// unlabelled read, so the menu repaint cannot eat the message.
     #[test]
     fn hold_sites() {
-        // item 9 with a non-numeric max
+        // item 10 with a non-numeric max
         let mut s = config::defaults();
         config::set(&mut s, "playlist", Value::Bool(true));
         let (text, prompts) = mega(
-            "9",
+            "10",
             vec![
                 ScriptItem::Line("y".to_string()),
                 ScriptItem::Line("abc".to_string()),
@@ -1093,24 +1101,24 @@ mod tests {
             &mut s,
         );
         assert!(text.contains("  not a number - kept 0"), "{text}");
-        assert_eq!(prompts.last().unwrap(), "", "item 9 holds");
+        assert_eq!(prompts.last().unwrap(), "", "item 10 holds");
 
-        // item 11's notice
+        // item 12's notice
         let mut s = config::defaults();
         config::set(&mut s, "auto_update", Value::Bool(false));
-        let (text, prompts) = mega("11", vec![ScriptItem::Line(String::new())], &mut s);
+        let (text, prompts) = mega("12", vec![ScriptItem::Line(String::new())], &mut s);
         assert!(text.contains("  defaults restored"));
-        assert_eq!(prompts.last().unwrap(), "", "item 11 holds");
+        assert_eq!(prompts.last().unwrap(), "", "item 12 holds");
         assert_eq!(config::get(&s, "auto_update"), Some(&Value::Bool(true)));
 
-        // item 13's notice
+        // item 14's notice
         let mut s = config::defaults();
-        let (text, prompts) = mega("13", vec![ScriptItem::Line(String::new())], &mut s);
+        let (text, prompts) = mega("14", vec![ScriptItem::Line(String::new())], &mut s);
         assert!(text.contains("  auto update off - no startup check"));
-        assert_eq!(prompts.last().unwrap(), "", "item 13 holds");
+        assert_eq!(prompts.last().unwrap(), "", "item 14 holds");
         let mut s = config::defaults();
         config::set(&mut s, "auto_update", Value::Bool(false));
-        let (text, _) = mega("13", vec![ScriptItem::Line(String::new())], &mut s);
+        let (text, _) = mega("14", vec![ScriptItem::Line(String::new())], &mut s);
         assert!(text.contains("  auto update on - checked once a day at start"));
     }
 
@@ -1176,6 +1184,33 @@ mod tests {
                 .as_deref(),
             Some("text")
         );
+    }
+
+    /// FR-21: item 9 toggles the info field. The plain on/off ask, no
+    /// follow-up prompt; y turns it on, n leaves it off, an empty answer
+    /// keeps the stored value.
+    #[test]
+    fn item9_toggles_the_info_field() {
+        let mut s = config::defaults();
+        let (text, prompts) = mega("9", vec![ScriptItem::Line("y".to_string())], &mut s);
+        assert_eq!(config::get(&s, "info_field"), Some(&Value::Bool(true)));
+        assert_eq!(
+            prompts[0], "  download info field (now off) y/n (enter = keep): ",
+            "the bool prompt names the item"
+        );
+        assert_eq!(prompts.len(), 1, "no follow-up prompt");
+        assert!(!text.contains("  pick"), "{text}");
+
+        let mut s = config::defaults();
+        let (_, prompts) = mega("9", vec![ScriptItem::Line("n".to_string())], &mut s);
+        assert_eq!(config::get(&s, "info_field"), Some(&Value::Bool(false)));
+        assert_eq!(prompts.len(), 1);
+
+        let mut s = config::defaults();
+        config::set(&mut s, "info_field", Value::Bool(true));
+        let (_, prompts) = mega("9", vec![ScriptItem::Line(String::new())], &mut s);
+        assert_eq!(config::get(&s, "info_field"), Some(&Value::Bool(true)));
+        assert_eq!(prompts.len(), 1, "keep does not hold");
     }
 
     /// FR-17: zero reads the clipboard seam; a link runs the url path's
@@ -1290,7 +1325,7 @@ mod tests {
     }
 
     /// The results flag: only an action that paints its own screen sets
-    /// results, and then escape wipes the screen with a repaint (item 9
+    /// results, and then escape wipes the screen with a repaint (item 11
     /// answered "downloads ran").
     #[test]
     fn escape_wipes_results_only_when_set() {
@@ -1317,24 +1352,24 @@ mod tests {
             rec.text()
         };
 
-        // item 10 with one url and an empty line runs the batch (no
+        // item 11 with one url and an empty line runs the batch (no
         // repaint requested); the escape then wipes the screen
         let with_escape = run(vec![
-            ScriptItem::Line("10".to_string()),
+            ScriptItem::Line("11".to_string()),
             ScriptItem::Line("https://a/1".to_string()),
             ScriptItem::Line(String::new()),
             ScriptItem::Escape,
-            ScriptItem::Line("14".to_string()),
+            ScriptItem::Line("15".to_string()),
         ]);
         let headers_with = with_escape.matches("yt-dlp cli  v1.5.0").count();
         assert_eq!(headers_with, 5, "boot + 3 batch paints + escape wipe");
 
         // the same session without the escape never repaints again
         let no_escape = run(vec![
-            ScriptItem::Line("10".to_string()),
+            ScriptItem::Line("11".to_string()),
             ScriptItem::Line("https://a/1".to_string()),
             ScriptItem::Line(String::new()),
-            ScriptItem::Line("14".to_string()),
+            ScriptItem::Line("15".to_string()),
         ]);
         let headers_without = no_escape.matches("yt-dlp cli  v1.5.0").count();
         assert_eq!(headers_without, 4, "boot + 3 batch paints");
@@ -1364,7 +1399,7 @@ mod tests {
         };
 
         // quit exits zero and says bye
-        let (result, text) = run(vec![ScriptItem::Line("14".to_string())]);
+        let (result, text) = run(vec![ScriptItem::Line("15".to_string())]);
         assert_eq!(result.unwrap(), 0);
         assert!(text.contains("bye. defaults saved to "));
 
@@ -1397,7 +1432,7 @@ mod tests {
         let mut reader = ScriptedReader::new(vec![
             ScriptItem::Line("7".to_string()),
             ScriptItem::Escape,
-            ScriptItem::Line("14".to_string()),
+            ScriptItem::Line("15".to_string()),
         ]);
         let mut download = |_s: &mut Obj, _url: &str, _io: &mut Io| -> i32 { 0 };
         let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };

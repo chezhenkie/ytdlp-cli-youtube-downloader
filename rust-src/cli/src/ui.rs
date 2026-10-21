@@ -172,7 +172,7 @@ pub struct MenuRow {
     pub grey: bool,
 }
 
-/// `menu_items(s)`: the menu rows, numbered 1 to 13. `outdir` is the
+/// `menu_items(s)`: the menu rows, numbered 1 to 15. `outdir` is the
 /// resolved output folder (python calls resolve_outdir here; the port
 /// takes the phase-4 answer as a parameter). Values render through
 /// py_str so a hand-edited raw value cannot diverge.
@@ -283,36 +283,42 @@ pub fn menu_items(s: &Obj, outdir: &str, is_windows: bool) -> Result<Vec<MenuRow
         },
         MenuRow {
             idx: 9,
+            label: "download info field".to_string(),
+            value: onoff(config::get(s, "info_field")),
+            grey: true,
+        },
+        MenuRow {
+            idx: 10,
             label: "playlist on/off".to_string(),
             value: pl,
             grey: true,
         },
         MenuRow {
-            idx: 10,
+            idx: 11,
             label: "add multiple youtube urls".to_string(),
             value: String::new(),
             grey: true,
         },
         MenuRow {
-            idx: 11,
+            idx: 12,
             label: "reset defaults".to_string(),
             value: "config/settings.json".to_string(),
             grey: true,
         },
         MenuRow {
-            idx: 12,
+            idx: 13,
             label: "update yt-dlp + cli".to_string(),
             value: String::new(),
             grey: true,
         },
         MenuRow {
-            idx: 13,
+            idx: 14,
             label: "auto update".to_string(),
             value: onoff(config::get(s, "auto_update")),
             grey: true,
         },
         MenuRow {
-            idx: 14,
+            idx: 15,
             label: "quit".to_string(),
             value: String::new(),
             grey: false,
@@ -359,7 +365,7 @@ pub fn hint_lines(outdir: &str, use_color: bool) -> Vec<String> {
     let l1 = "paste url, press enter and download will start";
     let l2 = "enter number to change default settings";
     let l3 = "change download location by choosing menu item: 5";
-    let l3b = "download several urls at once by choosing menu item: 10";
+    let l3b = "download several urls at once by choosing menu item: 11";
     let l4 = format!("DL location: {outdir}");
     vec![
         c(use_color, A_AMBER, l1),
@@ -371,7 +377,7 @@ pub fn hint_lines(outdir: &str, use_color: bool) -> Vec<String> {
     ]
 }
 
-/// `render(s)`: header, the FR-17 quick-paste row, the 13 rows, the
+/// `render(s)`: header, the FR-17 quick-paste row, the 15 rows, the
 /// escape hint, box bottom. Returns the lines; the caller prints them.
 pub fn render_lines(
     version: &str,
@@ -555,7 +561,7 @@ mod tests {
             let lines = render_lines("2.0.2", &s, "/x/Downloads", false, use_color).unwrap();
             assert_eq!(lines[3], quick_row(use_color));
             assert!(lines[4].contains("  1  video/audio"), "{:?}", lines[4]);
-            assert_eq!(lines.len(), 20, "header 3 + quick + 14 rows + hint + rule");
+            assert_eq!(lines.len(), 21, "header 3 + quick + 15 rows + hint + rule");
             let blank = format!("|{}|", " ".repeat(WIDTH as usize));
             assert!(
                 !lines.iter().any(|l| strip_ansi(l) == blank),

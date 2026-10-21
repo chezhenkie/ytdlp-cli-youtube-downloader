@@ -248,6 +248,22 @@ pub(super) fn section_args(c: &mut Checker<'_>, root: &str, config_path: &str, a
         &got_list(&a),
     );
 
+    // FR-21: the info field flag rides the video pass only
+    config::set(&mut tmp, "info_field", Value::Bool(true));
+    let a = argv_of(c, &tmp, url, ff_dir(), root, auto);
+    c.check(
+        "info field flag on",
+        a_contains(&a, "--write-description"),
+        &got_list(&a),
+    );
+    config::set(&mut tmp, "info_field", Value::Bool(false));
+    let a = argv_of(c, &tmp, url, ff_dir(), root, auto);
+    c.check(
+        "info field flag off",
+        !a_contains(&a, "--write-description"),
+        &got_list(&a),
+    );
+
     // the video run never carries subtitle flags, the sub pass does
     config::set(&mut tmp, "subtitles", Value::Bool(false));
     let a = argv_of(c, &tmp, url, None, root, auto);
@@ -283,6 +299,14 @@ pub(super) fn section_args(c: &mut Checker<'_>, root: &str, config_path: &str, a
         a_index(&sa2, "--convert-subs").map(String::as_str) == Some("vtt"),
         &got_list(&sa2),
     );
+    config::set(&mut tmp, "info_field", Value::Bool(true));
+    let sa3 = sub_argv_of(c, &tmp, url, ff_dir(), root, auto);
+    c.check(
+        "sub args skip info field",
+        !a_contains(&sa3, "--write-description"),
+        &got_list(&sa3),
+    );
+    config::set(&mut tmp, "info_field", Value::Bool(false));
     let shared_template = a_index(&sa, "-o") == a_index(&a, "-o");
     {
         let got_existing = a_index(&sa, "-o").cloned().unwrap_or_default();
@@ -707,36 +731,46 @@ pub(super) fn section_menu(
         }
     };
     let mut nums: Vec<i64> = rows.iter().map(|r| r.idx).collect();
-    let sequential = rows.len() == 14 && {
-        let want: Vec<i64> = (1..=14).collect();
+    let sequential = rows.len() == 15 && {
+        let want: Vec<i64> = (1..=15).collect();
         nums == want
     };
     nums.sort_unstable();
-    c.check("menu has 14 rows", sequential, &format!("{nums:?}"));
+    c.check("menu has 15 rows", sequential, &format!("{nums:?}"));
     let row_eight = rows.get(7).map(|r| r.label.clone()).unwrap_or_default();
     c.check(
         "menu row 8 is srt timecode stripper",
         row_eight == "srt timecode stripper",
         &got_strs(&[&row_eight]),
     );
-    let row_ten = rows.get(9).map(|r| r.label.clone()).unwrap_or_default();
+    let row_nine = rows.get(8).map(|r| r.label.clone()).unwrap_or_default();
     c.check(
-        "menu row 10 is multi url",
-        row_ten == "add multiple youtube urls",
-        &got_strs(&[&row_ten]),
+        "menu row 9 is download info field",
+        row_nine == "download info field",
+        &got_strs(&[&row_nine]),
     );
-    let row_fourteen = rows.get(13).map(|r| r.label.clone()).unwrap_or_default();
+    let row_eleven = rows.get(10).map(|r| r.label.clone()).unwrap_or_default();
     c.check(
-        "menu row 14 is quit",
-        row_fourteen == "quit",
-        &got_strs(&[&row_fourteen]),
+        "menu row 11 is multi url",
+        row_eleven == "add multiple youtube urls",
+        &got_strs(&[&row_eleven]),
     );
-    let ten_value = rows.get(9).map(|r| r.value.clone()).unwrap_or_default();
-    let ten_grey = rows.get(9).map(|r| r.grey).unwrap_or(false);
-    let ten_ok = ten_value.is_empty() && ten_grey;
+    let row_fifteen = rows.get(14).map(|r| r.label.clone()).unwrap_or_default();
+    c.check(
+        "menu row 15 is quit",
+        row_fifteen == "quit",
+        &got_strs(&[&row_fifteen]),
+    );
+    let eleven_value = rows.get(10).map(|r| r.value.clone()).unwrap_or_default();
+    let eleven_grey = rows.get(10).map(|r| r.grey).unwrap_or(false);
+    let eleven_ok = eleven_value.is_empty() && eleven_grey;
     let _ = &nums;
-    c.check("menu row 10 has no value", ten_ok, &got_strs(&[&ten_value]));
-    let labels: Vec<String> = (10..13)
+    c.check(
+        "menu row 11 has no value",
+        eleven_ok,
+        &got_strs(&[&eleven_value]),
+    );
+    let labels: Vec<String> = (11..14)
         .map(|i| {
             rows.get(i as usize)
                 .map(|r| r.label.clone())
@@ -747,7 +781,7 @@ pub(super) fn section_menu(
         && labels.get(1).map(String::as_str) == Some("update yt-dlp + cli")
         && labels.get(2).map(String::as_str) == Some("auto update");
     c.check(
-        "menu rows 11 to 13 shifted",
+        "menu rows 12 to 14 shifted",
         shifted,
         &got_strs(&[
             labels.first().map(String::as_str).unwrap_or(""),
@@ -755,7 +789,7 @@ pub(super) fn section_menu(
             labels.get(2).map(String::as_str).unwrap_or(""),
         ]),
     );
-    let auto_state = rows.get(12).map(|r| r.value.clone()).unwrap_or_default();
+    let auto_state = rows.get(13).map(|r| r.value.clone()).unwrap_or_default();
     c.check(
         "auto update row shows its state",
         auto_state == "on" || auto_state == "off",
@@ -790,6 +824,11 @@ pub(super) fn section_menu(
         "srt stripper has three modes",
         config::SRT_MODES == ["text", "timecode", "numbered"],
         &got_strs(&config::SRT_MODES),
+    );
+    c.check(
+        "info field default is off",
+        config::get(&d, "info_field") == Some(&Value::Bool(false)),
+        &py_value(Some(&Value::Bool(false))),
     );
 
     // ffmpeg sources: windows BtbN zip (FR-14 amendment 2026-10-16c),
@@ -1272,10 +1311,10 @@ pub(super) fn section_holds(
         c.check(name, picked && held, &got_strs(&[reply]));
     }
 
-    // item 9 and item 11 print after their last read and must hold too
+    // item 10 and item 12 print after their last read and must hold too
     let actions: Vec<(&str, Vec<&str>, &str)> = vec![
-        ("9", vec!["y", "abc"], "not a number - kept"),
-        ("11", vec![], "defaults restored"),
+        ("10", vec!["y", "abc"], "not a number - kept"),
+        ("12", vec![], "defaults restored"),
     ];
     for (choice, replies, marker) in actions {
         let mut capture = CaptureOut::default();
@@ -1523,7 +1562,7 @@ pub(super) fn section_batch(
         &got_list(&attempts.borrow().clone()),
     );
 
-    // hint + act 15 + act 10
+    // hint + act 16 + act 11
     let mut capture3 = CaptureOut::default();
     {
         let outdir = outdir_of(&s, root, auto);
@@ -1539,8 +1578,8 @@ pub(super) fn section_batch(
         reader: &mut reader3,
     };
     let mut defaults = config::defaults();
-    let result15 = menu::act(
-        "15",
+    let result16 = menu::act(
+        "16",
         &mut defaults,
         &mut io3,
         &world,
@@ -1548,14 +1587,14 @@ pub(super) fn section_batch(
         &mut no_update,
     );
     c.check(
-        "hint points at item 10",
-        capture3.text().contains("menu item: 10"),
+        "hint points at item 11",
+        capture3.text().contains("menu item: 11"),
         &got_strs(&["hint"]),
     );
     c.check(
-        "act rejects 15 with new range",
-        matches!(result15, Ok(ActOutcome::Repaint(true))) && capture3.text().contains("1-14"),
-        &got_strs(&["1-14"]),
+        "act rejects 16 with new range",
+        matches!(result16, Ok(ActOutcome::Repaint(true))) && capture3.text().contains("1-15"),
+        &got_strs(&["1-15"]),
     );
     let mut capture4 = CaptureOut::default();
     let mut reader4 = ScriptedReader::new(&[""]);
@@ -1563,28 +1602,28 @@ pub(super) fn section_batch(
         out: &mut capture4,
         reader: &mut reader4,
     };
-    let mut defaults10 = config::defaults();
-    let result10 = menu::act(
-        "10",
-        &mut defaults10,
+    let mut defaults11 = config::defaults();
+    let result11 = menu::act(
+        "11",
+        &mut defaults11,
         &mut io4,
         &world,
         &mut no_download,
         &mut no_update,
     );
-    let text10 = capture4.text();
-    let multi_screen = text10.contains("multiple urls");
+    let text11 = capture4.text();
+    let multi_screen = text11.contains("multiple urls");
     // python drove a fake `multi_url`; the real spread with zero entries
     // answers multi_url's own repaint(value True), so the screen content
     // and the non-repaint falseness carry the same pin natively
-    let reached = matches!(result10, Ok(ActOutcome::Repaint(true)));
+    let reached = matches!(result11, Ok(ActOutcome::Repaint(true)));
     if !(reached && multi_screen) {
-        eprintln!("act10-debug reached={reached} multi={multi_screen} text={text10:?}");
+        eprintln!("act11-debug reached={reached} multi={multi_screen} text={text11:?}");
     }
     c.check(
-        "act 10 is multi url",
+        "act 11 is multi url",
         reached && multi_screen,
-        &got_strs(&["act 10"]),
+        &got_strs(&["act 11"]),
     );
 }
 
@@ -1645,7 +1684,7 @@ pub(super) fn section_audit(
     );
     c.check(
         "coerce renders the menu without raising",
-        menu_rows.len() == 14,
+        menu_rows.len() == 15,
         &format!("{}", menu_rows.len()),
     );
     let after = file_bytes(config_path);
@@ -1788,12 +1827,12 @@ pub(super) fn section_audit(
         );
     }
 
-    // F8: item 12 leaves the save to the one save point in main_menu;
+    // F8: item 13 leaves the save to the one save point in main_menu;
     // python does not capture this act call, its message lands in the
     // report between the checks, so the port prints it the same way
     {
-        let before12 = file_bytes(config_path);
-        let mut s12 = config::defaults();
+        let before13 = file_bytes(config_path);
+        let mut s13 = config::defaults();
         // python's patched `read_esc` for this act call answers "" and
         // echoes nothing; the hold is a silent end-of-input here
         let mut noreader = NoReader;
@@ -1805,8 +1844,8 @@ pub(super) fn section_audit(
             };
             let world = menu_world(version, root, false, false, None, auto);
             let _outcome = menu::act(
-                "12",
-                &mut s12,
+                "13",
+                &mut s13,
                 &mut io,
                 &world,
                 &mut no_download,
@@ -1814,9 +1853,9 @@ pub(super) fn section_audit(
             );
         }
         c.check(
-            "item 12 leaves the save to main_menu",
-            file_bytes(config_path) == before12,
-            &got_strs(&["item 12"]),
+            "item 13 leaves the save to main_menu",
+            file_bytes(config_path) == before13,
+            &got_strs(&["item 13"]),
         );
     }
 

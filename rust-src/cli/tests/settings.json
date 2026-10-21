@@ -5,6 +5,7 @@
   "auto_update_last_check": 1792068442,
   "ffmpeg_path": "",
   "filename_template": "%(title)s",
+  "info_field": false,
   "output_dir": "",
   "playlist": false,
   "playlist_max_items": 0,

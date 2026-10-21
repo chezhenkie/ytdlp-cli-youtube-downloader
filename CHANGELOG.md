@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.5.1
+
+### New features
+
+#### All platforms
+
+* Added menu item 9 "download info field" (off by default): turning it on makes every video download also write the description below the video as a `"<name>.description"` text file next to the media. The menu now has 15 items; playlist moved to item 10, multiple urls to item 11, reset to item 12, update to item 13, auto update to item 14, quit to item 15.
+
 ## 2.5.0
 
 ### Fixes
