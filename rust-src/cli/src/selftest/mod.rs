@@ -4,7 +4,8 @@
 //! Check names, order and count follow the python selftest one to one,
 //! plus the four native stripper checks the menu row 8 stage added and
 //! the info-field checks the menu row 9 stage added and the two
-//! description-rename checks the 2.5.2 stage added (188 total),
+//! description-rename checks the 2.5.2 stage added and the two
+//! output-extension checks the 2.5.3 stage added (190 total),
 //! so `rust-src/tools/selftest_compare.py` can run both
 //! reports and diff the decoded name/verdict stream. Where python
 //! monkeypatched a module global this module injects the seam the
@@ -28,7 +29,7 @@ mod sections;
 use plumbing::*;
 use sections::*;
 
-/// The entry point: python's `selftest()` - the 188-check report, rc 0
+/// The entry point: python's `selftest()` - the 190-check report, rc 0
 /// when all pass and rc 1 like python's return.
 pub fn run_selftest(
     version: &str,

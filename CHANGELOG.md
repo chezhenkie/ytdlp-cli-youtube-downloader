@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.5.3
+
+### Fixes
+
+#### All platforms
+
+* Downloads keep their media extension in every mode. A video without audio has no merge step, so yt-dlp kept the bare output template and the file finished without a suffix; the cli now appends `"%(ext)s"` to a template that names no extension. Stored templates and the menu presets are unchanged.
+
 ## 2.5.2
 
 ### Fixes

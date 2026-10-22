@@ -156,6 +156,11 @@ pub(super) fn section_args(c: &mut Checker<'_>, root: &str, config_path: &str, a
         &got_list(&a),
     );
     c.check(
+        "output template carries ext",
+        a_index(&a, "-o").map(String::as_str) == Some("%(title)s.%(ext)s"),
+        &got_list(&a),
+    );
+    c.check(
         "no-playlist default",
         a_contains(&a, "--no-playlist"),
         &got_list(&a),
@@ -407,6 +412,19 @@ pub(super) fn section_args2(c: &mut Checker<'_>, root: &str, auto: Option<&str>)
     c.check(
         "relative template carries the temp work folder",
         temp_flag,
+        &got_list(&a),
+    );
+
+    // a literal suffix in the template is trusted as the extension
+    config::set(
+        &mut tmp,
+        "filename_template",
+        Value::Str("%(title)s.mp4".to_string()),
+    );
+    let a = argv_of(c, &tmp, url, ff_dir(), root, auto);
+    c.check(
+        "literal template ext kept",
+        a_index(&a, "-o").map(String::as_str) == Some("%(title)s.mp4"),
         &got_list(&a),
     );
 

@@ -171,6 +171,29 @@ fn abs_re_match(template: &str) -> bool {
     }
 }
 
+/// True when the template's last path component already ends in a literal
+/// suffix such as `.mp4`. A trailing yt-dlp field (`.%(upload_date)s`) is
+/// not one: its rendered value is not a fixed extension.
+fn has_literal_ext(template: &str) -> bool {
+    let last = template.rsplit(['/', '\\']).next().unwrap_or(template);
+    let Some((_, ext)) = last.rsplit_once('.') else {
+        return false;
+    };
+    !ext.is_empty() && ext.len() <= 8 && ext.chars().all(|c| c.is_ascii_alphanumeric())
+}
+
+/// yt-dlp only appends the media extension when the output template names
+/// `%(ext)s`. Without it a video-only download (no merge/postprocess step)
+/// keeps the bare template name and lands with no suffix, so the argv
+/// builder adds the placeholder instead of rewriting stored settings.
+fn with_ext(template: &str) -> String {
+    if template.contains("%(ext)s") || has_literal_ext(template) {
+        template.to_string()
+    } else {
+        format!("{template}.%(ext)s")
+    }
+}
+
 /// `output_args(s)`: the shared `-o`/`-P` set for the video and subtitle
 /// passes. Both `-P` entries are skipped when the template is absolute.
 /// `auto` is the `auto_outdir()` answer for the caller (memoized in the
@@ -188,6 +211,7 @@ pub fn output_args(s: &Obj, root: &str, auto: Option<&str>) -> Result<Vec<String
         // a loaded settings object always carries it
         None => return Err(ShapeKind::TypeError),
     };
+    let template = with_ext(&template);
     let mut opts = vec!["-o".to_string(), template.clone()];
     if !abs_re_match(&template) {
         let outdir = resolve::resolve_outdir(s, auto, root)?;
@@ -417,6 +441,24 @@ mod tests {
     }
 
     #[test]
+    fn with_ext_matrix() {
+        // the plain shipped template gains the placeholder
+        assert_eq!(with_ext("%(title)s"), "%(title)s.%(ext)s");
+        // a template that already names the extension is untouched
+        assert_eq!(with_ext("%(title)s.%(ext)s"), "%(title)s.%(ext)s");
+        assert_eq!(with_ext("/abs/%(title)s"), "/abs/%(title)s.%(ext)s");
+        assert_eq!(with_ext("C:\\out\\%(title)s"), "C:\\out\\%(title)s.%(ext)s");
+        // literal suffixes keep their meaning
+        assert_eq!(with_ext("%(title)s.mp4"), "%(title)s.mp4");
+        assert_eq!(with_ext("C:/out/show.mkv"), "C:/out/show.mkv");
+        // a trailing field is not a literal extension
+        assert_eq!(
+            with_ext("%(title)s.%(upload_date)s"),
+            "%(title)s.%(upload_date)s.%(ext)s"
+        );
+    }
+
+    #[test]
     fn output_args_default_and_absolute_templates() {
         let s = settings(&[("output_dir", Value::Str("rel".into()))]);
         let outdir = resolve::py_path_join("root", "rel");
@@ -425,7 +467,7 @@ mod tests {
             argv,
             strings(&[
                 "-o",
-                "%(title)s",
+                "%(title)s.%(ext)s",
                 "-P",
                 &format!("home:{outdir}"),
                 "-P",
@@ -440,14 +482,17 @@ mod tests {
         let s = settings(&[("filename_template", Value::Str("/abs/%(title)s".into()))]);
         assert_eq!(
             output_args(&s, "root", None).unwrap(),
-            strings(&["-o", "/abs/%(title)s"])
+            strings(&["-o", "/abs/%(title)s.%(ext)s"])
         );
         let s = settings(&[("filename_template", Value::Str("C:\\tpl".into()))]);
         assert_eq!(output_args(&s, "root", None).unwrap().len(), 2);
 
         // falsy template uses the shipped default
         let s = settings(&[("filename_template", Value::Null)]);
-        assert_eq!(output_args(&s, "root", None).unwrap()[1], "%(title)s");
+        assert_eq!(
+            output_args(&s, "root", None).unwrap()[1],
+            "%(title)s.%(ext)s"
+        );
 
         // truthy non-string template is ABS_RE.match's TypeError
         let s = settings(&[("filename_template", Value::Int(5))]);
