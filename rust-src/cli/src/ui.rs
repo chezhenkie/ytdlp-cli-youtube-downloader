@@ -55,22 +55,36 @@ pub fn menu_line(idx: i64, label: &str, value: &str, grey: bool, use_color: bool
     format!("{m}{left}{}{value}{m}", " ".repeat(pad as usize))
 }
 
-/// The v2.0.2 quick-paste row (FR-17): it takes the place of the blank
-/// top box row and is a little darker than the box amber. Fixed text,
-/// no value column; the padding math is menu_line's.
-pub const QUICK_ROW_TEXT: &str = "  0  press zero '0' to paste link and start direct download";
-
-pub fn quick_row(use_color: bool) -> String {
+/// A fixed key row above the numbered rows: one string, no value column,
+/// dark amber like the quick-paste row. The padding math is menu_line's.
+fn key_row(text: &str, use_color: bool) -> String {
     let m = c(use_color, A_DARKGREY, "|");
-    let mut pad = WIDTH - dwidth(QUICK_ROW_TEXT);
+    let mut pad = WIDTH - dwidth(text);
     if pad < 1 {
         pad = 1;
     }
     format!(
         "{m}{}{}{m}",
-        c(use_color, A_AMBER_DARK, QUICK_ROW_TEXT),
+        c(use_color, A_AMBER_DARK, text),
         " ".repeat(pad as usize)
     )
+}
+
+/// The v2.0.2 quick-paste row (FR-17): it takes the place of the blank
+/// top box row and is a little darker than the box amber.
+pub const QUICK_ROW_TEXT: &str = "  0  press zero '0' to paste link and start direct download";
+
+pub fn quick_row(use_color: bool) -> String {
+    key_row(QUICK_ROW_TEXT, use_color)
+}
+
+/// The FR-22 summary row: it sits directly above the quick-paste row in
+/// the same dark amber. One keypress takes the clipboard link, asks for
+/// subtitles first and returns stripped text; sound only is the fallback.
+pub const SUMMARY_ROW_TEXT: &str = "  s  press 's' to download subs/sound only for summary";
+
+pub fn summary_row(use_color: bool) -> String {
+    key_row(SUMMARY_ROW_TEXT, use_color)
 }
 
 /// Path for menu item 5: always `...<sep><folder name>`.
@@ -365,18 +379,21 @@ pub fn hint_lines(outdir: &str, use_color: bool) -> Vec<String> {
     let l1 = "paste url, press enter and download will start";
     let l2 = "enter number to change default settings";
     let l3 = "change download location by choosing menu item: 5";
-    let l4 = format!("DL location: {outdir}");
+    let l4 = "s: subtitles to text first, sound only if there are none";
+    let l5 = format!("DL location: {outdir}");
     vec![
         c(use_color, A_AMBER, l1),
         c(use_color, A_AMBER, l2),
         c(use_color, A_DARKGREY, l3),
-        c(use_color, A_DARKGREY, &l4),
+        c(use_color, A_DARKGREY, l4),
+        c(use_color, A_DARKGREY, &l5),
         c(use_color, A_LBLUE, &div),
     ]
 }
 
-/// `render(s)`: header, the FR-17 quick-paste row, the 15 rows, the
-/// escape hint, box bottom. Returns the lines; the caller prints them.
+/// `render(s)`: header, the summary row, the FR-17 quick-paste row, the
+/// 15 numbered rows, the escape hint, box bottom. Returns the lines; the
+/// caller prints them.
 pub fn render_lines(
     version: &str,
     s: &Obj,
@@ -386,7 +403,8 @@ pub fn render_lines(
 ) -> Result<Vec<String>, ShapeKind> {
     let mut lines = header_lines(version, use_color);
     let m = c(use_color, A_DARKGREY, "|");
-    // FR-17: the quick-paste row took the blank top row's place
+    // FR-22 and FR-17: two key rows take the blank top row's place
+    lines.push(summary_row(use_color));
     lines.push(quick_row(use_color));
     for row in menu_items(s, outdir, is_windows)? {
         lines.push(menu_line(
@@ -550,21 +568,56 @@ mod tests {
         }
     }
 
-    /// FR-17: the quick row sits where the blank top row stood - directly
-    /// after the 3 header lines, before row 1 - and no blank row remains.
+    /// FR-22: the summary row uses the same dark amber and the same box
+    /// width; its text names the key and the fallback order.
     #[test]
-    fn render_paints_the_quick_row_in_the_blank_rows_place() {
+    fn summary_row_matches_the_pins() {
+        assert_eq!(
+            summary_row(false),
+            format!("|{SUMMARY_ROW_TEXT}{}|", " ".repeat(10))
+        );
+        assert_eq!(
+            summary_row(true),
+            format!(
+                "\x1b[38;5;244m|\x1b[0m\x1b[38;5;208m{SUMMARY_ROW_TEXT}\x1b[0m{}\x1b[38;5;244m|\x1b[0m",
+                " ".repeat(10)
+            )
+        );
+        for row in [summary_row(false), summary_row(true)] {
+            assert_eq!(dwidth(&strip_ansi(&row)), WIDTH + 2, "row: {row:?}");
+        }
+        assert!(SUMMARY_ROW_TEXT.starts_with("  s  press 's'"));
+    }
+
+    /// FR-17 and FR-22: the two key rows sit directly after the 3 header
+    /// lines, in that order, before row 1.
+    #[test]
+    fn render_paints_the_key_rows_in_the_blank_rows_place() {
         let s = config::defaults();
         for use_color in [false, true] {
             let lines = render_lines("2.0.2", &s, "/x/Downloads", false, use_color).unwrap();
-            assert_eq!(lines[3], quick_row(use_color));
-            assert!(lines[4].contains("  1  video/audio"), "{:?}", lines[4]);
-            assert_eq!(lines.len(), 21, "header 3 + quick + 15 rows + hint + rule");
+            assert_eq!(lines[3], summary_row(use_color));
+            assert_eq!(lines[4], quick_row(use_color));
+            assert!(lines[5].contains("  1  video/audio"), "{:?}", lines[5]);
+            assert_eq!(
+                lines.len(),
+                22,
+                "header 3 + two key rows + 15 rows + hint + rule"
+            );
             let blank = format!("|{}|", " ".repeat(WIDTH as usize));
             assert!(
                 !lines.iter().any(|l| strip_ansi(l) == blank),
                 "the blank top row is gone"
             );
         }
+    }
+
+    #[test]
+    fn hint_lines_explain_the_summary_key() {
+        let lines = hint_lines("/x/Downloads", false);
+        assert_eq!(lines.len(), 6, "two amber, three grey, one rule");
+        assert!(lines[2].contains("menu item: 5"));
+        assert!(lines[3].contains("subtitles to text first"));
+        assert!(lines[4].starts_with("DL location: /x/Downloads"));
     }
 }

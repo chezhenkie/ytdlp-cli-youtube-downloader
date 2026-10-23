@@ -56,10 +56,9 @@ pub trait Reader {
         out: &mut dyn Out,
     ) -> ReadOutcome;
 
-    /// The main prompt's read (FR-17): on a real tty a bare "0" on the
-    /// empty line fires the quick paste at once - no enter. Defaults to
-    /// `read_line`, so scripted readers and piped stdin keep the plain
-    /// line contract, where 0 still acts when the line is submitted.
+    /// The main prompt's read (FR-17, FR-22): on a real tty a bare "0"
+    /// or "s" acts on the keypress; every other call site keeps the plain
+    /// line contract.
     fn read_line_quick0(
         &mut self,
         prompt: &str,
@@ -920,11 +919,18 @@ fn csi_final(fd: i32) -> Option<char> {
     }
 }
 
-/// FR-17: the quick-paste trigger - only the main prompt's read asks for
-/// it (`quick0`), only on a bare 0 keypress, only on an empty line. A 0
+/// FR-17 and FR-22: the key rows trigger on only the main prompt's read
+/// (`quick0`), only on a bare keypress, only on an empty line. The key
 /// typed later inside a line stays an ordinary character.
-fn quick0_fires(quick0: bool, ch: char, ed: &LineEdit) -> bool {
-    quick0 && ch == '0' && ed.is_empty()
+fn quick_key(quick0: bool, ch: char, ed: &LineEdit) -> Option<char> {
+    if !quick0 || !ed.is_empty() {
+        return None;
+    }
+    match ch {
+        '0' => Some('0'),
+        's' | 'S' => Some('s'),
+        _ => None,
+    }
 }
 
 #[cfg(unix)]
@@ -974,10 +980,10 @@ fn read_esc_tty_unix(
             },
             '\x08' | '\x7f' => ed.back(out),
             '\x03' => return ReadOutcome::Interrupted,
-            ch if quick0_fires(quick0, ch, &ed) => {
+            ch if quick_key(quick0, ch, &ed).is_some() => {
                 out.write("\n");
                 out.flush();
-                return ReadOutcome::Line("0".to_string());
+                return ReadOutcome::Line(ch.to_ascii_lowercase().to_string());
             }
             ch if ch >= ' ' => {
                 ed.add(ch, out);
@@ -1032,10 +1038,17 @@ fn read_esc_tty_windows(
                 }
             }
             0x0003 => return ReadOutcome::Interrupted,
-            c if quick0_fires(quick0, char::from_u32(c as u32).unwrap_or('\u{fffd}'), &ed) => {
+            c if quick_key(quick0, char::from_u32(c as u32).unwrap_or('\u{fffd}'), &ed)
+                .is_some() =>
+            {
                 out.write("\n");
                 out.flush();
-                return ReadOutcome::Line("0".to_string());
+                return ReadOutcome::Line(
+                    char::from_u32(c as u32)
+                        .unwrap_or('\u{fffd}')
+                        .to_ascii_lowercase()
+                        .to_string(),
+                );
             }
             c if c >= 0x20 => {
                 let ch = char::from_u32(c as u32).unwrap_or('\u{fffd}');
@@ -1469,23 +1482,27 @@ mod tests {
         assert_eq!(h.entries.last().unwrap(), "newest");
     }
 
-    /// FR-17: the bare 0 fires the quick paste only for the main prompt's
-    /// read, only on an empty line; a 0 inside a typed line (or any other
-    /// read) stays an ordinary character.
+    /// FR-17 and FR-22: the bare keys fire only for the main prompt's
+    /// read, only on an empty line; a key inside a typed line (or any
+    /// other read) stays an ordinary character.
     #[test]
-    fn quick0_fires_only_for_the_bare_zero_on_the_main_prompt() {
+    fn quick_keys_fire_only_on_the_bare_keypress() {
         let h = History::new();
         let mut ed = LineEdit::new("> ", &h);
-        assert!(quick0_fires(true, '0', &ed));
-        assert!(!quick0_fires(false, '0', &ed));
-        assert!(!quick0_fires(true, '1', &ed));
+        assert_eq!(quick_key(true, '0', &ed), Some('0'));
+        assert_eq!(quick_key(true, 's', &ed), Some('s'));
+        assert_eq!(quick_key(true, 'S', &ed), Some('s'));
+        assert_eq!(quick_key(false, '0', &ed), None);
+        assert_eq!(quick_key(false, 's', &ed), None);
+        assert_eq!(quick_key(true, '1', &ed), None);
         let mut out = RecordingOut::default();
         ed.add('1', &mut out);
-        assert!(!quick0_fires(true, '0', &ed));
+        assert_eq!(quick_key(true, '0', &ed), None);
+        assert_eq!(quick_key(true, 's', &ed), None);
     }
 
-    /// Scripted and piped reads keep the line contract: 0 acts when the
-    /// line is submitted, exactly as before FR-17 armed the tty key.
+    /// Scripted and piped reads keep the line contract: the keys act when
+    /// the line is submitted, exactly as before FR-17 armed the tty key.
     #[test]
     fn quick0_read_defaults_to_the_plain_line_read() {
         let mut reader = ScriptedReader::new(vec![ScriptItem::Line("0".to_string())]);

@@ -466,27 +466,31 @@ fn run_menu(
         out: &mut out,
         reader: &mut reader,
     };
-    let mut download = |s: &mut Obj, url: &str, io: &mut menu::Io| -> i32 {
-        let mut probe = probe_closure(&memo);
-        let mut http = UreqHttp::new();
-        let mut sleep = sleep_closure();
-        let mut ctx = exec::DownloadCtx {
-            root: world.root,
-            is_windows: world.is_windows,
-            use_color: world.use_color,
-            stdin_tty: world.stdin_tty,
-            sink: shared.sink(),
-            out: io.out,
-            reader: io.reader,
-            auto: world.auto,
-            http: &mut http,
-            probe: &mut probe,
-            which: &mut |cmd: &str| resolve::which_from_process(cmd),
-            sleep: &mut sleep,
+    let mut download =
+        |s: &mut Obj, url: &str, io: &mut menu::Io, mode: menu::DownloadMode| -> i32 {
+            let mut probe = probe_closure(&memo);
+            let mut http = UreqHttp::new();
+            let mut sleep = sleep_closure();
+            let mut ctx = exec::DownloadCtx {
+                root: world.root,
+                is_windows: world.is_windows,
+                use_color: world.use_color,
+                stdin_tty: world.stdin_tty,
+                sink: shared.sink(),
+                out: io.out,
+                reader: io.reader,
+                auto: world.auto,
+                http: &mut http,
+                probe: &mut probe,
+                which: &mut |cmd: &str| resolve::which_from_process(cmd),
+                sleep: &mut sleep,
+            };
+            let mut rt = exec::RunRt::real();
+            match mode {
+                menu::DownloadMode::Full => exec::do_download(s, url, &mut ctx, &mut rt),
+                menu::DownloadMode::Summary => exec::do_summary(s, url, &mut ctx, &mut rt),
+            }
         };
-        let mut rt = exec::RunRt::real();
-        exec::do_download(s, url, &mut ctx, &mut rt)
-    };
     // FR-13's trigger rule: the check lives at exactly one call site, the
     // top of the menu, tty only, once a day. `--update` and item 13 are
     // the forced forms and run no check of their own.

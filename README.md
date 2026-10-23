@@ -65,7 +65,7 @@ v1.5.0 was the final Python release; its bundles remain on the v1.5.0 release pa
 
 ## Using it
 
-Start it and paste a URL, or press 0 to download the link already on your clipboard. Or skip the menu:
+Start it and paste a URL, or press 0 to download the link already on your clipboard. Press `s` instead to grab only a summary: the subtitles are downloaded and stripped to plain text, and the sound is downloaded only when no subtitle text can be produced. Or skip the menu:
 
 ```
 ytdlp.exe https://youtu.be/xxxx

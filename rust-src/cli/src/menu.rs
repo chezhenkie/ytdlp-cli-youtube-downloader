@@ -6,8 +6,9 @@
 //!
 //! Port rules recorded in the phase-6 notes: items 1-10, 12, 14 and 15
 //! are wired in full; the batch downloads (item 11), the item 13
-//! updaters and the URL quick mode are the caller's jobs (phase 7/8)
-//! and arrive here as typed refusals or injected closures. "keep
+//! updaters and the URL quick modes (0 full, s summary) are the
+//! caller's jobs (phase 7/8) and arrive here as typed refusals or
+//! injected closures. "keep
 //! current" answers return None instead of python's raw-value
 //! round-trip: a loaded settings object always carries every key, so
 //! the two are indistinguishable in every reachable state.
@@ -63,6 +64,17 @@ pub enum ActOutcome {
     Exit,
 }
 
+/// The downloader seam's two modes: the full media run, or the summary
+/// grab (subtitles to text first, sound only when that fails).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum DownloadMode {
+    Full,
+    Summary,
+}
+
+/// The injected downloader: settings, url, io, mode.
+pub type DownloadFn<'a> = dyn FnMut(&mut Obj, &str, &mut Io, DownloadMode) -> i32 + 'a;
+
 fn read(io: &mut Io, prompt: &str, below: Option<&[String]>) -> ReadOutcome {
     io.reader.read_line(prompt, below, io.out)
 }
@@ -114,6 +126,51 @@ fn read_line_or(io: &mut Io, prompt: &str, below: Option<&[String]>) -> Result<S
         ReadOutcome::Eof => Err(MenuErr::Eof),
         ReadOutcome::Interrupted => Err(MenuErr::Interrupted),
     }
+}
+
+/// The clipboard key rows (FR-17, FR-22): one link, the menu and its hint
+/// block repainted, then the grab in the asked mode. No link prints the
+/// amber line and holds; the summary mode says what it is about to do.
+fn clipboard_grab(
+    s: &mut Obj,
+    io: &mut Io,
+    world: &World,
+    download: &mut DownloadFn<'_>,
+    mode: DownloadMode,
+) -> Result<ActOutcome, MenuErr> {
+    let link = (world.clipboard)()
+        .and_then(|text| clean_url(Some(&text)))
+        .filter(|u| !u.is_empty());
+    let Some(url) = link else {
+        print_line(
+            io,
+            &c(world.use_color, A_AMBER, "  no link on the clipboard"),
+        );
+        tty::hold(io.out, io.reader);
+        return Ok(ActOutcome::Repaint(true));
+    };
+    if world.use_color {
+        io.out.write(CLEAR);
+        io.out.flush();
+    }
+    let outdir = outdir_of(s, world)?;
+    print_lines(
+        io,
+        &ui::render_lines(world.version, s, &outdir, world.is_windows, world.use_color)?,
+    );
+    print_lines(io, &ui::hint_lines(&outdir, world.use_color));
+    if mode == DownloadMode::Summary {
+        print_line(
+            io,
+            &c(
+                world.use_color,
+                A_AMBER,
+                "  summary: subtitles to text first, sound only if there are none",
+            ),
+        );
+    }
+    download(s, &url, io, mode);
+    Ok(ActOutcome::Repaint(false))
 }
 
 // ------------------------------------------------------------- submenus
@@ -213,7 +270,7 @@ pub fn run_batch(
     entries: &[String],
     io: &mut Io,
     world: &World,
-    download: &mut dyn FnMut(&mut Obj, &str, &mut Io) -> i32,
+    download: &mut DownloadFn<'_>,
 ) -> Result<bool, MenuErr> {
     let total = entries.len();
     let mut started = false;
@@ -252,7 +309,7 @@ pub fn run_batch(
             );
             continue;
         };
-        if download(s, &url, io) == 130 {
+        if download(s, &url, io, DownloadMode::Full) == 130 {
             break;
         }
         started = true;
@@ -267,7 +324,7 @@ pub fn multi_url(
     s: &mut Obj,
     io: &mut Io,
     world: &World,
-    download: &mut dyn FnMut(&mut Obj, &str, &mut Io) -> i32,
+    download: &mut DownloadFn<'_>,
 ) -> Result<bool, MenuErr> {
     let mut entries: Vec<String> = Vec::new();
     loop {
@@ -385,48 +442,17 @@ pub fn act(
     s: &mut Obj,
     io: &mut Io,
     world: &World,
-    download: &mut dyn FnMut(&mut Obj, &str, &mut Io) -> i32,
+    download: &mut DownloadFn<'_>,
     update: &mut dyn FnMut(&mut Obj, &mut Io) -> Result<(), MenuErr>,
 ) -> Result<ActOutcome, MenuErr> {
     let is_audio_only = matches!(config::get(s, "type"), Some(Value::Str(t)) if t == "audio only");
     let repaint = match choice {
         // FR-17: the clipboard quick-paste - the same screen and result
         // state as a pasted url plus enter
-        "0" => {
-            let link = (world.clipboard)()
-                .and_then(|text| clean_url(Some(&text)))
-                .filter(|u| !u.is_empty());
-            match link {
-                Some(url) => {
-                    if world.use_color {
-                        io.out.write(CLEAR);
-                        io.out.flush();
-                    }
-                    let outdir = outdir_of(s, world)?;
-                    print_lines(
-                        io,
-                        &ui::render_lines(
-                            world.version,
-                            s,
-                            &outdir,
-                            world.is_windows,
-                            world.use_color,
-                        )?,
-                    );
-                    print_lines(io, &ui::hint_lines(&outdir, world.use_color));
-                    download(s, &url, io);
-                    return Ok(ActOutcome::Repaint(false));
-                }
-                None => {
-                    print_line(
-                        io,
-                        &c(world.use_color, A_AMBER, "  no link on the clipboard"),
-                    );
-                    tty::hold(io.out, io.reader);
-                    return Ok(ActOutcome::Repaint(true));
-                }
-            }
-        }
+        "0" => return clipboard_grab(s, io, world, download, DownloadMode::Full),
+        // FR-22: the summary grab - subtitles to text first, sound only
+        // when that fails
+        "s" | "S" => return clipboard_grab(s, io, world, download, DownloadMode::Summary),
         "1" => {
             let picked = pick_list(
                 "change type: video / video no audio / audio only",
@@ -736,7 +762,7 @@ pub fn main_menu(
     s: &mut Obj,
     io: &mut Io,
     world: &World,
-    download: &mut dyn FnMut(&mut Obj, &str, &mut Io) -> i32,
+    download: &mut DownloadFn<'_>,
     update: &mut dyn FnMut(&mut Obj, &mut Io) -> Result<(), MenuErr>,
     quiet_check: &mut dyn FnMut(&mut Obj, &mut Io) -> Result<(), MenuErr>,
 ) -> Result<i32, MenuErr> {
@@ -797,7 +823,7 @@ pub fn main_menu(
                         )?,
                     );
                     print_lines(io, &ui::hint_lines(&outdir, world.use_color));
-                    download(s, &url, io);
+                    download(s, &url, io, DownloadMode::Full);
                     results = true;
                     save(s, world)?;
                     continue;
@@ -913,7 +939,8 @@ mod tests {
         std::fs::write(&path, config::render_settings_file(settings)).expect("seed");
         let mut rec = RecordingOut::default();
         let mut reader = ScriptedReader::new(replies);
-        let mut download = |_s: &mut Obj, _url: &str, _io: &mut Io| -> i32 { 0 };
+        let mut download =
+            |_s: &mut Obj, _url: &str, _io: &mut Io, _mode: DownloadMode| -> i32 { 0 };
         let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };
         let w = world(&path, "1.5.0", false, false, None);
         let outcome = {
@@ -1045,7 +1072,8 @@ mod tests {
 
         let mut rec = RecordingOut::default();
         let mut reader = ScriptedReader::new(vec![ScriptItem::Line(String::new())]);
-        let mut download = |_s: &mut Obj, _url: &str, _io: &mut Io| -> i32 { 0 };
+        let mut download =
+            |_s: &mut Obj, _url: &str, _io: &mut Io, _mode: DownloadMode| -> i32 { 0 };
         let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };
         let w = world(&path, "1.5.0", false, false, None);
         {
@@ -1226,7 +1254,7 @@ mod tests {
         let mut got: Option<String> = None;
         let mut rec = RecordingOut::default();
         let mut reader = ScriptedReader::new(vec![]);
-        let mut download = |_s: &mut Obj, url: &str, _io: &mut Io| -> i32 {
+        let mut download = |_s: &mut Obj, url: &str, _io: &mut Io, _mode: DownloadMode| -> i32 {
             got = Some(url.to_string());
             0
         };
@@ -1261,7 +1289,8 @@ mod tests {
         let clip = || Some("nothing interesting".to_string());
         let mut rec = RecordingOut::default();
         let mut reader = ScriptedReader::new(vec![ScriptItem::Line(String::new())]);
-        let mut download = |_s: &mut Obj, _url: &str, _io: &mut Io| -> i32 { 0 };
+        let mut download =
+            |_s: &mut Obj, _url: &str, _io: &mut Io, _mode: DownloadMode| -> i32 { 0 };
         let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };
         let w = world_clip(&path, "2.0.2", false, false, None, &clip);
         let outcome = {
@@ -1273,6 +1302,54 @@ mod tests {
         };
         assert!(matches!(outcome, ActOutcome::Repaint(true)));
         assert!(rec.text().contains("  no link on the clipboard"));
+    }
+
+    /// FR-22: the summary key takes the same clipboard link, repaints the
+    /// menu, states the order, and asks the downloader for the summary.
+    #[test]
+    fn item_s_runs_the_summary_grab() {
+        let tmp = TempConfig::new();
+        let path = tmp.config_path();
+        let mut s = config::defaults();
+        std::fs::write(&path, config::render_settings_file(&s)).expect("seed");
+        let clip = || Some("https://youtu.be/abc".to_string());
+        let mut got: Option<(String, DownloadMode)> = None;
+        let mut rec = RecordingOut::default();
+        let mut reader = ScriptedReader::new(vec![]);
+        let mut download = |_s: &mut Obj, url: &str, _io: &mut Io, mode: DownloadMode| -> i32 {
+            got = Some((url.to_string(), mode));
+            0
+        };
+        let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };
+        let w = world_clip(&path, "2.0.2", false, false, None, &clip);
+        let outcome = {
+            let mut io = Io {
+                out: &mut rec,
+                reader: &mut reader,
+            };
+            act("s", &mut s, &mut io, &w, &mut download, &mut update).unwrap()
+        };
+        assert!(matches!(outcome, ActOutcome::Repaint(false)));
+        assert_eq!(
+            got,
+            Some(("https://youtu.be/abc".to_string(), DownloadMode::Summary))
+        );
+        let text = rec.text();
+        assert!(text.contains("yt-dlp cli  v2.0.2"), "menu repainted");
+        assert!(
+            text.contains("summary: subtitles to text first, sound only if there are none"),
+            "{text}"
+        );
+        assert!(reader.prompts.is_empty(), "no extra read");
+    }
+
+    /// FR-22: no clipboard link keeps the item 0 answer and holds.
+    #[test]
+    fn item_s_reports_a_missing_link() {
+        let mut s = config::defaults();
+        let (text, prompts) = mega("S", vec![ScriptItem::Line(String::new())], &mut s);
+        assert!(text.contains("  no link on the clipboard"), "{text}");
+        assert_eq!(prompts.last().unwrap(), "", "the summary key holds");
     }
 
     /// The [11,1,11] cursor dance: the ten-line language block is handed
@@ -1291,7 +1368,8 @@ mod tests {
             ScriptItem::Line("en,8".to_string()),
             ScriptItem::Line(String::new()),
         ]);
-        let mut download = |_s: &mut Obj, _url: &str, _io: &mut Io| -> i32 { 0 };
+        let mut download =
+            |_s: &mut Obj, _url: &str, _io: &mut Io, _mode: DownloadMode| -> i32 { 0 };
         let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };
         let w = world(&path, "1.5.0", true, true, Some((120, 50)));
         {
@@ -1336,7 +1414,8 @@ mod tests {
             std::fs::write(&path, config::render_settings_file(&s)).expect("seed");
             let mut rec = RecordingOut::default();
             let mut reader = ScriptedReader::new(replies);
-            let mut download = |_s: &mut Obj, _url: &str, _io: &mut Io| -> i32 { 0 };
+            let mut download =
+                |_s: &mut Obj, _url: &str, _io: &mut Io, _mode: DownloadMode| -> i32 { 0 };
             let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };
             let mut quiet = |_s: &mut Obj, _io: &mut Io| Ok(());
             let w = world(&path, "1.5.0", false, false, None);
@@ -1384,7 +1463,8 @@ mod tests {
             std::fs::write(&path, config::render_settings_file(&s)).expect("seed");
             let mut rec = RecordingOut::default();
             let mut reader = ScriptedReader::new(replies);
-            let mut download = |_s: &mut Obj, _url: &str, _io: &mut Io| -> i32 { 0 };
+            let mut download =
+                |_s: &mut Obj, _url: &str, _io: &mut Io, _mode: DownloadMode| -> i32 { 0 };
             let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };
             let mut quiet = |_s: &mut Obj, _io: &mut Io| Ok(());
             let w = world(&path, "1.5.0", false, false, None);
@@ -1434,7 +1514,8 @@ mod tests {
             ScriptItem::Escape,
             ScriptItem::Line("15".to_string()),
         ]);
-        let mut download = |_s: &mut Obj, _url: &str, _io: &mut Io| -> i32 { 0 };
+        let mut download =
+            |_s: &mut Obj, _url: &str, _io: &mut Io, _mode: DownloadMode| -> i32 { 0 };
         let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };
         let mut quiet = |_s: &mut Obj, _io: &mut Io| Ok(());
         let w = world(&path2, "1.5.0", false, false, None);

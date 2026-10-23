@@ -995,7 +995,10 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
             };
             let mut rec = tty::RecordingOut::default();
             let mut reader = scripted_reader(case)?;
-            let mut download = |_s: &mut Obj, _url: &str, _io: &mut menu::Io| -> i32 { 0 };
+            let mut download =
+                |_s: &mut Obj, _url: &str, _io: &mut menu::Io, _mode: menu::DownloadMode| -> i32 {
+                    0
+                };
             // the phase-8 updater pair: the harness drives act and
             // main_menu, not the network, so both stay inert closures
             // unless a case scripts them (see the update arms)

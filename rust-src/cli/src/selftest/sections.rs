@@ -852,6 +852,45 @@ pub(super) fn section_menu(
         &got_strs(&[&auto_state]),
     );
 
+    // FR-22: the summary key row sits directly above the quick-paste row,
+    // in the same dark amber, before row 1
+    let rendered = ui::render_lines("9.9.9", &settings, &outdir, is_windows, false);
+    let key_rows = match &rendered {
+        Ok(lines) => {
+            lines.get(3) == Some(&ui::summary_row(false))
+                && lines.get(4) == Some(&ui::quick_row(false))
+        }
+        Err(_) => false,
+    };
+    c.check(
+        "summary row sits above the quick row",
+        key_rows,
+        &got_strs(&[ui::SUMMARY_ROW_TEXT, ui::QUICK_ROW_TEXT]),
+    );
+
+    // FR-22: the key answers through the same clipboard seam as item 0;
+    // no link keeps the amber line and the repaint
+    let mut capture = CaptureOut::default();
+    let mut reader = ScriptedReader::new(&[""]);
+    let mut io = make_io(&mut capture, &mut reader);
+    let world = menu_world("9.9.9", root, false, false, None, auto);
+    let mut key_settings = loaded_settings(config_path);
+    let outcome = menu::act(
+        "s",
+        &mut key_settings,
+        &mut io,
+        &world,
+        &mut no_download,
+        &mut no_update,
+    );
+    c.check(
+        "summary key answers without a link",
+        matches!(outcome, Ok(ActOutcome::Repaint(true)))
+            && capture.text().contains("no link on the clipboard")
+            && !capture.text().contains("pick 1-15"),
+        &got_strs(&["no link"]),
+    );
+
     let d = config::defaults();
     c.check(
         "auto update default is on",
@@ -1492,7 +1531,12 @@ pub(super) fn plain7_at(text: &[String], index: usize) -> String {
     text.get(index).cloned().unwrap_or_default()
 }
 
-pub(super) fn no_download(_s: &mut Obj, _url: &str, _io: &mut Io<'_>) -> i32 {
+pub(super) fn no_download(
+    _s: &mut Obj,
+    _url: &str,
+    _io: &mut Io<'_>,
+    _mode: menu::DownloadMode,
+) -> i32 {
     0
 }
 
@@ -1577,7 +1621,7 @@ pub(super) fn section_batch(
     ];
     let mut downloader = {
         let seen = Rc::clone(&seen);
-        move |_s: &mut Obj, url: &str, _io: &mut Io<'_>| {
+        move |_s: &mut Obj, url: &str, _io: &mut Io<'_>, _mode: menu::DownloadMode| {
             seen.borrow_mut().push(url.to_string());
             0
         }
@@ -1618,7 +1662,7 @@ pub(super) fn section_batch(
     let entries2: Vec<String> = vec!["https://a/1".to_string(), "https://b/2".to_string()];
     let mut stopper = {
         let attempts = Rc::clone(&attempts);
-        move |_s: &mut Obj, url: &str, _io: &mut Io<'_>| {
+        move |_s: &mut Obj, url: &str, _io: &mut Io<'_>, _mode: menu::DownloadMode| {
             attempts.borrow_mut().push(url.to_string());
             130
         }
@@ -1656,8 +1700,10 @@ pub(super) fn section_batch(
         &mut no_update,
     );
     c.check(
-        "hint names item 5, not item 11",
-        capture3.text().contains("menu item: 5") && !capture3.text().contains("menu item: 11"),
+        "hint names item 5, not item 11, explains s",
+        capture3.text().contains("menu item: 5")
+            && !capture3.text().contains("menu item: 11")
+            && capture3.text().contains("subtitles to text first"),
         &got_strs(&["hint"]),
     );
     c.check(

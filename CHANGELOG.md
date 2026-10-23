@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.8.0
+
+### New features
+
+#### All platforms
+
+* A new `s` key row above the `0` row starts a summary grab of the clipboard link. It downloads the subtitles first and runs them through the srt stripper in text mode, so the result is plain text; only when no subtitle text can be produced does it download the sound. The menu hint block states that order, and the key also answers when typed. The stored type, playlist and stripper settings are left as they are.
+
 ## 2.7.0
 
 ### New features

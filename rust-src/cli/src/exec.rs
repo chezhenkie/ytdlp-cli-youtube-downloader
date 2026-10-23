@@ -427,15 +427,11 @@ fn shape_abort(shape: ShapeKind) -> i32 {
     1
 }
 
-/// `do_download(s, url)`: the whole download flow (FR-7, FR-9, FR-10).
-/// Returns the rc the callers use; 130 stops a batch (FR-12).
-pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) -> i32 {
-    let low = url.to_lowercase();
-    if !(low.starts_with("http://") || low.starts_with("https://")) {
-        print_out(&ctx.sink, &format!("not a URL: {}", py_repr_str(url)));
-        return 2;
-    }
-
+/// The shared download prelude (FR-7): the yt-dlp gate, the grouped
+/// preflight stage, the ffmpeg lookup and the offer. `kind` only picks
+/// the wording of the missing-ffmpeg line and the offer. Returns the
+/// binary and the ffmpeg dir, or the rc the caller answers with.
+fn preflight(s: &Obj, ctx: &mut DownloadCtx, kind: &str) -> Result<(String, Option<String>), i32> {
     let bin_dir = resolve::py_path_join(ctx.root, "bin");
     let platform = resolve::host_platform();
     let binary = match resolve::find_yt_dlp(s, &bin_dir, &platform, ctx.which) {
@@ -448,9 +444,9 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
                     c(ctx.use_color, A_AMBER, "...")
                 ),
             );
-            return 2;
+            return Err(2);
         }
-        Err(shape) => return shape_abort(shape),
+        Err(shape) => return Err(shape_abort(shape)),
     };
 
     // sub-second preflight checks share one grouped stage line
@@ -465,17 +461,13 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
         Ok(dir) => dir,
         Err(shape) => {
             st.done(None);
-            return shape_abort(shape);
+            return Err(shape_abort(shape));
         }
     };
     if vrc != 0 || ver.is_empty() {
         st.done(Some(&format!("yt-dlp check failed (rc={vrc})")));
-        return 2;
+        return Err(2);
     }
-    let kind = match config::get(s, "type") {
-        Some(Value::Str(t)) => t.clone(),
-        _ => "video".to_string(),
-    };
     let ffs = if ffdir.is_some() {
         "yt-dlp, ytdlp-cli, ffmpeg are all present".to_string()
     } else if kind == "audio only" {
@@ -486,8 +478,52 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
     st.done(Some(&ffs));
 
     if ffdir.is_none() {
-        ffdir = offer_ffmpeg(s, &kind, ctx);
+        ffdir = offer_ffmpeg(s, kind, ctx);
     }
+    Ok((binary, ffdir))
+}
+
+/// The saved file line after a zero-exit media run: the newest fresh file
+/// in the output folder, or the folder itself when nothing is fresh.
+fn report_saved(ctx: &DownloadCtx, outdir: &str, started: f64) {
+    match newest_since(outdir, started, 2.0) {
+        None => print_out(&ctx.sink, &format!("saved to {outdir}")),
+        Some(path) => {
+            let name = std::path::Path::new(&path)
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_else(|| path.clone());
+            let size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+            print_out(
+                &ctx.sink,
+                &format!(
+                    "{} done - {} ({:.1}MB)",
+                    c(ctx.use_color, A_AMBER, "..."),
+                    ascii_safe(&name),
+                    size as f64 / 1048576.0
+                ),
+            );
+        }
+    }
+}
+
+/// `do_download(s, url)`: the whole download flow (FR-7, FR-9, FR-10).
+/// Returns the rc the callers use; 130 stops a batch (FR-12).
+pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) -> i32 {
+    let low = url.to_lowercase();
+    if !(low.starts_with("http://") || low.starts_with("https://")) {
+        print_out(&ctx.sink, &format!("not a URL: {}", py_repr_str(url)));
+        return 2;
+    }
+
+    let kind = match config::get(s, "type") {
+        Some(Value::Str(t)) => t.clone(),
+        _ => "video".to_string(),
+    };
+    let (binary, ffdir) = match preflight(s, ctx, &kind) {
+        Ok(pair) => pair,
+        Err(rc) => return rc,
+    };
 
     let mut has_node = || resolve::which_from_process("node").is_some();
     let opts = match args::build_args(s, url, ffdir.as_deref(), ctx.root, ctx.auto, &mut has_node) {
@@ -569,25 +605,7 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
     }
 
     st.done(Some("downloading - finished"));
-    match newest_since(&outdir, started, 2.0) {
-        None => print_out(&ctx.sink, &format!("saved to {outdir}")),
-        Some(path) => {
-            let name = std::path::Path::new(&path)
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_else(|| path.clone());
-            let size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
-            print_out(
-                &ctx.sink,
-                &format!(
-                    "{} done - {} ({:.1}MB)",
-                    c(ctx.use_color, A_AMBER, "..."),
-                    ascii_safe(&name),
-                    size as f64 / 1048576.0
-                ),
-            );
-        }
-    }
+    report_saved(ctx, &outdir, started);
 
     // FR-21: the description file lands as `.description`; the menu
     // field reads as text, so the successful run renames it to `.txt`
@@ -622,15 +640,171 @@ fn strip_subtitles(s: &Obj, ctx: &mut DownloadCtx, outdir: &str, started: f64, r
         st.done(None);
         return;
     }
-    for path in &paths {
-        match srtstripper::run_one(&binary, path, &mode, &mut rt.spawn) {
+    strip_files(&binary, &paths, &mode, &mut st, rt);
+}
+
+/// One strip pass over the given subtitle files: one spawn per file
+/// through `RunRt.spawn`, the tool's PASS path reported on the stage.
+/// Returns how many runs answered Ok (the tool wrote a stripped copy).
+fn strip_files(
+    binary: &str,
+    paths: &[String],
+    mode: &str,
+    st: &mut Stage,
+    rt: &mut RunRt,
+) -> usize {
+    let mut written = 0;
+    for path in paths {
+        match srtstripper::run_one(binary, path, mode, &mut rt.spawn) {
             Ok(out_path) if out_path.is_empty() => {
-                st.done(Some(&format!("srt timecode stripper - {path}")))
+                st.done(Some(&format!("srt timecode stripper - {path}")));
+                written += 1;
             }
-            Ok(out_path) => st.done(Some(&format!("srt timecode stripper - {out_path}"))),
+            Ok(out_path) => {
+                st.done(Some(&format!("srt timecode stripper - {out_path}")));
+                written += 1;
+            }
             Err(text) => st.done(Some(&text)),
         }
     }
+    written
+}
+
+/// `do_summary` (FR-22): the summary grab behind the `s` key. The
+/// subtitle pass runs first and the fresh files go through the srt
+/// stripper in its text mode, whatever the strip settings say. Only when
+/// that path leaves no text does the sound-only pass run: a single
+/// video, the configured audio format, built from a copy of the settings
+/// so the stored type and playlist stay untouched. Returns the same rc
+/// shape as do_download; 130 stops the run.
+pub fn do_summary(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) -> i32 {
+    let low = url.to_lowercase();
+    if !(low.starts_with("http://") || low.starts_with("https://")) {
+        print_out(&ctx.sink, &format!("not a URL: {}", py_repr_str(url)));
+        return 2;
+    }
+    let (binary, ffdir) = match preflight(s, ctx, "audio only") {
+        Ok(pair) => pair,
+        Err(rc) => return rc,
+    };
+    let outdir = match resolve::resolve_outdir(s, ctx.auto, ctx.root) {
+        Ok(dir) => dir,
+        Err(shape) => return shape_abort(shape),
+    };
+
+    let langs_text = match config::get(s, "subtitle_langs") {
+        Some(v) => config::py_str(v),
+        None => "None".to_string(),
+    };
+    let mut st = tty::dot_stage(
+        &format!("summary - subtitles ({langs_text})"),
+        ctx.use_color,
+        ctx.sink.clone(),
+    );
+    st.start();
+    let mut has_node = || resolve::which_from_process("node").is_some();
+    let sub_opts =
+        match args::build_sub_args(s, url, ffdir.as_deref(), ctx.root, ctx.auto, &mut has_node) {
+            Ok(opts) => opts,
+            Err(shape) => {
+                st.done(None);
+                return shape_abort(shape);
+            }
+        };
+    let sub_started = now_secs();
+    let (rc, stopped, err, _codes) = run_download(&binary, &sub_opts, Some(&st), ctx.use_color, rt);
+    if stopped {
+        let tail = stop_cleanup(s, ctx.auto, ctx.root, sub_started);
+        st.done(Some(&format!("summary - stopped by escape{tail}")));
+        return 130;
+    }
+    let mut text_saved = false;
+    if rc == 0 {
+        let paths = srtstripper::subs_since(&outdir, sub_started, 2.0);
+        if paths.is_empty() {
+            st.done(Some("summary - no subtitles available"));
+        } else {
+            st.done(Some(&format!("summary - {} subtitle file(s)", paths.len())));
+            let bin_dir = resolve::py_path_join(ctx.root, "bin");
+            let stripper = resolve::find_srtstripper(&bin_dir, ctx.is_windows, &mut *ctx.which);
+            match stripper {
+                Some(stripper) => {
+                    let mut st2 =
+                        tty::dot_stage("summary - text stripper", ctx.use_color, ctx.sink.clone());
+                    st2.start();
+                    let written = strip_files(&stripper, &paths, "text", &mut st2, rt);
+                    if written > 0 {
+                        st2.done(Some("summary - text saved"));
+                        text_saved = true;
+                    }
+                }
+                None => st.done(Some("summary - text stripper not found (bin/ or PATH)")),
+            }
+        }
+    } else {
+        let lines = sub_fail_lines(Some(&err));
+        st.done(Some(&lines[0]));
+        st.done(Some(&lines[1]));
+    }
+
+    if text_saved {
+        print_out(
+            &ctx.sink,
+            &format!("{} summary - text ready", c(ctx.use_color, A_AMBER, "...")),
+        );
+        drop_temp_dir_force(s, ctx.auto, ctx.root);
+        return 0;
+    }
+
+    // fallback: sound only, one video, the configured audio format
+    print_out(
+        &ctx.sink,
+        &c(
+            ctx.use_color,
+            A_AMBER,
+            "  summary - no text, downloading sound only",
+        ),
+    );
+    let mut audio = s.clone();
+    config::set(&mut audio, "type", Value::Str("audio only".to_string()));
+    config::set(&mut audio, "playlist", Value::Bool(false));
+    let mut has_node = || resolve::which_from_process("node").is_some();
+    let opts = match args::build_args(
+        &audio,
+        url,
+        ffdir.as_deref(),
+        ctx.root,
+        ctx.auto,
+        &mut has_node,
+    ) {
+        Ok(opts) => opts,
+        Err(shape) => return shape_abort(shape),
+    };
+    let started = now_secs();
+    let spinner = term::pick_spinner();
+    let mut st = tty::spinner_stage(
+        "summary - sound only (escape to stop)",
+        spinner,
+        ctx.use_color,
+        ctx.sink.clone(),
+    );
+    st.start();
+    let (rc, stopped, err, _codes) = run_download(&binary, &opts, Some(&st), ctx.use_color, rt);
+    if stopped {
+        let tail = stop_cleanup(s, ctx.auto, ctx.root, started);
+        st.done(Some(&format!("summary - stopped by escape{tail}")));
+        return 130;
+    }
+    if rc != 0 {
+        let sentence = fail_sentence(rc, &err);
+        st.done(Some(&sentence));
+        drop_temp_dir_force(s, ctx.auto, ctx.root);
+        return rc as i32;
+    }
+    st.done(Some("summary - sound saved"));
+    report_saved(ctx, &outdir, started);
+    drop_temp_dir_force(s, ctx.auto, ctx.root);
+    0
 }
 
 #[cfg(test)]
@@ -1415,6 +1589,9 @@ mod tests {
 
     type KillFlag = std::rc::Rc<std::cell::Cell<i64>>;
 
+    /// Recorded spawn calls: (binary, argv).
+    type SpawnCalls = Arc<Mutex<Vec<(String, Vec<String>)>>>;
+
     #[allow(clippy::too_many_arguments)]
     fn scripted_run(
         stdout: Vec<u8>,
@@ -1683,5 +1860,144 @@ mod tests {
             !printed.contains("srt timecode stripper"),
             "no stage line when off: {printed}"
         );
+    }
+
+    /// FR-22: the summary grab runs the subtitle pass, strips the fresh
+    /// files in text mode whatever the strip settings say, and never
+    /// starts a sound download.
+    #[test]
+    fn do_summary_strips_text_before_any_sound() {
+        let mut world = InstallWorld::new("summary-text", "linux");
+        let outdir = resolve::py_path_join(&world.dir, resolve::DOWNLOADS_DIR_NAME);
+        std::fs::create_dir_all(&outdir).unwrap();
+        std::fs::write(resolve::py_path_join(&world.bin_dir, "yt-dlp"), b"x").unwrap();
+        std::fs::write(resolve::py_path_join(&world.bin_dir, "ffmpeg"), b"x").unwrap();
+        std::fs::write(resolve::py_path_join(&world.bin_dir, "srtstripper"), b"x").unwrap();
+        world.probe_answers.push_back(("2026.08.19".to_string(), 0));
+        let lines = Arc::clone(&world.lines);
+        let sub = resolve::py_path_join(&outdir, "video.en.srt");
+        let arg_sub = sub.clone();
+        let calls: SpawnCalls = Arc::new(Mutex::new(Vec::new()));
+        let seen = Arc::clone(&calls);
+        let mut rt = RunRt {
+            spawn: Box::new(move |binary: &str, args: &[String]| {
+                seen.lock()
+                    .unwrap()
+                    .push((binary.to_string(), args.to_vec()));
+                let (stdout, rc) = if binary.ends_with("srtstripper") {
+                    (
+                        format!(
+                            "PASS: mode=default, wrote 2 lines from 4 input lines -> {arg_sub} - text.txt\n"
+                        ),
+                        0,
+                    )
+                } else {
+                    std::fs::write(&arg_sub, b"1\n").unwrap();
+                    (String::new(), 0)
+                };
+                Ok(Spawned {
+                    stdout: Box::new(std::io::Cursor::new(stdout.into_bytes())),
+                    stderr: Box::new(std::io::Cursor::new(Vec::new())),
+                    child: Box::new(ScriptedHandle {
+                        polls: vec![Some(rc)].into(),
+                    }),
+                })
+            }),
+            watch: Box::new(|| {
+                Box::new(ScriptedWatch {
+                    hits: Vec::new().into(),
+                })
+            }),
+            kill: Box::new(|_| {}),
+            interrupted: Box::new(|| false),
+            sleep_frame: Box::new(|| {}),
+            interrupt_scope: None,
+        };
+        let s = config::defaults();
+        let sink = world.sink();
+        let rc = with_ctx!(&mut world, sink, |ctx| {
+            do_summary(&s, "https://x/y", &mut ctx, &mut rt)
+        });
+        assert_eq!(rc, 0);
+        let calls = calls.lock().unwrap().clone();
+        assert_eq!(calls.len(), 2, "subtitle pass + text stripper: {calls:?}");
+        assert!(calls[0].0.ends_with("yt-dlp"));
+        assert!(calls[0].1.contains(&"--skip-download".to_string()));
+        assert!(calls[1].0.ends_with("srtstripper"));
+        assert_eq!(calls[1].1, vec![sub.clone()], "text mode takes no flag");
+        let printed = lines.lock().unwrap().join("\n");
+        assert!(printed.contains("summary - text ready"), "{printed}");
+        assert!(!printed.contains("sound only"), "{printed}");
+    }
+
+    /// FR-22: a failed subtitle pass falls back to one sound-only run:
+    /// the configured audio format from a copy of the settings, so the
+    /// stored type and playlist stay as they were.
+    #[test]
+    fn do_summary_falls_back_to_sound_only() {
+        let mut world = InstallWorld::new("summary-sound", "linux");
+        let outdir = resolve::py_path_join(&world.dir, resolve::DOWNLOADS_DIR_NAME);
+        std::fs::create_dir_all(&outdir).unwrap();
+        std::fs::write(resolve::py_path_join(&world.bin_dir, "yt-dlp"), b"x").unwrap();
+        std::fs::write(resolve::py_path_join(&world.bin_dir, "ffmpeg"), b"x").unwrap();
+        world.probe_answers.push_back(("2026.08.19".to_string(), 0));
+        let lines = Arc::clone(&world.lines);
+        let media = resolve::py_path_join(&outdir, "video.mp3");
+        let calls: Arc<Mutex<Vec<Vec<String>>>> = Arc::new(Mutex::new(Vec::new()));
+        let seen = Arc::clone(&calls);
+        let written = media.clone();
+        let mut rt = RunRt {
+            spawn: Box::new(move |_binary: &str, args: &[String]| {
+                let mut seen = seen.lock().unwrap();
+                seen.push(args.to_vec());
+                let (stderr, rc) = if seen.len() == 1 {
+                    (b"ERROR: no subtitles for that video\n".to_vec(), 1)
+                } else {
+                    std::fs::write(&written, b"audio").unwrap();
+                    (Vec::new(), 0)
+                };
+                Ok(Spawned {
+                    stdout: Box::new(std::io::Cursor::new(Vec::new())),
+                    stderr: Box::new(std::io::Cursor::new(stderr)),
+                    child: Box::new(ScriptedHandle {
+                        polls: vec![Some(rc)].into(),
+                    }),
+                })
+            }),
+            watch: Box::new(|| {
+                Box::new(ScriptedWatch {
+                    hits: Vec::new().into(),
+                })
+            }),
+            kill: Box::new(|_| {}),
+            interrupted: Box::new(|| false),
+            sleep_frame: Box::new(|| {}),
+            interrupt_scope: None,
+        };
+        let s = config::defaults();
+        let sink = world.sink();
+        let rc = with_ctx!(&mut world, sink, |ctx| {
+            do_summary(&s, "https://x/y", &mut ctx, &mut rt)
+        });
+        assert_eq!(rc, 0);
+        let calls = calls.lock().unwrap().clone();
+        assert_eq!(calls.len(), 2, "subtitle pass then sound only: {calls:?}");
+        let sound = &calls[1];
+        assert!(sound.contains(&"-x".to_string()), "{sound:?}");
+        assert!(sound.contains(&"--audio-format".to_string()), "{sound:?}");
+        assert!(sound.contains(&"--no-playlist".to_string()), "{sound:?}");
+        assert_eq!(
+            config::get(&s, "type"),
+            Some(&Value::Str("video".to_string())),
+            "the stored type is untouched"
+        );
+        assert_eq!(config::get(&s, "playlist"), Some(&Value::Bool(false)));
+        let printed = lines.lock().unwrap().join("\n");
+        assert!(
+            printed.contains("summary - no text, downloading sound only"),
+            "{printed}"
+        );
+        assert!(printed.contains("summary - sound saved"), "{printed}");
+        assert!(printed.contains("video.mp3"), "{printed}");
     }
 }
