@@ -262,8 +262,8 @@ jobs:
           echo "$GPL3_SHA256  rust-src/packaging/GPL-3.0.txt" | sha256sum -c -
           mkdir -p payload/yt-dlp-linux
           unzip -q payload/yt-dlp_linux.zip -d payload/yt-dlp-linux
-          test -f payload/yt-dlp-linux/yt-dlp
-          test -d payload/yt-dlp-linux/_internal
+          test -f payload/yt-dlp-linux/yt-dlp_linux || { echo "yt-dlp_linux.zip lacks the yt-dlp_linux launcher" >&2; exit 1; }
+          test -d payload/yt-dlp-linux/_internal || { echo "yt-dlp_linux.zip lacks _internal" >&2; exit 1; }
           tar -xJf payload/btbn.tar.xz -C payload
           ff=$(find payload -path '*/bin/ffmpeg' -type f -print -quit)
           test -n "$ff"
@@ -273,7 +273,7 @@ jobs:
           install -m 0755 rust-src/packaging/run-ytdlp.sh "$stage/run-ytdlp.sh"
           install -m 0644 rust-src/packaging/run-ytdlp.bat "$stage/run-ytdlp.bat"
           install -m 0644 README.md CHANGELOG.md LICENSE THIRD-PARTY-NOTICES.md "$stage/"
-          install -m 0755 payload/yt-dlp-linux/yt-dlp "$stage/bin/yt-dlp"
+          install -m 0755 payload/yt-dlp-linux/yt-dlp_linux "$stage/bin/yt-dlp"
           cp -a payload/yt-dlp-linux/_internal "$stage/bin/_internal"
           install -m 0755 payload/srtstripper "$stage/bin/srtstripper"
           "$stage/bin/yt-dlp" --version
