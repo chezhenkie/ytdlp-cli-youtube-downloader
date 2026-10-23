@@ -322,6 +322,8 @@ fn updater_run(
     };
     let mut call = |binary: &str, args: &[String]| match std::process::Command::new(binary)
         .args(args)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
         .status()
     {
         Ok(status) => exec::exit_code(&status),

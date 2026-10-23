@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.6.1
+
+### Fixes
+
+#### Windows and Linux
+
+* Menu item 13 updates the cli itself. It reads the newest release, verifies the platform lean bundle against the published digest, lifts the cli out of the archive, and installs it after the new build passes `--selftest`. The musl build takes the musl bundle. macOS keeps the release page path and now says so.
+
+#### All platforms
+
+* The ui shows versions only. yt-dlp numbers its releases by date, so the update report prints the state (`yt-dlp updated`, `yt-dlp is current`), `--check` prints `yt-dlp check : ok`, and the preflight prints `yt-dlp, ytdlp-cli, ffmpeg are all present` when everything resolves. yt-dlp's own `-U` output is suppressed so no upstream date reaches the screen.
+
 ## 2.6.0
 
 ### New features

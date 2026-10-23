@@ -1077,8 +1077,13 @@ pub fn show_check(
         binary.as_deref().unwrap_or("MISSING")
     ));
     if let Some(b) = &binary {
-        let (ver, rc) = probe(b);
-        lines.push(format!("yt-dlp version: {ver} (rc={rc})"));
+        let (_, rc) = probe(b);
+        let status = if rc == 0 {
+            "ok".to_string()
+        } else {
+            format!("failed (rc={rc})")
+        };
+        lines.push(format!("yt-dlp check  : {status}"));
     }
     lines.push(format!(
         "ffmpeg dir    : {}",

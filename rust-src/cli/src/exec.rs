@@ -441,7 +441,7 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
         }
     };
     if vrc != 0 || ver.is_empty() {
-        st.done(Some(&format!("yt-dlp check failed (rc={vrc}): {ver}")));
+        st.done(Some(&format!("yt-dlp check failed (rc={vrc})")));
         return 2;
     }
     let kind = match config::get(s, "type") {
@@ -449,13 +449,13 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
         _ => "video".to_string(),
     };
     let ffs = if ffdir.is_some() {
-        "ffmpeg found"
+        "yt-dlp, ytdlp-cli, ffmpeg are all present".to_string()
     } else if kind == "audio only" {
-        "no ffmpeg - saving original audio"
+        "yt-dlp, ytdlp-cli are present, ffmpeg is missing - saving original audio".to_string()
     } else {
-        "no ffmpeg - single best file"
+        "yt-dlp, ytdlp-cli are present, ffmpeg is missing - single best file".to_string()
     };
-    st.done(Some(&format!("ready - yt-dlp v{ver}, {ffs}")));
+    st.done(Some(&ffs));
 
     if ffdir.is_none() {
         ffdir = offer_ffmpeg(s, &kind, ctx);

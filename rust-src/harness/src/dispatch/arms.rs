@@ -2264,10 +2264,14 @@ impl net::HttpRt for HttpScript {
     }
 }
 
-/// The releases-API answer the updater arms script: the newest tag with a
-/// bare-binary asset and its digest, so both sides reach the same gates.
+/// The releases-API answer the updater arms script: the newest tag with
+/// the platform bundle named for it and a digest, so both sides reach the
+/// same gates. An answer without a tag has no bundle name, which is the
+/// same as a missing asset.
 fn release_answer(version: Option<&str>) -> String {
-    let asset = update::release_asset(ARM_PLATFORM, ARM_ARCH).unwrap_or("");
+    let asset = version
+        .and_then(|v| update::release_asset(ARM_PLATFORM, ARM_ARCH, v, false))
+        .unwrap_or_default();
     let digest = "0".repeat(64);
     let tag = match version {
         Some(v) => format!("\"tag_name\": \"v{v}\", "),

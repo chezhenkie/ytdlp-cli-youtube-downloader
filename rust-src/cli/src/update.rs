@@ -226,26 +226,51 @@ pub struct Release {
     pub digest: Option<String>,
 }
 
-/// The bare-binary release asset for a platform and architecture
-/// (FR-13; the names the release publishes alongside the bundles).
-/// macOS deliberately has none (owner call 2026-10-17h): the mac line
-/// is the portable bundle only, so there is no cli self-update image.
-pub fn release_asset(platform: &str, arch: &str) -> Option<&'static str> {
+/// The lean bundle that carries the cli image for a platform, named for
+/// the release tag (FR-13). No page publishes a bare cli image, so the
+/// updater lifts the one member out of the bundle instead. macOS has no
+/// self-update: the mac line ships a pkg.
+pub fn release_asset(platform: &str, arch: &str, version: &str, musl: bool) -> Option<String> {
+    let top = format!("ytdlp-cli-v{version}");
     match (platform, arch) {
-        ("windows", "x86_64") => Some("ytdlp-native-windows-x86_64.exe"),
-        ("linux", "x86_64") => Some("ytdlp-native-linux-x86_64"),
+        ("windows", "x86_64") => Some(format!("{top}-windows-lean.zip")),
+        ("linux", "x86_64") if musl => Some(format!("{top}-linux-musl.tar.gz")),
+        ("linux", "x86_64") => Some(format!("{top}-linux-lean.tar.gz")),
         _ => None,
     }
+}
+
+/// The cli member inside a published bundle: the archive kind and the
+/// last path component the extractor matches.
+fn bundle_image(asset: &str) -> Option<(&'static str, &'static str)> {
+    if asset.ends_with(".zip") {
+        Some(("zip", "ytdlp.exe"))
+    } else if asset.ends_with(".tar.gz") {
+        Some(("tar.gz", "ytdlp"))
+    } else {
+        None
+    }
+}
+
+/// The musl build updates from the musl bundle; the glibc build must
+/// never take a static musl image by accident.
+fn running_musl() -> bool {
+    cfg!(all(target_os = "linux", target_env = "musl"))
 }
 
 /// `fetch_cli` native (FR-13): the published release from one GET.
 /// Python reads the version out of the same source bytes it installs;
 /// a compiled image cannot, so the version and the binding digest come
 /// from the API response that names the asset - the same single-request
-/// property, one layer up.
+/// property, one layer up. The asset is named for the tag in the same
+/// answer, so the lookup can only match the release it is reading.
 pub fn fetch_cli(ctx: &mut UpdateCtx, timeout: u64) -> Result<Release, String> {
     let body = ctx.http.text(RELEASES_API, timeout)?;
-    parse_release(&body, release_asset(ctx.platform, ctx.arch))
+    let tag = parse_release(&body, None)?.version;
+    let asset = tag
+        .as_deref()
+        .and_then(|v| release_asset(ctx.platform, ctx.arch, v, running_musl()));
+    parse_release(&body, asset.as_deref())
 }
 
 /// The yt-dlp release API: one GET carries the newest tag, the onedir
@@ -426,6 +451,69 @@ fn download_release(ctx: &mut UpdateCtx, release: &Release, staged: &str) -> (bo
     }
 }
 
+/// Download the published asset and land it as `staged`. The page ships
+/// bundles only, so the cli member is unpacked in a stage folder beside
+/// the running image (same volume, renames only) and verified before it
+/// can replace anything; a bare image - none is published today - still
+/// lands as it is.
+fn fetch_and_install(ctx: &mut UpdateCtx, release: &Release, staged: &str) -> (bool, String) {
+    let Some(asset) = release.asset.as_deref() else {
+        return (
+            false,
+            "the published release has no build for this platform".into(),
+        );
+    };
+    let Some((how, member)) = bundle_image(asset) else {
+        let (ok, msg) = download_release(ctx, release, staged);
+        return if ok {
+            install_cli(ctx, staged)
+        } else {
+            (false, msg)
+        };
+    };
+    let parent = match std::path::Path::new(ctx.self_path).parent() {
+        Some(p) if !p.as_os_str().is_empty() => p.to_string_lossy().into_owned(),
+        _ => ".".to_string(),
+    };
+    let stage = match pyfs::mkdtemp(".ytdlp-upd-", &parent) {
+        Ok(stage) => stage,
+        Err(e) => {
+            return (
+                false,
+                format!(
+                    "could not create the update folder: {}",
+                    ascii_safe(&e.to_string())
+                ),
+            );
+        }
+    };
+    let archive = resolve::py_path_join(&stage, asset);
+    let (ok, msg) = download_release(ctx, release, &archive);
+    if !ok {
+        pyfs::rmtree_quiet(&stage);
+        return (false, msg);
+    }
+    let extracted = crate::archive::extract_member(&archive, how, member, &stage, &ctx.sink);
+    let (ok, msg) = match extracted {
+        Some(path) => match pyfs::chmod_755(&path).and_then(|()| pyfs::replace(&path, staged)) {
+            Ok(()) => install_cli(ctx, staged),
+            Err(e) => (
+                false,
+                format!(
+                    "could not place the new file: {}",
+                    ascii_safe(&e.to_string())
+                ),
+            ),
+        },
+        None => (
+            false,
+            format!("the published bundle carries no cli image ({member})"),
+        ),
+    };
+    pyfs::rmtree_quiet(&stage);
+    (ok, msg)
+}
+
 /// `update_yt_dlp(s)`: in-place self-update of the resolved yt-dlp
 /// binary. The bundled payload updates as a tree - tag, zip and digest
 /// from one releases API GET, verify, extract, swap the binary and
@@ -456,14 +544,10 @@ pub fn update_yt_dlp(s: &Obj, ctx: &mut UpdateCtx) -> bool {
     };
     let (old, rc) = (ctx.probe)(&binary);
     if rc != 0 || old.is_empty() {
-        tty::emit_line(
-            &ctx.sink,
-            &format!("yt-dlp binary check failed (rc={rc}): {old}"),
-        );
+        tty::emit_line(&ctx.sink, &format!("yt-dlp binary check failed (rc={rc})"));
         return false;
     }
-    tty::emit_line(&ctx.sink, &format!("binary      : {binary}"));
-    tty::emit_line(&ctx.sink, &format!("version now : {old}"));
+    tty::emit_line(&ctx.sink, &format!("yt-dlp binary : {binary}"));
     let saved = config::get(s, "yt_dlp_path").is_some_and(config::py_truthy);
     let bundled = resolve::py_path_join(&bin_dir, resolve::platform_bin_name(ctx.platform));
     if !saved && binary == bundled {
@@ -476,7 +560,18 @@ pub fn update_yt_dlp(s: &Obj, ctx: &mut UpdateCtx) -> bool {
         return false;
     }
     let (new, _) = (ctx.probe)(&binary);
-    tty::emit_line(&ctx.sink, &format!("version after: {new}"));
+    // no yt-dlp version is printed: upstream numbers its releases by
+    // date, so the report carries the state, not the date
+    if new != old {
+        tty::emit_line(&ctx.sink, "yt-dlp updated");
+    } else if update_rc == 0 {
+        tty::emit_line(&ctx.sink, "yt-dlp is current");
+    } else {
+        tty::emit_line(
+            &ctx.sink,
+            &format!("the yt-dlp update failed (rc={update_rc})"),
+        );
+    }
     update_rc == 0
 }
 
@@ -520,7 +615,7 @@ fn update_bundled_yt_dlp(ctx: &mut UpdateCtx, binary: &str, old: &str) -> bool {
         return false;
     };
     if version_tuple(Some(&newver)) <= version_tuple(Some(old)) {
-        tty::emit_line(&ctx.sink, &format!("version after: {old}"));
+        tty::emit_line(&ctx.sink, "yt-dlp is current");
         return true;
     }
     let Some(member) = ytdlp_tree_member(asset) else {
@@ -544,8 +639,8 @@ fn update_bundled_yt_dlp(ctx: &mut UpdateCtx, binary: &str, old: &str) -> bool {
     pyfs::rmtree_quiet(&stage);
     match outcome {
         Ok(()) => {
-            let (new, _) = (ctx.probe)(binary);
-            tty::emit_line(&ctx.sink, &format!("version after: {new}"));
+            let _ = (ctx.probe)(binary);
+            tty::emit_line(&ctx.sink, "yt-dlp updated");
             true
         }
         Err(msg) => {
@@ -722,15 +817,19 @@ pub fn auto_update_check(s: &mut Obj, force: bool, ctx: &mut UpdateCtx) -> Resul
         }
         return Ok(false);
     }
-    // FR-13: a platform without a published asset, or an asset without a
-    // digest, is a refusal - and it is refused before the notice, so the
-    // user is never asked about an update that cannot happen
+    // FR-13: a platform without a published bundle, or a bundle without
+    // a digest, is a refusal - and it is refused before the notice, so
+    // the user is never asked about an update that cannot happen
     if release.asset_url.is_none() || release.asset.is_none() {
         if force {
             tty::emit_line(
                 &ctx.sink,
-                &format!("  no published cli build for {}", ctx.platform),
+                &format!(
+                    "  no cli self-update for {} - install the release page build",
+                    ctx.platform
+                ),
             );
+            tty::emit_line(&ctx.sink, &format!("  {RELEASES_PAGE}"));
         }
         return Ok(false);
     }
@@ -762,13 +861,7 @@ pub fn auto_update_check(s: &mut Obj, force: bool, ctx: &mut UpdateCtx) -> Resul
         config::set(s, "auto_update_last_check", Value::Int((ctx.now)() as i64));
     }
     let staged = pyfs::with_suffix(ctx.self_path, ".new");
-    let (ok, msg) = match download_release(ctx, &release, &staged) {
-        (true, _) => {
-            let (ok, msg) = install_cli(ctx, &staged);
-            (ok, msg)
-        }
-        (false, msg) => (false, msg),
-    };
+    let (ok, msg) = fetch_and_install(ctx, &release, &staged);
     tty::emit_line(&ctx.sink, &format!("  {msg}"));
     if ok {
         tty::emit_line(
@@ -784,7 +877,7 @@ pub fn auto_update_check(s: &mut Obj, force: bool, ctx: &mut UpdateCtx) -> Resul
 pub fn update_all(s: &mut Obj, ctx: &mut UpdateCtx) -> Result<bool, UpdErr> {
     tty::emit_line(&ctx.sink, "  yt-dlp");
     let moved_yt = update_yt_dlp(s, ctx);
-    tty::emit_line(&ctx.sink, "  cli");
+    tty::emit_line(&ctx.sink, &format!("  cli v{}", crate::VERSION));
     let moved_cli = auto_update_check(s, true, ctx)?;
     Ok(moved_yt || moved_cli)
 }
@@ -994,11 +1087,22 @@ mod tests {
         defaults()
     }
 
-    /// A release that publishes a newer version for this platform, with
-    /// the asset bytes hashed into the answer.
-    fn newer_release(asset_bytes: &[u8]) -> String {
-        let digest = crate::sha256::sha256_hex(asset_bytes);
-        release_json("v9.9.9", "ytdlp-native-windows-x86_64.exe", Some(&digest))
+    /// A release that publishes a newer version for this platform: the
+    /// lean bundle carries the new image as `<top>/ytdlp.exe`.
+    fn newer_release(image: &[u8]) -> (String, Vec<u8>) {
+        let zip = crate::archive::zip_with(&[("ytdlp-cli-v9.9.9/ytdlp.exe", image)]);
+        let digest = crate::sha256::sha256_hex(&zip);
+        let body = release_json("v9.9.9", "ytdlp-cli-v9.9.9-windows-lean.zip", Some(&digest));
+        (body, zip)
+    }
+
+    /// The release answer for the running version: nothing to update.
+    fn current_release() -> String {
+        release_json(
+            &format!("v{}", crate::VERSION),
+            &format!("ytdlp-cli-v{}-windows-lean.zip", crate::VERSION),
+            Some(GYAN),
+        )
     }
 
     /// The yt-dlp releases answer: one asset, the tree zip.
@@ -1102,14 +1206,7 @@ mod tests {
                 &tree_release("2026.09.01", "yt-dlp_win.zip", Some(&digest)),
             )
             .with_file("https://example.invalid/tree", &zip)
-            .with_text(
-                RELEASES_API,
-                &release_json(
-                    &format!("v{}", crate::VERSION),
-                    "ytdlp-native-windows-x86_64.exe",
-                    Some(GYAN),
-                ),
-            );
+            .with_text(RELEASES_API, &current_release());
         h.probes.push_back(("2026.08.19".to_string(), 0));
         h.probes.push_back(("2026.09.01".to_string(), 0));
         let mut s = settings();
@@ -1145,27 +1242,40 @@ mod tests {
         assert_eq!(calls[2], format!("text {RELEASES_API} 60"));
         let printed = h.printed();
         assert_eq!(printed[0], "  yt-dlp");
-        assert_eq!(printed[1], format!("binary      : {binary}"));
-        assert_eq!(printed[2], "version now : 2026.08.19");
-        assert_eq!(printed[3], "version after: 2026.09.01");
+        assert_eq!(printed[1], format!("yt-dlp binary : {binary}"));
+        assert_eq!(printed[2], "yt-dlp updated");
+        assert_eq!(printed[3], format!("  cli v{}", crate::VERSION));
         std::fs::remove_dir_all(&h.dir).unwrap();
     }
 
     #[test]
-    fn release_asset_names_the_platform_binary() {
+    fn release_asset_names_the_platform_bundle() {
         assert_eq!(
-            release_asset("windows", "x86_64"),
-            Some("ytdlp-native-windows-x86_64.exe")
+            release_asset("windows", "x86_64", "2.6.1", false),
+            Some("ytdlp-cli-v2.6.1-windows-lean.zip".to_string())
         );
         assert_eq!(
-            release_asset("linux", "x86_64"),
-            Some("ytdlp-native-linux-x86_64")
+            release_asset("linux", "x86_64", "2.6.1", false),
+            Some("ytdlp-cli-v2.6.1-linux-lean.tar.gz".to_string())
         );
-        // macOS has no bare image (owner call 2026-10-17h)
-        assert_eq!(release_asset("macos", "aarch64"), None);
-        assert_eq!(release_asset("macos", "x86_64"), None);
-        assert_eq!(release_asset("linux", "riscv64"), None);
-        assert_eq!(release_asset("freebsd", "x86_64"), None);
+        assert_eq!(
+            release_asset("linux", "x86_64", "2.6.1", true),
+            Some("ytdlp-cli-v2.6.1-linux-musl.tar.gz".to_string())
+        );
+        // macOS has no self-update: the mac line ships a pkg
+        assert_eq!(release_asset("macos", "aarch64", "2.6.1", false), None);
+        assert_eq!(release_asset("macos", "x86_64", "2.6.1", false), None);
+        assert_eq!(release_asset("linux", "riscv64", "2.6.1", false), None);
+        assert_eq!(release_asset("freebsd", "x86_64", "2.6.1", false), None);
+        assert_eq!(
+            bundle_image("ytdlp-cli-v2.6.1-windows-lean.zip"),
+            Some(("zip", "ytdlp.exe"))
+        );
+        assert_eq!(
+            bundle_image("ytdlp-cli-v2.6.1-linux-lean.tar.gz"),
+            Some(("tar.gz", "ytdlp"))
+        );
+        assert_eq!(bundle_image("ytdlp-native-linux-x86_64"), None);
     }
 
     #[test]
@@ -1214,7 +1324,7 @@ mod tests {
     #[test]
     fn fetch_cli_reads_the_tag_and_the_binding_digest() {
         let sink = tty::SharedOut::new(RecordingOut::default()).sink();
-        let body = release_json("v9.9.9", "ytdlp-native-windows-x86_64.exe", Some(GYAN));
+        let body = release_json("v9.9.9", "ytdlp-cli-v9.9.9-windows-lean.zip", Some(GYAN));
         let mut http = FakeHttp::new().with_text(RELEASES_API, &body);
         let mut reader = ScriptedReader::new(vec![]);
         let mut rec = RecordingOut::default();
@@ -1248,7 +1358,7 @@ mod tests {
         assert_eq!(release.version.as_deref(), Some("9.9.9"));
         assert_eq!(
             release.asset.as_deref(),
-            Some("ytdlp-native-windows-x86_64.exe")
+            Some("ytdlp-cli-v9.9.9-windows-lean.zip")
         );
         assert_eq!(
             release.asset_url.as_deref(),
@@ -1266,7 +1376,7 @@ mod tests {
     #[test]
     fn a_release_without_the_platform_asset_is_a_refusal() {
         let mut h = Harness::new("no-asset");
-        let body = release_json("v9.9.9", "ytdlp-native-macos-arm64", Some(GYAN));
+        let body = release_json("v9.9.9", "ytdlp-cli-v9.9.9-linux-lean.tar.gz", Some(GYAN));
         h.http = FakeHttp::new().with_text(RELEASES_API, &body);
         h.reader = ScriptedReader::new(vec![ScriptItem::Line("y".to_string())]);
         let mut s = settings();
@@ -1275,7 +1385,7 @@ mod tests {
         assert!(
             printed
                 .iter()
-                .any(|l| l == "  no published cli build for windows"),
+                .any(|l| l == "  no cli self-update for windows - install the release page build"),
             "{printed:?}"
         );
         // refused before the notice: nothing was downloaded and the
@@ -1288,7 +1398,7 @@ mod tests {
     #[test]
     fn a_release_without_a_digest_is_a_refusal() {
         let mut h = Harness::new("no-digest");
-        let body = release_json("v9.9.9", "ytdlp-native-windows-x86_64.exe", None);
+        let body = release_json("v9.9.9", "ytdlp-cli-v9.9.9-windows-lean.zip", None);
         h.http = FakeHttp::new().with_text(RELEASES_API, &body);
         h.reader = ScriptedReader::new(vec![ScriptItem::Line("y".to_string())]);
         let mut s = settings();
@@ -1296,7 +1406,7 @@ mod tests {
         let printed = h.printed();
         assert!(
             printed.iter().any(|l| l
-                == "  the published release has no digest for ytdlp-native-windows-x86_64.exe"),
+                == "  the published release has no digest for ytdlp-cli-v9.9.9-windows-lean.zip"),
             "{printed:?}"
         );
         assert_eq!(h.selftested, Vec::<String>::new());
@@ -1326,7 +1436,7 @@ mod tests {
     fn the_quiet_check_throttles_to_one_a_day_and_needs_a_tty() {
         let mut h = Harness::new("throttle");
         let bytes = b"a new image".to_vec();
-        let body = newer_release(&bytes);
+        let (body, _zip) = newer_release(&bytes);
         h.http = FakeHttp::new().with_text(RELEASES_API, &body);
         // one declined answer on the pad: the gate cases below never
         // reach the prompt, the due case does
@@ -1361,10 +1471,10 @@ mod tests {
     fn a_declined_notice_leaves_the_image_alone() {
         let mut h = Harness::new("declined");
         let bytes = b"a new image".to_vec();
-        let body = newer_release(&bytes);
+        let (body, zip) = newer_release(&bytes);
         h.http = FakeHttp::new()
             .with_text(RELEASES_API, &body)
-            .with_file("https://example.invalid/asset", &bytes);
+            .with_file("https://example.invalid/asset", &zip);
         h.reader = ScriptedReader::new(vec![ScriptItem::Line(String::new())]);
         let mut s = settings();
         assert!(!h.check(&mut s, true).unwrap());
@@ -1396,10 +1506,10 @@ mod tests {
     fn a_new_image_is_gated_on_its_own_selftest_then_placed() {
         let mut h = Harness::new("install");
         let bytes = b"a new image".to_vec();
-        let body = newer_release(&bytes);
+        let (body, zip) = newer_release(&bytes);
         h.http = FakeHttp::new()
             .with_text(RELEASES_API, &body)
-            .with_file("https://example.invalid/asset", &bytes);
+            .with_file("https://example.invalid/asset", &zip);
         h.reader = ScriptedReader::new(vec![ScriptItem::Line("y".to_string())]);
         let mut s = settings();
         assert!(h.check(&mut s, true).unwrap());
@@ -1413,6 +1523,14 @@ mod tests {
         );
         assert!(!std::path::Path::new(&format!("{}.new", h.self_path)).exists());
         assert!(!std::path::Path::new(&format!("{}.new.part", h.self_path)).exists());
+        assert!(
+            std::fs::read_dir(&h.dir).unwrap().all(|e| !e
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".ytdlp-upd-")),
+            "the update stage is gone"
+        );
         let printed = h.printed();
         assert_eq!(printed[2], format!("  {}", h.self_path));
         assert_eq!(
@@ -1422,14 +1540,82 @@ mod tests {
         std::fs::remove_dir_all(&h.dir).unwrap();
     }
 
+    /// The linux bundle is a gzipped tar: the same install dance must lift
+    /// `ytdlp` out of it and place the running image's replacement.
+    #[test]
+    fn a_linux_bundle_lands_the_tar_member() {
+        let dir = scratch("linux-bundle");
+        let self_path = format!("{dir}/ytdlp");
+        std::fs::write(&self_path, b"the running image").unwrap();
+        let image = b"the new image";
+        let tar = crate::archive::tar_gz_with(&[("ytdlp-cli-v9.9.9/ytdlp", image)]);
+        let digest = crate::sha256::sha256_hex(&tar);
+        let body = release_json(
+            "v9.9.9",
+            "ytdlp-cli-v9.9.9-linux-lean.tar.gz",
+            Some(&digest),
+        );
+        let mut http = FakeHttp::new()
+            .with_text(RELEASES_API, &body)
+            .with_file("https://example.invalid/asset", &tar);
+        let sink = tty::SharedOut::new(RecordingOut::default()).sink();
+        let mut rec = RecordingOut::default();
+        let mut reader = ScriptedReader::new(vec![]);
+        let mut probe = |_: &str| ("9.9.9".to_string(), 0);
+        let mut selftest = |_: &str| 0;
+        let mut call = |_: &str, _: &[String]| 0;
+        let mut now = || 0.0;
+        let mut which = |_: &str| None;
+        let mut ctx = UpdateCtx {
+            platform: "linux",
+            arch: "x86_64",
+            self_path: &self_path,
+            root: &dir,
+            is_windows: false,
+            use_color: false,
+            stdin_tty: true,
+            sink,
+            http: &mut http,
+            probe: &mut probe,
+            selftest: &mut selftest,
+            call: &mut call,
+            now: &mut now,
+            which: &mut which,
+            out: &mut rec,
+            reader: &mut reader,
+        };
+        let release = fetch_cli(&mut ctx, CHECK_TIMEOUT_FOR_TEST).unwrap();
+        assert_eq!(
+            release.asset.as_deref(),
+            Some("ytdlp-cli-v9.9.9-linux-lean.tar.gz")
+        );
+        let staged = format!("{self_path}.new");
+        let (ok, msg) = fetch_and_install(&mut ctx, &release, &staged);
+        assert!(ok, "{msg}");
+        assert_eq!(std::fs::read(&self_path).unwrap(), image);
+        assert_eq!(
+            std::fs::read(format!("{self_path}.old")).unwrap(),
+            b"the running image"
+        );
+        assert!(
+            std::fs::read_dir(&dir).unwrap().all(|e| !e
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".ytdlp-upd-")),
+            "the update stage is gone"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     #[test]
     fn a_build_that_fails_its_own_checks_is_never_installed() {
         let mut h = Harness::new("gated");
         let bytes = b"a broken image".to_vec();
-        let body = newer_release(&bytes);
+        let (body, zip) = newer_release(&bytes);
         h.http = FakeHttp::new()
             .with_text(RELEASES_API, &body)
-            .with_file("https://example.invalid/asset", &bytes);
+            .with_file("https://example.invalid/asset", &zip);
         h.reader = ScriptedReader::new(vec![ScriptItem::Line("y".to_string())]);
         // phase 9 lands --selftest, so this is exactly what the shipped
         // binary answers today: the install is inert by construction
@@ -1459,7 +1645,7 @@ mod tests {
         let mut h = Harness::new("digest");
         let bytes = b"the wrong bytes".to_vec();
         // the answer names a digest that is not these bytes
-        let body = newer_release(b"other bytes");
+        let (body, _zip) = newer_release(b"other bytes");
         h.http = FakeHttp::new()
             .with_text(RELEASES_API, &body)
             .with_file("https://example.invalid/asset", &bytes);
@@ -1467,12 +1653,20 @@ mod tests {
         let mut s = settings();
         assert!(!h.check(&mut s, true).unwrap());
         assert_eq!(std::fs::read(&h.self_path).unwrap(), b"the running image");
-        for suffix in [".new", ".new.part", ".old"] {
+        for suffix in [".new", ".old"] {
             assert!(
                 !std::path::Path::new(&format!("{}{suffix}", h.self_path)).exists(),
                 "{suffix} left behind"
             );
         }
+        assert!(
+            std::fs::read_dir(&h.dir).unwrap().all(|e| !e
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".ytdlp-upd-")),
+            "the update stage is gone"
+        );
         assert_eq!(h.selftested, Vec::<String>::new());
         let printed = h.printed();
         assert!(
@@ -1627,14 +1821,7 @@ mod tests {
                 YTDLP_RELEASES_API,
                 &tree_release("2026.08.19", "yt-dlp_win.zip", Some(GYAN)),
             )
-            .with_text(
-                RELEASES_API,
-                &release_json(
-                    &format!("v{}", crate::VERSION),
-                    "ytdlp-native-windows-x86_64.exe",
-                    Some(GYAN),
-                ),
-            );
+            .with_text(RELEASES_API, &current_release());
         h.probes.push_back(("2026.08.19".to_string(), 0));
         let mut s = settings();
         assert!(h.all(&mut s).unwrap());
@@ -1644,7 +1831,8 @@ mod tests {
         assert_eq!(calls.len(), 2, "{calls:?}");
         assert!(calls.iter().all(|c| !c.starts_with("file ")), "{calls:?}");
         let printed = h.printed();
-        assert_eq!(printed[3], "version after: 2026.08.19");
+        assert_eq!(printed[2], "yt-dlp is current");
+        assert_eq!(printed[3], format!("  cli v{}", crate::VERSION));
         std::fs::remove_dir_all(&h.dir).unwrap();
     }
 
@@ -1665,14 +1853,7 @@ mod tests {
                 &tree_release("2026.09.01", "yt-dlp_win.zip", Some(&wrong)),
             )
             .with_file("https://example.invalid/tree", &zip)
-            .with_text(
-                RELEASES_API,
-                &release_json(
-                    &format!("v{}", crate::VERSION),
-                    "ytdlp-native-windows-x86_64.exe",
-                    Some(GYAN),
-                ),
-            );
+            .with_text(RELEASES_API, &current_release());
         h.probes.push_back(("2026.08.19".to_string(), 0));
         let mut s = settings();
         assert!(!h.all(&mut s).unwrap());
@@ -1710,14 +1891,7 @@ mod tests {
                 YTDLP_RELEASES_API,
                 &tree_release("2026.09.01", "yt-dlp_win.zip", None),
             )
-            .with_text(
-                RELEASES_API,
-                &release_json(
-                    &format!("v{}", crate::VERSION),
-                    "ytdlp-native-windows-x86_64.exe",
-                    Some(GYAN),
-                ),
-            );
+            .with_text(RELEASES_API, &current_release());
         h.probes.push_back(("2026.08.19".to_string(), 0));
         let mut s = settings();
         assert!(!h.all(&mut s).unwrap());
@@ -1802,23 +1976,18 @@ mod tests {
         h.probes.push_back(("1.5.0".to_string(), 0));
         h.probes.push_back(("2026.10.10".to_string(), 0));
         h.probes.push_back(("1.5.0".to_string(), 0));
-        let body = release_json(
-            &format!("v{}", crate::VERSION),
-            "ytdlp-native-windows-x86_64.exe",
-            Some(GYAN),
-        );
+        let body = current_release();
         h.http = FakeHttp::new().with_text(RELEASES_API, &body);
         // the yt-dlp half answers -U with rc 0, which is python's "moved"
         assert!(h.all(&mut s).unwrap());
         assert_eq!(h.updates, vec![format!("{yt} -U")]);
         let printed = h.printed();
         assert_eq!(printed[0], "  yt-dlp");
-        assert_eq!(printed[1], format!("binary      : {yt}"));
-        assert_eq!(printed[2], "version now : 1.5.0");
-        assert_eq!(printed[3], "version after: 2026.10.10");
-        assert_eq!(printed[4], "  cli");
+        assert_eq!(printed[1], format!("yt-dlp binary : {yt}"));
+        assert_eq!(printed[2], "yt-dlp updated");
+        assert_eq!(printed[3], format!("  cli v{}", crate::VERSION));
         assert_eq!(
-            printed[5],
+            printed[4],
             format!(
                 "  published v{}, this is v{} - already current",
                 crate::VERSION,
@@ -1858,7 +2027,7 @@ mod tests {
         assert!(
             h.printed()
                 .iter()
-                .any(|l| l == "yt-dlp binary check failed (rc=127): "),
+                .any(|l| l == "yt-dlp binary check failed (rc=127)"),
             "{:?}",
             h.printed()
         );

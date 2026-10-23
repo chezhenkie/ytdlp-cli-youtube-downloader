@@ -957,14 +957,27 @@ pub(super) fn section_menu(
     );
 
     // python pinned the raw-main script url; the native contract (FR-13)
-    // is the releases api, so this check names the api pin instead
+    // is the releases api, so this check names the api pin instead. The
+    // self-update asset is the platform lean bundle named for the tag.
     let api_ok = update::RELEASES_API.ends_with("/releases/latest")
         && update::RELEASES_API.contains("api.github.com")
         && update::RELEASES_API.contains("ytdlp-cli-youtube-downloader");
+    let win = update::release_asset("windows", "x86_64", "2.6.1", false);
+    let lin = update::release_asset("linux", "x86_64", "2.6.1", false);
+    let musl = update::release_asset("linux", "x86_64", "2.6.1", true);
+    let bundles_ok = win.as_deref() == Some("ytdlp-cli-v2.6.1-windows-lean.zip")
+        && lin.as_deref() == Some("ytdlp-cli-v2.6.1-linux-lean.tar.gz")
+        && musl.as_deref() == Some("ytdlp-cli-v2.6.1-linux-musl.tar.gz")
+        && update::release_asset("macos", "aarch64", "2.6.1", false).is_none();
     c.check(
         "cli update source is the releases api",
-        api_ok,
-        &got_strs(&[update::RELEASES_API]),
+        api_ok && bundles_ok,
+        &got_strs(&[
+            update::RELEASES_API,
+            win.as_deref().unwrap_or("none"),
+            lin.as_deref().unwrap_or("none"),
+            musl.as_deref().unwrap_or("none"),
+        ]),
     );
 }
 

@@ -35,6 +35,7 @@ pub fn extract_member(
     let result = match how {
         "zip" => from_zip(blob, binname, &out),
         "tar.xz" => from_tar_xz(blob, binname, &out),
+        "tar.gz" => from_tar_gz(blob, binname, &out),
         // python's `else: return None` inside the try: no message here,
         // the caller decides what a missing member means
         _ => return None,
@@ -147,13 +148,41 @@ fn from_zip(blob: &str, binname: &str, out: &str) -> Result<Option<String>, Stri
 }
 
 fn from_tar_xz(blob: &str, binname: &str, out: &str) -> Result<Option<String>, String> {
+    from_tar(
+        || {
+            let file = std::fs::File::open(blob).map_err(|e| e.to_string())?;
+            Ok(lzma_rust2::XzReader::new(file, false))
+        },
+        binname,
+        out,
+    )
+}
+
+/// The cli bundles are gzipped tars (`tar -czf` in bundles.yml), so the
+/// self-update reads `.tar.gz` beside the provider `.tar.xz` path.
+fn from_tar_gz(blob: &str, binname: &str, out: &str) -> Result<Option<String>, String> {
+    from_tar(
+        || {
+            let file = std::fs::File::open(blob).map_err(|e| e.to_string())?;
+            Ok(flate2::read::GzDecoder::new(file))
+        },
+        binname,
+        out,
+    )
+}
+
+/// The shared two-pass tar read: every header first, then the one member.
+fn from_tar<R: std::io::Read>(
+    open: impl Fn() -> Result<R, String>,
+    binname: &str,
+    out: &str,
+) -> Result<Option<String>, String> {
     // pass 1: every member header (python's getmembers), keeping the
     // first match only - the raw name bytes, because a path python would
     // decode with surrogateescape is compared here as bytes
     let mut members: Vec<(bool, Vec<u8>)> = Vec::new();
     {
-        let file = std::fs::File::open(blob).map_err(|e| e.to_string())?;
-        let mut archive = tar::Archive::new(lzma_rust2::XzReader::new(file, false));
+        let mut archive = tar::Archive::new(open()?);
         let entries = archive.entries().map_err(|e| e.to_string())?;
         for entry in entries {
             let entry = entry.map_err(|e| e.to_string())?;
@@ -167,11 +196,10 @@ fn from_tar_xz(blob: &str, binname: &str, out: &str) -> Result<Option<String>, S
     let Some(index) = hit else {
         return Ok(None);
     };
-    // pass 2: re-open and stream the member out. the xz reader is a
-    // forward-only decoder, so the second pass starts decoding over -
-    // the same work python's lzma seek does.
-    let file = std::fs::File::open(blob).map_err(|e| e.to_string())?;
-    let mut archive = tar::Archive::new(lzma_rust2::XzReader::new(file, false));
+    // pass 2: re-open and stream the member out. the decoders are
+    // forward-only, so the second pass starts decoding over - the same
+    // work python's seek does.
+    let mut archive = tar::Archive::new(open()?);
     let entries = archive.entries().map_err(|e| e.to_string())?;
     for (position, entry) in entries.enumerate() {
         if position != index {
@@ -212,6 +240,30 @@ pub(crate) fn zip_with(names: &[(&str, &[u8])]) -> Vec<u8> {
 /// tests share the builder (the `encoder` feature is a main
 /// dependency now, G8's decode-only build is recorded as amended).
 pub(crate) fn tar_xz_with(names: &[(&str, &[u8])]) -> Vec<u8> {
+    let raw = tar_raw(names);
+    let mut out = Vec::new();
+    let mut enc =
+        lzma_rust2::XzWriter::new(&mut out, lzma_rust2::XzOptions::with_preset(1)).unwrap();
+    enc.write_all(&raw).unwrap();
+    enc.finish().unwrap();
+    out
+}
+
+/// Same nesting gzipped: the shape the cli's own linux lean tar carries
+/// (`ytdlp-cli-v<ver>/ytdlp`). Test-only: the packaged selftest keeps
+/// its providers' zip and tar.xz fixtures, the gz path is pinned by the
+/// crate test below.
+#[cfg(test)]
+pub(crate) fn tar_gz_with(names: &[(&str, &[u8])]) -> Vec<u8> {
+    let raw = tar_raw(names);
+    let mut out = Vec::new();
+    let mut enc = flate2::write::GzEncoder::new(&mut out, flate2::Compression::fast());
+    enc.write_all(&raw).unwrap();
+    enc.finish().unwrap();
+    out
+}
+
+fn tar_raw(names: &[(&str, &[u8])]) -> Vec<u8> {
     let mut raw = Vec::new();
     {
         let mut b = tar::Builder::new(&mut raw);
@@ -224,12 +276,7 @@ pub(crate) fn tar_xz_with(names: &[(&str, &[u8])]) -> Vec<u8> {
         }
         b.finish().unwrap();
     }
-    let mut out = Vec::new();
-    let mut enc =
-        lzma_rust2::XzWriter::new(&mut out, lzma_rust2::XzOptions::with_preset(1)).unwrap();
-    enc.write_all(&raw).unwrap();
-    enc.finish().unwrap();
-    out
+    raw
 }
 
 #[cfg(test)]
@@ -325,6 +372,25 @@ mod tests {
     }
 
     #[test]
+    fn tar_gz_lifts_the_nested_binary() {
+        let dir = scratch("targz-ok");
+        let blob = format!("{dir}/archive.tar.gz");
+        let bytes = tar_gz_with(&[
+            ("ytdlp-cli-v2.6.1/README.md", b"doc"),
+            ("ytdlp-cli-v2.6.1/ytdlp", b"the cli image"),
+        ]);
+        std::fs::write(&blob, &bytes).unwrap();
+        let out_dir = format!("{dir}/out");
+        std::fs::create_dir_all(&out_dir).unwrap();
+        let (sink, lines) = recording();
+        let out = extract_member(&blob, "tar.gz", "ytdlp", &out_dir, &sink);
+        assert_eq!(out, Some(resolve::py_path_join(&out_dir, "ytdlp")));
+        assert_eq!(std::fs::read(out.unwrap()).unwrap(), b"the cli image");
+        assert!(lines.lock().unwrap().is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
     fn a_member_that_is_not_there_is_none_and_quiet() {
         let dir = scratch("missing");
         let blob = format!("{dir}/archive.zip");
@@ -346,6 +412,7 @@ mod tests {
         let cases = [
             ("zip", zip_with(&[("a/bin/ffmpeg", b"0123456789")])),
             ("tar.xz", tar_xz_with(&[("a/bin/ffmpeg", b"0123456789")])),
+            ("tar.gz", tar_gz_with(&[("a/bin/ffmpeg", b"0123456789")])),
         ];
         for (how, whole) in cases {
             let blob = format!("{dir}/{how}.blob");
