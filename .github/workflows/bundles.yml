@@ -293,15 +293,17 @@ jobs:
           for kind in lean portable; do
             tarball="dist/$top-linux-$kind.tar.gz"
             test -f "$tarball"
-            tar -tzf "$tarball" | grep -qx "$top/bin/yt-dlp"
-            n=$(tar -tzf "$tarball" | grep -c "^$top/bin/_internal/" || true)
+            list="dist/$top-linux-$kind.list"
+            tar -tzf "$tarball" > "$list"
+            grep -qx "$top/bin/yt-dlp" "$list"
+            n=$(grep -c "^$top/bin/_internal/" "$list" || true)
             test "$n" -ge 100
             echo "$kind tar: $n _internal entries"
           done
-          if tar -tzf "dist/$top-linux-lean.tar.gz" | grep -q "/bin/ffmpeg$"; then
+          if grep -q "/bin/ffmpeg$" "dist/$top-linux-lean.list"; then
             echo "lean tar carries ffmpeg" >&2; exit 1
           fi
-          tar -tzf "dist/$top-linux-portable.tar.gz" | grep -qx "$top/bin/ffmpeg"
+          grep -qx "$top/bin/ffmpeg" "dist/$top-linux-portable.list"
           echo "linux bundle proof passed: onedir tree in both tars, lean without ffmpeg, portable with ffmpeg"
       - name: run proof - extract the lean tar, run the packaged suite and the payload
         run: |
