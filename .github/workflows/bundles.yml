@@ -199,6 +199,31 @@ jobs:
           } | Set-Content -Encoding ascii SHA256SUMS
           Get-Content SHA256SUMS
           Get-ChildItem *.zip, *.exe | Sort-Object Name | ForEach-Object { "size: $($_.Name) $($_.Length)" }
+      - name: bundle proof - expand both zips, count the tree, run the payload
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $m = [regex]::Match((Get-Content rust-src/Cargo.toml -Raw), '(?m)^version = "([^"]+)"')
+          $ver = $m.Groups[1].Value
+          foreach ($kind in @("lean", "portable")) {
+            $zip = "dist/ytdlp-cli-v$ver-windows-$kind.zip"
+            if (-not (Test-Path $zip)) { throw "missing bundle: $zip" }
+            $out = "$PWD/zip-test/$kind"
+            Expand-Archive -Path $zip -DestinationPath $out
+            $root = "$out/ytdlp-cli-v$ver"
+            foreach ($f in @("ytdlp.exe", "bin/yt-dlp.exe", "bin/_internal", "bin/srtstripper.exe", "README.md", "CHANGELOG.md")) {
+              if (-not (Test-Path "$root/$f")) { throw "${kind} bundle missing: $f" }
+            }
+            $n = (Get-ChildItem "$root/bin/_internal" -Recurse -File).Count
+            if ($n -lt 100) { throw "${kind} bundle _internal incomplete: $n files" }
+            $v = & "$root/bin/yt-dlp.exe" --version
+            if ($LASTEXITCODE -ne 0 -or "$v" -notmatch '^\d{4}\.\d{2}\.\d{2}') { throw "${kind} bundle payload failed: $v" }
+            Write-Host "${kind}: _internal files $n, yt-dlp $v"
+          }
+          if (-not (Test-Path "$PWD/zip-test/portable/ytdlp-cli-v$ver/bin/ffmpeg.exe")) { throw "portable bundle lacks ffmpeg.exe" }
+          if (Test-Path "$PWD/zip-test/lean/ytdlp-cli-v$ver/bin/ffmpeg.exe") { throw "lean bundle carries ffmpeg.exe" }
+          Remove-Item -Recurse -Force "$PWD/zip-test"
+          Write-Host "windows bundle proof passed: both zips carry the onedir tree and run"
       - uses: actions/upload-artifact@v4
         with:
           name: windows-bundles
@@ -260,6 +285,36 @@ jobs:
           sha256sum *.tar.gz > SHA256SUMS
           cat SHA256SUMS
           ls -l ytdlp-cli-*.tar.gz
+      - name: bundle proof - the tars carry the onedir tree
+        run: |
+          set -euo pipefail
+          ver=$(sed -n 's/^version = "\(.*\)"$/\1/p' rust-src/Cargo.toml | head -n1)
+          top="ytdlp-cli-v$ver"
+          for kind in lean portable; do
+            tarball="dist/$top-linux-$kind.tar.gz"
+            test -f "$tarball"
+            tar -tzf "$tarball" | grep -qx "$top/bin/yt-dlp"
+            n=$(tar -tzf "$tarball" | grep -c "^$top/bin/_internal/" || true)
+            test "$n" -ge 100
+            echo "$kind tar: $n _internal entries"
+          done
+          if tar -tzf "dist/$top-linux-lean.tar.gz" | grep -q "/bin/ffmpeg$"; then
+            echo "lean tar carries ffmpeg" >&2; exit 1
+          fi
+          tar -tzf "dist/$top-linux-portable.tar.gz" | grep -qx "$top/bin/ffmpeg"
+          echo "linux bundle proof passed: onedir tree in both tars, lean without ffmpeg, portable with ffmpeg"
+      - name: run proof - extract the lean tar, run the packaged suite and the payload
+        run: |
+          set -euo pipefail
+          ver=$(sed -n 's/^version = "\(.*\)"$/\1/p' rust-src/Cargo.toml | head -n1)
+          mkdir -p dist/run
+          tar -xzf "dist/ytdlp-cli-v$ver-linux-lean.tar.gz" -C dist/run
+          root="dist/run/ytdlp-cli-v$ver"
+          "$root/bin/yt-dlp" --version
+          report=$("$root/ytdlp" --selftest)
+          echo "$report" | grep -q "selftest: 190 checks, 0 failed"
+          echo "$report" | tail -n 3
+          echo "linux run proof passed: onedir payload runs, selftest 190/0"
       - uses: actions/upload-artifact@v4
         with:
           name: linux-bundles
@@ -391,7 +446,11 @@ jobs:
           pkgbuild --root "$root" --install-location / --scripts dist/pkg-scripts \
             --identifier com.github.chezhenkie.ytdlp-cli --version "$ver" \
             "dist/ytdlp-cli-v$ver-macos-arm64.pkg"
-          pkgutil --payload-files "dist/ytdlp-cli-v$ver-macos-arm64.pkg" | head -40
+          pkgutil --payload-files "dist/ytdlp-cli-v$ver-macos-arm64.pkg" > dist/pkg-payload.txt
+          head -40 dist/pkg-payload.txt
+          grep -q 'ytdlp-cli/bin/_internal' dist/pkg-payload.txt
+          test "$(grep -c 'ytdlp-cli/bin/_internal' dist/pkg-payload.txt)" -ge 100
+          echo "pkg payload carries the onedir tree"
       - name: installer proof - install the pkg, run it, uninstall via the shipped script
         run: |
           set -euo pipefail
@@ -407,6 +466,7 @@ jobs:
           touch /usr/local/ytdlp-cli/.wtest && rm /usr/local/ytdlp-cli/.wtest
           echo "$(cat dist/ytdlp-binary.sha256)  /usr/local/ytdlp-cli/bin/yt-dlp" | shasum -a 256 -c -
           test -d /usr/local/ytdlp-cli/bin/_internal
+          test "$(find /usr/local/ytdlp-cli/bin/_internal -type f | wc -l | tr -d ' ')" -ge 100
           /usr/local/ytdlp-cli/bin/yt-dlp --version
           echo "$FFMPEG_MACOS_SHA256  /usr/local/ytdlp-cli/bin/ffmpeg" | shasum -a 256 -c -
           echo "$SRTSTRIPPER_MACOS_SHA256  /usr/local/ytdlp-cli/bin/srtstripper" | shasum -a 256 -c -
