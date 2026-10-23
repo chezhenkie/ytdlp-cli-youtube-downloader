@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.6.0
+
+### New features
+
+#### Windows, Linux and macOS
+
+* The bundled yt-dlp payload is now the official onedir build: the launcher and its `_internal` runtime tree ship in `bin/` instead of a onefile exe that unpacked itself into the temp folder on every launch (thousands of writes per run). Downloads start without that unpack step.
+* Menu item 13 updates the bundled payload as a tree: it reads the newest yt-dlp release, verifies the platform zip against the published digest, extracts it beside the launcher and swaps the binary and `_internal` in, with rollback if a step fails. An existing onefile install moves to the tree on its first update. A user-set `yt_dlp_path` or a yt-dlp found on PATH keeps `yt-dlp -U`.
+
 ## 2.5.3
 
 ### Fixes
