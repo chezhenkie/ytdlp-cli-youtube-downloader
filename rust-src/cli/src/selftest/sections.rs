@@ -443,10 +443,18 @@ pub(super) fn section_args2(c: &mut Checker<'_>, root: &str, auto: Option<&str>)
     let auto_folder = real_auto_outdir();
     let auto_ok = match &auto_folder {
         None => true,
-        Some(p) => std::path::Path::new(p).is_dir(),
+        Some(p) => {
+            let path = std::path::Path::new(p);
+            let leaf_ok = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n == resolve::DOWNLOADS_DIR_NAME);
+            let base_ok = path.parent().is_some_and(|base| base.is_dir());
+            leaf_ok && base_ok
+        }
     };
     c.check(
-        "auto_outdir is an existing folder or None",
+        "auto_outdir is the named folder under an existing base or None",
         auto_ok,
         &py_opt_str(auto_folder.as_deref()),
     );
@@ -1648,8 +1656,8 @@ pub(super) fn section_batch(
         &mut no_update,
     );
     c.check(
-        "hint points at item 11",
-        capture3.text().contains("menu item: 11"),
+        "hint names item 5, not item 11",
+        capture3.text().contains("menu item: 5") && !capture3.text().contains("menu item: 11"),
         &got_strs(&["hint"]),
     );
     c.check(

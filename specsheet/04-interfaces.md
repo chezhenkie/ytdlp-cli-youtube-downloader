@@ -30,7 +30,6 @@ Startup journey: enable ANSI/VT where needed (tty.rs), paint the menu box (heade
  paste url, press enter and download will start.
  enter number to change default settings
  change download location by choosing menu item: 5
- download several urls at once by choosing menu item: 11
  DL location: <resolved folder>
 
 then auto-update check (FR-13) and first save. The menu never disappears: everything paints under it, nothing prints beyond the hint block, item-11 entry lines, and stage/verdict lines (`main_menu`, menu.rs).

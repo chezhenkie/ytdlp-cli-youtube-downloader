@@ -75,7 +75,7 @@ One-shot overrides look like `-f mkv -r 720 --subs`, also `-a`, `--af`, `-o`, `-
 
 The menu itself is where the defaults live: type/video mode, container, resolution, audio format, output folder, filename template, subtitles, the srt timecode stripper, playlists, and reset. Item 10 takes several URLs and downloads them one after another. Every bundle ships the stripper in `bin/`, so with subtitles on and item 8 turned on, a stripped copy lands next to each downloaded subtitle. Escape stops a running download and removes the partial files.
 
-Output goes to your desktop by default, falling back to your downloads folder. Change it with menu item 5.
+Output goes to a `ytdlp-cli-downloads` folder on your desktop by default, falling back to the same folder inside your downloads folder. Change it with menu item 5.
 
 ## Exe or launcher
 

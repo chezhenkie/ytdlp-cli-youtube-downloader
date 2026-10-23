@@ -155,6 +155,34 @@ pub fn newest_since(folder: &str, since: f64, slack: f64) -> Option<String> {
     best.map(|(_, path)| resolve::path_render(&path))
 }
 
+/// The wall clock a run start is stamped with (seconds since epoch).
+fn now_secs() -> f64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs_f64())
+        .unwrap_or(0.0)
+}
+
+/// Escape-stop cleanup: fresh partials out of the work folder, then the
+/// folder itself gone (FR-11). Returns the verdict tail, empty when no
+/// partial file was removed.
+fn stop_cleanup(s: &Obj, auto: Option<&str>, root: &str, since: f64) -> String {
+    let removed = match temp_dir(s, auto, root) {
+        Ok(dir) => clean_partials(&dir, since, 5.0),
+        Err(_) => Vec::new(),
+    };
+    drop_temp_dir_force(s, auto, root);
+    if removed.is_empty() {
+        String::new()
+    } else {
+        format!(
+            ", cleaned {} partial file{}",
+            removed.len(),
+            if removed.len() == 1 { "" } else { "s" }
+        )
+    }
+}
+
 /// FR-21: yt-dlp writes the info field as a fixed `...description` file;
 /// the field reads as a text file, so the successful run renames every
 /// `*.description` next to the media to `.txt` (best effort, silent).
@@ -466,11 +494,59 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
         Ok(opts) => opts,
         Err(shape) => return shape_abort(shape),
     };
+    let outdir = match resolve::resolve_outdir(s, ctx.auto, ctx.root) {
+        Ok(dir) => dir,
+        Err(shape) => return shape_abort(shape),
+    };
 
-    let started = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs_f64())
-        .unwrap_or(0.0);
+    // FR-9: the subtitle pass runs before the media pass, so the subtitle
+    // files are on disk before the video starts. Every outcome stays a
+    // report line; the media pass runs whatever the subtitle pass
+    // answered, so a rate-limited subtitle api never costs the video.
+    if config::get(s, "subtitles").is_some_and(config::py_truthy) {
+        let langs_text = match config::get(s, "subtitle_langs") {
+            Some(v) => config::py_str(v),
+            None => "None".to_string(),
+        };
+        let mut st2 = tty::dot_stage(
+            &format!("subtitles ({langs_text})"),
+            ctx.use_color,
+            ctx.sink.clone(),
+        );
+        st2.start();
+        let mut has_node = || resolve::which_from_process("node").is_some();
+        let sub_opts =
+            match args::build_sub_args(s, url, ffdir.as_deref(), ctx.root, ctx.auto, &mut has_node)
+            {
+                Ok(opts) => opts,
+                Err(shape) => {
+                    st2.done(None);
+                    return shape_abort(shape);
+                }
+            };
+        let sub_started = now_secs();
+        let (rc2, stopped2, err2, codes) =
+            run_download(&binary, &sub_opts, Some(&st2), ctx.use_color, rt);
+        if stopped2 {
+            let tail = stop_cleanup(s, ctx.auto, ctx.root, sub_started);
+            st2.done(Some(&format!("subtitles - stopped by escape{tail}")));
+            return 130;
+        }
+        if rc2 == 0 {
+            let (verdict, miss) = sub_success_lines(&codes);
+            st2.done(Some(&verdict));
+            if !miss.is_empty() {
+                st2.done(Some(&miss));
+            }
+            strip_subtitles(s, ctx, &outdir, sub_started, rt);
+        } else {
+            let lines = sub_fail_lines(Some(&err2));
+            st2.done(Some(&lines[0]));
+            st2.done(Some(&lines[1]));
+        }
+    }
+
+    let started = now_secs();
     let spinner = term::pick_spinner();
     let mut st = tty::spinner_stage(
         "downloading (escape to stop)",
@@ -481,20 +557,7 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
     st.start();
     let (rc, stopped, err, _codes) = run_download(&binary, &opts, Some(&st), ctx.use_color, rt);
     if stopped {
-        let removed = match temp_dir(s, ctx.auto, ctx.root) {
-            Ok(dir) => clean_partials(&dir, started, 5.0),
-            Err(_) => Vec::new(),
-        };
-        drop_temp_dir_force(s, ctx.auto, ctx.root);
-        let tail = if removed.is_empty() {
-            String::new()
-        } else {
-            format!(
-                ", cleaned {} partial file{}",
-                removed.len(),
-                if removed.len() == 1 { "" } else { "s" }
-            )
-        };
+        let tail = stop_cleanup(s, ctx.auto, ctx.root, started);
         st.done(Some(&format!("downloading - stopped by escape{tail}")));
         return 130;
     }
@@ -506,10 +569,6 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
     }
 
     st.done(Some("downloading - finished"));
-    let outdir = match resolve::resolve_outdir(s, ctx.auto, ctx.root) {
-        Ok(dir) => dir,
-        Err(shape) => return shape_abort(shape),
-    };
     match newest_since(&outdir, started, 2.0) {
         None => print_out(&ctx.sink, &format!("saved to {outdir}")),
         Some(path) => {
@@ -534,43 +593,6 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
     // field reads as text, so the successful run renames it to `.txt`
     if config::get(s, "info_field").is_some_and(config::py_truthy) {
         rename_descriptions(&outdir);
-    }
-
-    if config::get(s, "subtitles").is_some_and(config::py_truthy) {
-        let langs_text = match config::get(s, "subtitle_langs") {
-            Some(v) => config::py_str(v),
-            None => "None".to_string(),
-        };
-        let mut st2 = tty::dot_stage(
-            &format!("subtitles ({langs_text})"),
-            ctx.use_color,
-            ctx.sink.clone(),
-        );
-        st2.start();
-        let mut has_node = || resolve::which_from_process("node").is_some();
-        let sub_opts =
-            match args::build_sub_args(s, url, ffdir.as_deref(), ctx.root, ctx.auto, &mut has_node)
-            {
-                Ok(opts) => opts,
-                Err(shape) => {
-                    st2.done(None);
-                    return shape_abort(shape);
-                }
-            };
-        let (rc2, _stopped2, err2, codes) =
-            run_download(&binary, &sub_opts, Some(&st2), ctx.use_color, rt);
-        if rc2 == 0 {
-            let (verdict, miss) = sub_success_lines(&codes);
-            st2.done(Some(&verdict));
-            if !miss.is_empty() {
-                st2.done(Some(&miss));
-            }
-            strip_subtitles(s, ctx, &outdir, started, rt);
-        } else {
-            let lines = sub_fail_lines(Some(&err2));
-            st2.done(Some(&lines[0]));
-            st2.done(Some(&lines[1]));
-        }
     }
     drop_temp_dir_force(s, ctx.auto, ctx.root);
     0

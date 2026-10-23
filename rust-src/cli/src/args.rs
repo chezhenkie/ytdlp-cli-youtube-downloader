@@ -272,7 +272,7 @@ pub(crate) fn playlist_max_items(s: &Obj) -> Result<i64, ShapeKind> {
 /// `build_args(s, url, ffdir)`: the video-run argv (binary first, url
 /// last). `ffdir` is explicit: `Some(dir)` or `None` for "no ffmpeg",
 /// which forces the single-file / no-convert branches. Subtitles are NOT
-/// part of this run - `build_sub_args` handles them after the video.
+/// part of this run - `build_sub_args` builds the pass that runs first.
 /// `has_node` is the `js_runtime_args` lookup, injected lazily because
 /// the python calls it only after `output_args` has succeeded (an early
 /// shape branch must not have queried PATH).

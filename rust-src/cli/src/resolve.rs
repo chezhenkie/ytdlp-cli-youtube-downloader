@@ -303,6 +303,12 @@ pub fn py_path_join(a: &str, b: &str) -> String {
 /// fragment file, `.part` file, resume marker and pre-merge file there.
 pub const TEMP_DIR_NAME: &str = ".ytdlp-tmp";
 
+/// The named folder default and fallback downloads land in (FR-6): the
+/// resolved base (Desktop, Downloads, the project root) stays clean, and
+/// a saved output_dir is still used verbatim. The leaf is created by the
+/// first download, not by the lookup.
+pub const DOWNLOADS_DIR_NAME: &str = "ytdlp-cli-downloads";
+
 /// `Path(path).parent` rendered.
 pub fn py_path_parent(path: &str) -> String {
     let (drv, root, mut tail) = parse_parts(path);
@@ -752,7 +758,8 @@ pub fn xdg_dir(key: &str, text: &str, home: &str, env: &EnvMap) -> Option<String
 
 /// `_auto_outdir_lookup`: registry candidates on windows (expandvars'd
 /// like `_win_shell_folder`), the XDG file on posix, then `~/Desktop`
-/// and `~/Downloads`, each gated on `os.path.isdir`.
+/// and `~/Downloads`, each gated on `os.path.isdir`. The answer is the
+/// `ytdlp-cli-downloads` folder inside the first existing base (FR-6).
 pub fn auto_outdir_lookup(
     is_windows: bool,
     win_desktop: Option<&str>,
@@ -784,7 +791,7 @@ pub fn auto_outdir_lookup(
             continue;
         }
         if std::fs::metadata(&c).map(|m| m.is_dir()).unwrap_or(false) {
-            return Ok(Some(c));
+            return Ok(Some(py_path_join(&c, DOWNLOADS_DIR_NAME)));
         }
     }
     Ok(None)
@@ -986,8 +993,8 @@ pub fn probe_version(
 // ----------------------------------------------------- resolve_outdir
 
 /// `resolve_outdir`: the saved folder when set, else the OS default,
-/// else `downloads/` under the root; a truthy non-string saved value is
-/// python's `.strip()` AttributeError carried as a shape.
+/// else `ytdlp-cli-downloads/` under the root; a truthy non-string saved
+/// value is python's `.strip()` AttributeError carried as a shape.
 pub fn resolve_outdir(saved: &Obj, auto: Option<&str>, root: &str) -> Result<String, ShapeKind> {
     let out: String = match config::get(saved, "output_dir") {
         None | Some(Value::Null) => String::new(),
@@ -1001,7 +1008,7 @@ pub fn resolve_outdir(saved: &Obj, auto: Option<&str>, root: &str) -> Result<Str
     };
     let chosen = if out.is_empty() {
         auto.map(str::to_string)
-            .unwrap_or_else(|| "downloads".to_string())
+            .unwrap_or_else(|| DOWNLOADS_DIR_NAME.to_string())
     } else {
         out
     };
@@ -1767,12 +1774,13 @@ mod tests {
     #[test]
     fn resolve_outdir_shapes_and_fallbacks() {
         #[cfg(not(windows))]
-        let (root, auto, fallback, rel) = ("/root", "/auto", "/root/downloads", "/root/rel");
+        let (root, auto, fallback, rel) =
+            ("/root", "/auto", "/root/ytdlp-cli-downloads", "/root/rel");
         #[cfg(windows)]
         let (root, auto, fallback, rel) = (
             "C:\\root",
             "C:\\auto",
-            "C:\\root\\downloads",
+            "C:\\root\\ytdlp-cli-downloads",
             "C:\\root\\rel",
         );
         let mut none = Vec::new();

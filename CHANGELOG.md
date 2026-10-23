@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.7.0
+
+### New features
+
+#### All platforms
+
+* Default and fallback downloads land in a `ytdlp-cli-downloads` folder inside the resolved base (Desktop, Downloads, or the program folder), so the base stays free of media files. A saved output folder is used unchanged.
+* Subtitles download before the video. The subtitle pass runs first and the video starts after it; a subtitle failure is still reported and never blocks the media pass. Escape during the subtitle pass stops the download.
+
+### Fixes
+
+#### All platforms
+
+* The grey hint line about downloading several urls at once is gone. Menu item 11 still takes the batch.
+
 ## 2.6.2
 
 ### Fixes

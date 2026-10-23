@@ -365,13 +365,11 @@ pub fn hint_lines(outdir: &str, use_color: bool) -> Vec<String> {
     let l1 = "paste url, press enter and download will start";
     let l2 = "enter number to change default settings";
     let l3 = "change download location by choosing menu item: 5";
-    let l3b = "download several urls at once by choosing menu item: 11";
     let l4 = format!("DL location: {outdir}");
     vec![
         c(use_color, A_AMBER, l1),
         c(use_color, A_AMBER, l2),
         c(use_color, A_DARKGREY, l3),
-        c(use_color, A_DARKGREY, l3b),
         c(use_color, A_DARKGREY, &l4),
         c(use_color, A_LBLUE, &div),
     ]
