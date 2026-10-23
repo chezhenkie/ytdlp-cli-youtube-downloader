@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.6.2
+
+### Fixes
+
+#### Windows and Linux
+
+* The pre-install selftest gate no longer dumps its 190-line report into the update screen. The gate still runs on the staged build; only the outcome prints.
+
 ## 2.6.1
 
 ### Fixes

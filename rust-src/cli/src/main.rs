@@ -315,6 +315,8 @@ fn updater_run(
     let mut probe = probe_closure(&cache);
     let mut selftest = |binary: &str| match std::process::Command::new(binary)
         .arg("--selftest")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
         .status()
     {
         Ok(status) => exec::exit_code(&status),
