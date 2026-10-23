@@ -244,9 +244,46 @@ pub fn release_asset(platform: &str, arch: &str) -> Option<&'static str> {
 /// from the API response that names the asset - the same single-request
 /// property, one layer up.
 pub fn fetch_cli(ctx: &mut UpdateCtx, timeout: u64) -> Result<Release, String> {
-    let asset = release_asset(ctx.platform, ctx.arch);
     let body = ctx.http.text(RELEASES_API, timeout)?;
-    let root = settings_json::parse(&body)
+    parse_release(&body, release_asset(ctx.platform, ctx.arch))
+}
+
+/// The yt-dlp release API: one GET carries the newest tag, the onedir
+/// zip for a shipped bundle platform and the zip's published digest.
+pub const YTDLP_RELEASES_API: &str = "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest";
+
+/// The onedir zip yt-dlp publishes for each platform whose bundles ship
+/// its payload - the same assets bundles.yml stages.
+pub fn ytdlp_tree_asset(platform: &str, arch: &str) -> Option<&'static str> {
+    match (platform, arch) {
+        ("windows", "x86_64") => Some("yt-dlp_win.zip"),
+        ("linux", "x86_64") => Some("yt-dlp_linux.zip"),
+        ("macos", "aarch64") => Some("yt-dlp_macos.zip"),
+        _ => None,
+    }
+}
+
+/// The archive member that becomes `bin/yt-dlp[.exe]`.
+fn ytdlp_tree_member(asset: &str) -> Option<&'static str> {
+    match asset {
+        "yt-dlp_win.zip" => Some("yt-dlp.exe"),
+        "yt-dlp_linux.zip" => Some("yt-dlp_linux"),
+        "yt-dlp_macos.zip" => Some("yt-dlp_macos"),
+        _ => None,
+    }
+}
+
+/// `fetch_yt_dlp`: the same single-GET contract for the bundled yt-dlp
+/// tree. Tag, platform zip and digest come from one answer, so the bytes
+/// can only be accepted for the release that named them.
+pub fn fetch_yt_dlp(ctx: &mut UpdateCtx) -> Result<Release, String> {
+    let body = ctx.http.text(YTDLP_RELEASES_API, net::FORCED_TIMEOUT)?;
+    parse_release(&body, ytdlp_tree_asset(ctx.platform, ctx.arch))
+}
+
+/// One release answer parsed for one asset name.
+fn parse_release(body: &str, asset: Option<&str>) -> Result<Release, String> {
+    let root = settings_json::parse(body)
         .map_err(|e| format!("the release metadata did not parse: {e}"))?;
     let obj = match &root {
         Json::Obj(fields) => fields,
@@ -390,7 +427,13 @@ fn download_release(ctx: &mut UpdateCtx, release: &Release, staged: &str) -> (bo
 }
 
 /// `update_yt_dlp(s)`: in-place self-update of the resolved yt-dlp
-/// binary (`<binary> -U`). Returns true when the binary answered -U.
+/// binary. The bundled payload updates as a tree - tag, zip and digest
+/// from one releases API GET, verify, extract, swap the binary and
+/// `_internal` with rollback - because `-U` on a onedir build replaces
+/// the launcher with a onefile image and leaves the tree behind. A
+/// user-set `yt_dlp_path` keeps `<binary> -U`; that copy is not ours to
+/// restructure. Returns true when the update ran or the payload was
+/// already current.
 pub fn update_yt_dlp(s: &Obj, ctx: &mut UpdateCtx) -> bool {
     let bin_dir = resolve::py_path_join(ctx.root, "bin");
     let binary = match resolve::find_yt_dlp(s, &bin_dir, ctx.platform, ctx.which) {
@@ -421,6 +464,11 @@ pub fn update_yt_dlp(s: &Obj, ctx: &mut UpdateCtx) -> bool {
     }
     tty::emit_line(&ctx.sink, &format!("binary      : {binary}"));
     tty::emit_line(&ctx.sink, &format!("version now : {old}"));
+    let saved = config::get(s, "yt_dlp_path").is_some_and(config::py_truthy);
+    let bundled = resolve::py_path_join(&bin_dir, resolve::platform_bin_name(ctx.platform));
+    if !saved && binary == bundled {
+        return update_bundled_yt_dlp(ctx, &binary, &old);
+    }
     let update_rc = (ctx.call)(&binary, &["-U".to_string()]);
     if crate::exec::interrupt_pending() {
         // python's `except KeyboardInterrupt` around the call
@@ -430,6 +478,177 @@ pub fn update_yt_dlp(s: &Obj, ctx: &mut UpdateCtx) -> bool {
     let (new, _) = (ctx.probe)(&binary);
     tty::emit_line(&ctx.sink, &format!("version after: {new}"));
     update_rc == 0
+}
+
+/// The bundled payload's tree update. The running tree is only touched
+/// after the archive's digest matches the one the API published and both
+/// the binary and `_internal` are staged; `swap_payload` then renames
+/// old aside, new in, and restores the old pair on any failure. The
+/// stage lives inside `bin/` so every move is a same-volume rename.
+fn update_bundled_yt_dlp(ctx: &mut UpdateCtx, binary: &str, old: &str) -> bool {
+    let bin_dir = resolve::py_path_join(ctx.root, "bin");
+    let Some(asset) = ytdlp_tree_asset(ctx.platform, ctx.arch) else {
+        tty::emit_line(
+            &ctx.sink,
+            &format!("no published yt-dlp tree for {}/{}", ctx.platform, ctx.arch),
+        );
+        return false;
+    };
+    let release = match fetch_yt_dlp(ctx) {
+        Ok(release) => release,
+        Err(e) => {
+            tty::emit_line(
+                &ctx.sink,
+                &format!("could not reach the update source: {}", ascii_safe(&e)),
+            );
+            return false;
+        }
+    };
+    let Some(newver) = release.version.clone() else {
+        tty::emit_line(&ctx.sink, "no version found in the published file");
+        return false;
+    };
+    let Some(url) = release.asset_url.clone() else {
+        tty::emit_line(&ctx.sink, &format!("the published release has no {asset}"));
+        return false;
+    };
+    let Some(digest) = release.digest.clone() else {
+        tty::emit_line(
+            &ctx.sink,
+            &format!("the published release has no digest for {asset}"),
+        );
+        return false;
+    };
+    if version_tuple(Some(&newver)) <= version_tuple(Some(old)) {
+        tty::emit_line(&ctx.sink, &format!("version after: {old}"));
+        return true;
+    }
+    let Some(member) = ytdlp_tree_member(asset) else {
+        tty::emit_line(&ctx.sink, &format!("no published yt-dlp tree for {asset}"));
+        return false;
+    };
+    let stage = match pyfs::mkdtemp(".yt-dlp-", &bin_dir) {
+        Ok(stage) => stage,
+        Err(e) => {
+            tty::emit_line(
+                &ctx.sink,
+                &format!(
+                    "could not create the update folder: {}",
+                    ascii_safe(&e.to_string())
+                ),
+            );
+            return false;
+        }
+    };
+    let outcome = stage_and_swap(ctx, &stage, &url, &digest, asset, member, binary);
+    pyfs::rmtree_quiet(&stage);
+    match outcome {
+        Ok(()) => {
+            let (new, _) = (ctx.probe)(binary);
+            tty::emit_line(&ctx.sink, &format!("version after: {new}"));
+            true
+        }
+        Err(msg) => {
+            tty::emit_line(&ctx.sink, &msg);
+            false
+        }
+    }
+}
+
+/// Download, verify, extract and swap one tree. Split out so the stage
+/// is removed on every path by the caller.
+fn stage_and_swap(
+    ctx: &mut UpdateCtx,
+    stage: &str,
+    url: &str,
+    digest: &str,
+    asset: &str,
+    member: &str,
+    binary: &str,
+) -> Result<(), String> {
+    let zip_path = resolve::py_path_join(stage, asset);
+    if let Err(e) = ctx.http.file(url, &zip_path, net::DL_TIMEOUT, None) {
+        return Err(format!("the download failed: {}", ascii_safe(&e)));
+    }
+    match sha256::sha256_file(&zip_path) {
+        Ok(got) if got == digest => {}
+        Ok(_) => return Err("the downloaded build did not match the published digest".into()),
+        Err(e) => {
+            return Err(format!(
+                "could not read the downloaded build: {}",
+                ascii_safe(&e.to_string())
+            ));
+        }
+    }
+    let tree = resolve::py_path_join(stage, "tree");
+    if let Err(e) = crate::archive::extract_zip_all(&zip_path, &tree) {
+        return Err(format!(
+            "the downloaded archive was unreadable: {}",
+            ascii_safe(&e)
+        ));
+    }
+    let staged_exe = resolve::py_path_join(&tree, member);
+    let staged_internal = resolve::py_path_join(&tree, "_internal");
+    let internal_target =
+        resolve::py_path_join(&resolve::py_path_join(ctx.root, "bin"), "_internal");
+    swap_payload(binary, &internal_target, &staged_exe, &staged_internal)
+        .map_err(|e| format!("could not replace the yt-dlp tree: {e}"))
+}
+
+/// Rename the current binary and `_internal` aside, place the staged
+/// pair, then drop the old pair. Any failure restores the pair that was
+/// there, so a failed update leaves the previous payload runnable.
+fn swap_payload(
+    binary: &str,
+    internal_target: &str,
+    staged_exe: &str,
+    staged_internal: &str,
+) -> Result<(), String> {
+    if !std::path::Path::new(staged_exe).is_file()
+        || !std::path::Path::new(staged_internal).is_dir()
+    {
+        return Err("the downloaded yt-dlp tree is incomplete".into());
+    }
+    pyfs::chmod_755(staged_exe).map_err(|e| format!("could not set the binary executable: {e}"))?;
+    let exe_old = pyfs::with_suffix(binary, ".old");
+    let internal_old = pyfs::with_suffix(internal_target, ".old");
+    pyfs::remove_quiet(&exe_old);
+    pyfs::rmtree_quiet(&internal_old);
+    let had_exe = std::path::Path::new(binary).exists();
+    let had_internal = std::path::Path::new(internal_target).exists();
+    if had_exe {
+        pyfs::replace(binary, &exe_old)
+            .map_err(|e| format!("could not move the current binary aside: {e}"))?;
+    }
+    if had_internal && let Err(e) = pyfs::replace(internal_target, &internal_old) {
+        if had_exe {
+            let _ = pyfs::replace(&exe_old, binary);
+        }
+        return Err(format!("could not move the current payload aside: {e}"));
+    }
+    if let Err(e) = pyfs::replace(staged_exe, binary) {
+        if had_internal {
+            let _ = pyfs::replace(&internal_old, internal_target);
+        }
+        if had_exe {
+            let _ = pyfs::replace(&exe_old, binary);
+        }
+        return Err(format!("could not place the new binary: {e}"));
+    }
+    if let Err(e) = pyfs::replace(staged_internal, internal_target) {
+        // the freshly placed binary goes before the old pair returns
+        pyfs::remove_quiet(binary);
+        if had_internal {
+            let _ = pyfs::replace(&internal_old, internal_target);
+        }
+        if had_exe {
+            let _ = pyfs::replace(&exe_old, binary);
+        }
+        return Err(format!("could not place the new payload: {e}"));
+    }
+    pyfs::remove_quiet(&exe_old);
+    pyfs::rmtree_quiet(&internal_old);
+    Ok(())
 }
 
 /// `auto_update_check(s, force)`: the startup notice for a newer
@@ -780,6 +999,156 @@ mod tests {
     fn newer_release(asset_bytes: &[u8]) -> String {
         let digest = crate::sha256::sha256_hex(asset_bytes);
         release_json("v9.9.9", "ytdlp-native-windows-x86_64.exe", Some(&digest))
+    }
+
+    /// The yt-dlp releases answer: one asset, the tree zip.
+    fn tree_release(tag: &str, asset: &str, digest: Option<&str>) -> String {
+        let digest_field = match digest {
+            Some(d) => format!("\"digest\": \"sha256:{d}\""),
+            None => "\"digest\": null".to_string(),
+        };
+        format!(
+            "{{\"tag_name\": \"{tag}\", \"assets\": [{{\"name\": \"{asset}\", \
+             \"browser_download_url\": \"https://example.invalid/tree\", {digest_field}}}]}}"
+        )
+    }
+
+    /// A yt-dlp onedir zip: the launcher plus one `_internal` file.
+    fn tree_zip(member: &str) -> Vec<u8> {
+        crate::archive::zip_with(&[
+            (member, b"the new tree binary"),
+            ("_internal/python3.dll", b"the new dll"),
+        ])
+    }
+
+    #[test]
+    fn ytdlp_tree_assets_name_the_shipped_platform_zips() {
+        assert_eq!(
+            ytdlp_tree_asset("windows", "x86_64"),
+            Some("yt-dlp_win.zip")
+        );
+        assert_eq!(
+            ytdlp_tree_asset("linux", "x86_64"),
+            Some("yt-dlp_linux.zip")
+        );
+        assert_eq!(
+            ytdlp_tree_asset("macos", "aarch64"),
+            Some("yt-dlp_macos.zip")
+        );
+        assert_eq!(ytdlp_tree_asset("macos", "x86_64"), None);
+        assert_eq!(ytdlp_tree_asset("linux", "aarch64"), None);
+        assert_eq!(ytdlp_tree_asset("freebsd", "x86_64"), None);
+        assert_eq!(ytdlp_tree_member("yt-dlp_win.zip"), Some("yt-dlp.exe"));
+        assert_eq!(ytdlp_tree_member("yt-dlp_linux.zip"), Some("yt-dlp_linux"));
+        assert_eq!(ytdlp_tree_member("yt-dlp_macos.zip"), Some("yt-dlp_macos"));
+        assert_eq!(ytdlp_tree_member("yt-dlp.exe"), None);
+    }
+
+    #[test]
+    fn fetch_yt_dlp_reads_the_tag_and_the_zip_digest() {
+        let sink = tty::SharedOut::new(RecordingOut::default()).sink();
+        let body = tree_release("2026.09.01", "yt-dlp_win.zip", Some(GYAN));
+        let mut http = FakeHttp::new().with_text(YTDLP_RELEASES_API, &body);
+        let mut reader = ScriptedReader::new(vec![]);
+        let mut rec = RecordingOut::default();
+        let mut probe = |_: &str| (String::new(), 0);
+        let mut selftest = |_: &str| 0;
+        let mut call = |_: &str, _: &[String]| 0;
+        let mut now = || 0.0;
+        let mut which = |_: &str| None;
+        let mut ctx = UpdateCtx {
+            platform: "windows",
+            arch: "x86_64",
+            self_path: "x",
+            root: ".",
+            is_windows: true,
+            use_color: false,
+            stdin_tty: true,
+            sink,
+            http: &mut http,
+            probe: &mut probe,
+            selftest: &mut selftest,
+            call: &mut call,
+            now: &mut now,
+            which: &mut which,
+            out: &mut rec,
+            reader: &mut reader,
+        };
+        let release = fetch_yt_dlp(&mut ctx).unwrap();
+        assert_eq!(release.version.as_deref(), Some("2026.09.01"));
+        assert_eq!(release.asset.as_deref(), Some("yt-dlp_win.zip"));
+        assert_eq!(
+            release.asset_url.as_deref(),
+            Some("https://example.invalid/tree")
+        );
+        assert_eq!(release.digest.as_deref(), Some(GYAN));
+        assert_eq!(http.calls(), vec![format!("text {YTDLP_RELEASES_API} 60")]);
+    }
+
+    /// The bundled payload downloads, verifies, extracts and swaps the
+    /// tree; no `-U` runs and the old pair is gone.
+    #[test]
+    fn a_bundled_tree_updates_from_the_release_zip() {
+        let mut h = Harness::new("tree-update");
+        let bin = resolve::py_path_join(&h.dir, "bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        let binary = resolve::py_path_join(&bin, "yt-dlp.exe");
+        std::fs::write(&binary, b"the old onefile").unwrap();
+        let zip = tree_zip("yt-dlp.exe");
+        let digest = crate::sha256::sha256_hex(&zip);
+        h.http = FakeHttp::new()
+            .with_text(
+                YTDLP_RELEASES_API,
+                &tree_release("2026.09.01", "yt-dlp_win.zip", Some(&digest)),
+            )
+            .with_file("https://example.invalid/tree", &zip)
+            .with_text(
+                RELEASES_API,
+                &release_json(
+                    &format!("v{}", crate::VERSION),
+                    "ytdlp-native-windows-x86_64.exe",
+                    Some(GYAN),
+                ),
+            );
+        h.probes.push_back(("2026.08.19".to_string(), 0));
+        h.probes.push_back(("2026.09.01".to_string(), 0));
+        let mut s = settings();
+        assert!(h.all(&mut s).unwrap());
+        assert_eq!(h.updates, Vec::<String>::new(), "no -U on a bundled tree");
+        assert_eq!(
+            std::fs::read(&binary).unwrap(),
+            b"the new tree binary",
+            "the launcher is the published member"
+        );
+        assert_eq!(
+            std::fs::read(format!("{bin}/_internal/python3.dll")).unwrap(),
+            b"the new dll"
+        );
+        assert!(!std::path::Path::new(&format!("{binary}.old")).exists());
+        assert!(!std::path::Path::new(&format!("{bin}/_internal.old")).exists());
+        assert!(
+            std::fs::read_dir(&bin).unwrap().all(|e| !e
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".yt-dlp-")),
+            "the stage is gone"
+        );
+        let calls = h.http.calls();
+        assert_eq!(calls.len(), 3, "{calls:?}");
+        assert_eq!(calls[0], format!("text {YTDLP_RELEASES_API} 60"));
+        assert!(
+            calls[1].starts_with(&format!("file https://example.invalid/tree {bin}")),
+            "{calls:?}"
+        );
+        assert!(calls[1].ends_with(" 1800"), "{calls:?}");
+        assert_eq!(calls[2], format!("text {RELEASES_API} 60"));
+        let printed = h.printed();
+        assert_eq!(printed[0], "  yt-dlp");
+        assert_eq!(printed[1], format!("binary      : {binary}"));
+        assert_eq!(printed[2], "version now : 2026.08.19");
+        assert_eq!(printed[3], "version after: 2026.09.01");
+        std::fs::remove_dir_all(&h.dir).unwrap();
     }
 
     #[test]
@@ -1242,6 +1611,183 @@ mod tests {
         // a start with nothing to clear is a no-op
         remove_previous_image(&h.self_path);
         std::fs::remove_dir_all(&h.dir).unwrap();
+    }
+
+    /// Same tag as the installed tree: no download, and the half still
+    /// answers success like `-U` does when it is already current.
+    #[test]
+    fn a_current_bundled_tree_is_not_downloaded() {
+        let mut h = Harness::new("tree-current");
+        let bin = resolve::py_path_join(&h.dir, "bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        let binary = resolve::py_path_join(&bin, "yt-dlp.exe");
+        std::fs::write(&binary, b"the current tree").unwrap();
+        h.http = FakeHttp::new()
+            .with_text(
+                YTDLP_RELEASES_API,
+                &tree_release("2026.08.19", "yt-dlp_win.zip", Some(GYAN)),
+            )
+            .with_text(
+                RELEASES_API,
+                &release_json(
+                    &format!("v{}", crate::VERSION),
+                    "ytdlp-native-windows-x86_64.exe",
+                    Some(GYAN),
+                ),
+            );
+        h.probes.push_back(("2026.08.19".to_string(), 0));
+        let mut s = settings();
+        assert!(h.all(&mut s).unwrap());
+        assert_eq!(std::fs::read(&binary).unwrap(), b"the current tree");
+        assert_eq!(h.updates, Vec::<String>::new());
+        let calls = h.http.calls();
+        assert_eq!(calls.len(), 2, "{calls:?}");
+        assert!(calls.iter().all(|c| !c.starts_with("file ")), "{calls:?}");
+        let printed = h.printed();
+        assert_eq!(printed[3], "version after: 2026.08.19");
+        std::fs::remove_dir_all(&h.dir).unwrap();
+    }
+
+    /// The published digest is the gate: a zip with other bytes never
+    /// reaches the swap.
+    #[test]
+    fn a_tree_zip_with_other_bytes_changes_nothing() {
+        let mut h = Harness::new("tree-digest");
+        let bin = resolve::py_path_join(&h.dir, "bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        let binary = resolve::py_path_join(&bin, "yt-dlp.exe");
+        std::fs::write(&binary, b"the running tree").unwrap();
+        let zip = tree_zip("yt-dlp.exe");
+        let wrong = crate::sha256::sha256_hex(b"other bytes");
+        h.http = FakeHttp::new()
+            .with_text(
+                YTDLP_RELEASES_API,
+                &tree_release("2026.09.01", "yt-dlp_win.zip", Some(&wrong)),
+            )
+            .with_file("https://example.invalid/tree", &zip)
+            .with_text(
+                RELEASES_API,
+                &release_json(
+                    &format!("v{}", crate::VERSION),
+                    "ytdlp-native-windows-x86_64.exe",
+                    Some(GYAN),
+                ),
+            );
+        h.probes.push_back(("2026.08.19".to_string(), 0));
+        let mut s = settings();
+        assert!(!h.all(&mut s).unwrap());
+        assert_eq!(std::fs::read(&binary).unwrap(), b"the running tree");
+        assert!(!std::path::Path::new(&format!("{binary}.old")).exists());
+        assert!(!std::path::Path::new(&format!("{bin}/_internal")).exists());
+        assert!(
+            std::fs::read_dir(&bin).unwrap().all(|e| !e
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".yt-dlp-")),
+            "the stage is gone"
+        );
+        assert!(
+            h.printed()
+                .iter()
+                .any(|l| l == "the downloaded build did not match the published digest"),
+            "{:?}",
+            h.printed()
+        );
+        std::fs::remove_dir_all(&h.dir).unwrap();
+    }
+
+    /// No published digest, no download.
+    #[test]
+    fn a_tree_release_without_a_digest_is_a_refusal() {
+        let mut h = Harness::new("tree-no-digest");
+        let bin = resolve::py_path_join(&h.dir, "bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        let binary = resolve::py_path_join(&bin, "yt-dlp.exe");
+        std::fs::write(&binary, b"the running tree").unwrap();
+        h.http = FakeHttp::new()
+            .with_text(
+                YTDLP_RELEASES_API,
+                &tree_release("2026.09.01", "yt-dlp_win.zip", None),
+            )
+            .with_text(
+                RELEASES_API,
+                &release_json(
+                    &format!("v{}", crate::VERSION),
+                    "ytdlp-native-windows-x86_64.exe",
+                    Some(GYAN),
+                ),
+            );
+        h.probes.push_back(("2026.08.19".to_string(), 0));
+        let mut s = settings();
+        assert!(!h.all(&mut s).unwrap());
+        assert_eq!(std::fs::read(&binary).unwrap(), b"the running tree");
+        let calls = h.http.calls();
+        assert!(calls.iter().all(|c| !c.starts_with("file ")), "{calls:?}");
+        assert!(
+            h.printed()
+                .iter()
+                .any(|l| l == "the published release has no digest for yt-dlp_win.zip"),
+            "{:?}",
+            h.printed()
+        );
+        std::fs::remove_dir_all(&h.dir).unwrap();
+    }
+
+    /// A half-moved swap puts the previous pair back: the final rename is
+    /// forced to fail by aiming the internal target into a missing
+    /// folder.
+    #[test]
+    fn a_failed_swap_restores_the_previous_payload() {
+        let dir = scratch("swap-rollback");
+        let binary = format!("{dir}/yt-dlp.exe");
+        let internal = format!("{dir}/_internal");
+        std::fs::create_dir_all(&internal).unwrap();
+        std::fs::write(&binary, b"old exe").unwrap();
+        std::fs::write(format!("{internal}/old.dll"), b"old dll").unwrap();
+        let staged_exe = format!("{dir}/new-exe");
+        let staged_internal = format!("{dir}/new-internal");
+        std::fs::create_dir_all(&staged_internal).unwrap();
+        std::fs::write(&staged_exe, b"new exe").unwrap();
+        std::fs::write(format!("{staged_internal}/new.dll"), b"new dll").unwrap();
+        let bad_target = format!("{dir}/gone/_internal");
+        let err = swap_payload(&binary, &bad_target, &staged_exe, &staged_internal).unwrap_err();
+        assert!(err.contains("could not place the new payload"), "{err}");
+        assert_eq!(std::fs::read(&binary).unwrap(), b"old exe");
+        assert_eq!(
+            std::fs::read(format!("{internal}/old.dll")).unwrap(),
+            b"old dll"
+        );
+        assert!(!std::path::Path::new(&format!("{binary}.old")).exists());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A zip that is not a onedir tree is refused before the target is
+    /// touched.
+    #[test]
+    fn an_incomplete_tree_is_refused_before_the_swap() {
+        let dir = scratch("swap-incomplete");
+        let binary = format!("{dir}/yt-dlp.exe");
+        let internal = format!("{dir}/_internal");
+        std::fs::create_dir_all(&internal).unwrap();
+        std::fs::write(&binary, b"old exe").unwrap();
+        std::fs::write(format!("{internal}/old.dll"), b"old dll").unwrap();
+        let staged_exe = format!("{dir}/new-exe");
+        std::fs::write(&staged_exe, b"new exe").unwrap();
+        let err = swap_payload(
+            &binary,
+            &internal,
+            &staged_exe,
+            &format!("{dir}/no-internal"),
+        )
+        .unwrap_err();
+        assert_eq!(err, "the downloaded yt-dlp tree is incomplete");
+        assert_eq!(std::fs::read(&binary).unwrap(), b"old exe");
+        assert_eq!(
+            std::fs::read(format!("{internal}/old.dll")).unwrap(),
+            b"old dll"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

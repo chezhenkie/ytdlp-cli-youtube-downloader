@@ -57,6 +57,64 @@ fn member_hit(name: &str, binname: &str) -> bool {
     !name.ends_with('/') && name.rsplit('/').next() == Some(binname)
 }
 
+/// Extract every member of a zip into `dest`, keeping the archive's
+/// relative paths. The yt-dlp onedir zips are the consumer: the binary
+/// plus `_internal` are the tree the CLI runs, so unlike `extract_member`
+/// this writes the whole archive. Every member name is validated before
+/// anything is written (the same headers-first rule as
+/// `extract_member`), and a name that is absolute, carries a drive or
+/// backslash, or holds a `.`/`..`/empty component is refused - no
+/// zip-slip surface.
+pub fn extract_zip_all(blob: &str, dest: &str) -> Result<(), String> {
+    let file = std::fs::File::open(blob).map_err(|e| e.to_string())?;
+    let mut archive = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
+    let mut plan: Vec<(usize, String, bool)> = Vec::new();
+    for index in 0..archive.len() {
+        let entry = archive.by_index(index).map_err(|e| e.to_string())?;
+        plan.push((index, safe_member_path(entry.name())?, entry.is_dir()));
+    }
+    std::fs::create_dir_all(dest).map_err(|e| e.to_string())?;
+    for (index, rel, is_dir) in plan {
+        let out = std::path::Path::new(dest).join(&rel);
+        if is_dir {
+            std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
+            continue;
+        }
+        if let Some(parent) = out.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        let mut entry = archive.by_index(index).map_err(|e| e.to_string())?;
+        let out_text = out.to_string_lossy().into_owned();
+        write_member(&mut entry, &out_text)?;
+        #[cfg(unix)]
+        if let Some(mode) = entry.unix_mode() {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&out, std::fs::Permissions::from_mode(mode & 0o777));
+        }
+    }
+    Ok(())
+}
+
+/// The zip member name as a safe relative path, or the refusal text.
+fn safe_member_path(name: &str) -> Result<String, String> {
+    let refuse = || format!("refused member name: {name}");
+    if name.contains('\\') || name.contains(':') || name.starts_with('/') {
+        return Err(refuse());
+    }
+    let trimmed = name.trim_end_matches('/');
+    if trimmed.is_empty() {
+        return Err(refuse());
+    }
+    let mut parts = Vec::new();
+    for part in trimmed.split('/') {
+        if part.is_empty() || part == "." || part == ".." {
+            return Err(refuse());
+        }
+        parts.push(part);
+    }
+    Ok(parts.join("/"))
+}
+
 fn write_member<R: std::io::Read>(src: &mut R, out: &str) -> Result<(), String> {
     let mut fh = std::fs::File::create(out).map_err(|e| e.to_string())?;
     std::io::copy(src, &mut fh).map_err(|e| e.to_string())?;
@@ -308,6 +366,58 @@ mod tests {
                 "{how}: nothing written"
             );
         }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn zip_all_writes_the_whole_tree() {
+        let dir = scratch("zip-all");
+        let blob = format!("{dir}/archive.zip");
+        let bytes = zip_with(&[
+            ("yt-dlp.exe", b"the binary"),
+            ("_internal/python3.dll", b"the dll"),
+            ("_internal/lib/sub/file.txt", b"nested"),
+        ]);
+        std::fs::write(&blob, &bytes).unwrap();
+        let out_dir = format!("{dir}/out");
+        extract_zip_all(&blob, &out_dir).unwrap();
+        assert_eq!(
+            std::fs::read(format!("{out_dir}/yt-dlp.exe")).unwrap(),
+            b"the binary"
+        );
+        assert_eq!(
+            std::fs::read(format!("{out_dir}/_internal/python3.dll")).unwrap(),
+            b"the dll"
+        );
+        assert_eq!(
+            std::fs::read(format!("{out_dir}/_internal/lib/sub/file.txt")).unwrap(),
+            b"nested"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn zip_all_refuses_an_unsafe_member_before_writing() {
+        let dir = scratch("zip-slip");
+        for name in ["../escape.txt", "/abs.txt", "a/../../b.txt", "a\\b.txt"] {
+            let blob = format!("{dir}/bad.zip");
+            std::fs::write(&blob, zip_with(&[("ok.txt", b"x"), (name, b"bad")])).unwrap();
+            let out_dir = format!("{dir}/out");
+            let err = extract_zip_all(&blob, &out_dir).unwrap_err();
+            assert!(err.starts_with("refused member name: "), "{name}: {err}");
+            assert!(!std::path::Path::new(&out_dir).exists(), "{name}: wrote");
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn zip_all_reports_a_truncated_archive() {
+        let dir = scratch("zip-all-truncated");
+        let blob = format!("{dir}/archive.zip");
+        let bytes = zip_with(&[("yt-dlp.exe", b"0123456789")]);
+        std::fs::write(&blob, &bytes[..bytes.len() / 2]).unwrap();
+        let err = extract_zip_all(&blob, &format!("{dir}/out")).unwrap_err();
+        assert!(!err.is_empty());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
