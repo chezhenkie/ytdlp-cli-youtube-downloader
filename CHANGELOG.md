@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.8.1
+
+### Fixes
+
+#### All platforms
+
+* The shipped binaries are about a quarter smaller with unchanged startup timing: thin link-time optimization, one codegen unit, symbols stripped, overflow checks kept.
+* A metadata response that would exceed 8 MiB is refused with `response exceeds the 8 MiB cap` instead of being buffered without a limit; a declared longer length is refused before anything is read.
+* An unset HOME resolves the home from the passwd entry instead of leaving the output-folder candidates relative to the working directory and failing `--check`.
+* `--selftest` removes the info-field section's fixture folder like every other one, so a selftest run leaves no temp folder behind.
+
 ## 2.8.0
 
 ### New features

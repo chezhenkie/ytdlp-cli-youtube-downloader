@@ -53,7 +53,7 @@ Every requirement's acceptance criterion is an executable, offline check; the pa
 | FR-20 | exec.rs stripper-pass tests (reported output path, missing-binary line, silent when off), srtstripper module tests (mode-flag map, PASS-line parse, spawn-arg shape, failure text, subs_since filtering), selftest menu/default checks; the live download with a real srtstripper is release-acceptance work (G10) |
 | FR-22 | the two packaged checks ("summary row sits above the quick row", "summary key answers without a link"), plus the crate tests for do_summary (text path with the forced text mode, sound fallback with the stored settings untouched), ui.rs summary-row bytes and width, menu.rs clipboard summary flow, and the tty key rule (0/s/S on an empty line only) |
 | NFR-1 | PE import table free of vcruntime*.dll and msvcp*.dll; asserted on the build output in CI (G1) and repeated on the extracted bundle at release (G10) |
-| NFR-4 | rust.yml: fmt, clippy warnings denied, unit tests, musl cross-check, width and printable table pins |
+| NFR-4 | rust.yml: fmt, clippy warnings denied, unit tests, musl cross-check, width and printable table pins, cargo audit |
 
 Acceptance criteria for every requirement are the PASS lines of the suite that ships it. Performance is not a target beyond NFR constraints and has no measured number in this spec (no invented factors).
 
