@@ -17,7 +17,7 @@ ytdlp-cli = { path = "../cli" }
 # The phase-8 arms build their own archive fixtures from a member list, so
 # the same case file drives both sides without a binary blob in the vector.
 # The xz encoder is only used for that; the shipping cli decodes.
-zip = { version = "7.2.0", default-features = false, features = [
+zip = { version = "9.0.0", default-features = false, features = [
     "deflate-flate2",
 ] }
 tar = { version = "0.4.46", default-features = false }

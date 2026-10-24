@@ -74,7 +74,10 @@ pub fn extract_zip_all(blob: &str, dest: &str) -> Result<(), String> {
     let mut plan: Vec<(usize, String, bool)> = Vec::new();
     for index in 0..archive.len() {
         let entry = archive.by_index(index).map_err(|e| e.to_string())?;
-        plan.push((index, safe_member_path(entry.name())?, entry.is_dir()));
+        // zip 9: name() is a Result; a name that cannot be decoded is
+        // refused like any unsafe one
+        let name = entry.name().map_err(|e| e.to_string())?;
+        plan.push((index, safe_member_path(&name)?, entry.is_dir()));
     }
     std::fs::create_dir_all(dest).map_err(|e| e.to_string())?;
     for (index, rel, is_dir) in plan {
@@ -135,7 +138,8 @@ fn from_zip(blob: &str, binname: &str, out: &str) -> Result<Option<String>, Stri
             .by_index(index)
             .map_err(|e| e.to_string())?
             .name()
-            .to_string();
+            .map_err(|e| e.to_string())?
+            .into_owned();
         if member_hit(&name, binname) {
             hit = Some(index);
             break;

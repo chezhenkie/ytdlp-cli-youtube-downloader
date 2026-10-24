@@ -379,8 +379,9 @@ fn windows_folder_dialog() -> Option<String> {
     };
     // BIF_NEWDIALOGSTYLE dialogs need a COM-initialized thread; a thread
     // owned by another apartment (RPC_E_CHANGED_MODE) still shows the
-    // dialog, and only an apartment this call initialized is torn down
-    let hr = unsafe { CoInitializeEx(std::ptr::null(), COINIT_APARTMENTTHREADED) };
+    // dialog, and only an apartment this call initialized is torn down.
+    // The windows-sys const is an i32 where the call takes u32.
+    let hr = unsafe { CoInitializeEx(std::ptr::null(), COINIT_APARTMENTTHREADED as u32) };
     let com_owned = hr == S_OK || hr == S_FALSE;
     let picked = browse_dialog();
     if com_owned {
