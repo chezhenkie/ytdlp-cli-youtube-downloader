@@ -26,7 +26,7 @@
       "sources": [
         { "path": "rust-src/cli/src/menu.rs", "line": 773, "end_line": 793, "label": "paint when dirty, quiet check, save" },
         { "path": "rust-src/cli/src/ui.rs", "line": 397, "end_line": 426, "label": "summary and 0 rows, then 15 items" },
-        { "path": "rust-src/cli/src/ui.rs", "line": 193, "end_line": 341, "label": "menu_items: rows 1-15" }
+        { "path": "rust-src/cli/src/ui.rs", "line": 193, "end_line": 342, "label": "menu_items: rows 1-15" }
       ]
     },
     { "id": "m_route", "lane": "menu", "col": 3, "type": "frontend", "icon": "decision", "label": "route the input", "sublabel": "first http(s) link wins",
@@ -46,7 +46,7 @@
       "sources": [
         { "path": "rust-src/cli/src/update.rs", "line": 267, "end_line": 274, "label": "fetch_cli: one GET" },
         { "path": "rust-src/cli/src/update.rs", "line": 233, "end_line": 241, "label": "release_asset: lean bundle per platform" },
-        { "path": "rust-src/cli/src/update.rs", "line": 806, "end_line": 836, "label": "notice, refusal, install prompt" }
+        { "path": "rust-src/cli/src/update.rs", "line": 802, "end_line": 872, "label": "notice, refusal, install prompt" }
       ]
     },
     { "id": "u_gate", "lane": "updates", "col": 5, "yOffset": 40, "type": "security", "label": "selftest gate + rename", "sublabel": "must pass its own checks",
@@ -71,7 +71,7 @@
     { "id": "r_sum", "lane": "cli", "col": 4, "type": "backend", "label": "do_summary", "sublabel": "subs to text first; sound fallback", "tag": "stored settings kept",
       "sources": [
         { "path": "rust-src/cli/src/exec.rs", "line": 680, "end_line": 757, "label": "subtitle pass, text strip, text ready" },
-        { "path": "rust-src/cli/src/exec.rs", "line": 759, "end_line": 807, "label": "sound fallback from a settings copy" }
+        { "path": "rust-src/cli/src/exec.rs", "line": 759, "end_line": 808, "label": "sound fallback from a settings copy" }
       ]
     },
     { "id": "r_verdict", "lane": "cli", "col": 5, "type": "backend", "label": "run verdict", "sublabel": "done | failed rc | stopped 130",
@@ -96,7 +96,7 @@
     { "id": "r_strip", "lane": "child", "col": 4, "yOffset": -40, "type": "messagebus", "label": "srt timecode stripper", "sublabel": "one spawn per file", "tag": "text, timecode, numbered",
       "sources": [
         { "path": "rust-src/cli/src/exec.rs", "line": 625, "end_line": 644, "label": "strip_subtitles: fresh subs only" },
-        { "path": "rust-src/cli/src/exec/srtstripper.rs", "line": 96, "end_line": 129, "label": "run_one: one spawn per file" },
+        { "path": "rust-src/cli/src/exec/srtstripper.rs", "line": 96, "end_line": 128, "label": "run_one: one spawn per file" },
         { "path": "rust-src/cli/src/exec/srtstripper.rs", "line": 16, "end_line": 23, "label": "mode_flag: text, timecode, numbered" }
       ]
     },
