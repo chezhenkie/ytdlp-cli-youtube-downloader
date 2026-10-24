@@ -373,6 +373,24 @@ pub fn folder_dialog(initial: &str, world: &World) -> Option<String> {
 
 #[cfg(windows)]
 fn windows_folder_dialog() -> Option<String> {
+    use windows_sys::Win32::Foundation::{S_FALSE, S_OK};
+    use windows_sys::Win32::System::Com::{
+        COINIT_APARTMENTTHREADED, CoInitializeEx, CoUninitialize,
+    };
+    // BIF_NEWDIALOGSTYLE dialogs need a COM-initialized thread; a thread
+    // owned by another apartment (RPC_E_CHANGED_MODE) still shows the
+    // dialog, and only an apartment this call initialized is torn down
+    let hr = unsafe { CoInitializeEx(std::ptr::null(), COINIT_APARTMENTTHREADED) };
+    let com_owned = hr == S_OK || hr == S_FALSE;
+    let picked = browse_dialog();
+    if com_owned {
+        unsafe { CoUninitialize() };
+    }
+    picked
+}
+
+#[cfg(windows)]
+fn browse_dialog() -> Option<String> {
     use windows_sys::Win32::System::Com::CoTaskMemFree;
     use windows_sys::Win32::UI::Shell::{
         BIF_EDITBOX, BIF_NEWDIALOGSTYLE, BIF_RETURNONLYFSDIRS, BROWSEINFOW, SHBrowseForFolderW,

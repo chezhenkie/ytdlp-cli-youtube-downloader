@@ -185,18 +185,9 @@ fn verify_and_install(
         print_out(&ctx.sink, "  checksum mismatch - nothing was changed");
         return None;
     }
-    if source.how == "raw" {
-        // the published asset is the binary itself (the macos source):
-        // nothing to unpack, but a fresh download carries no exec bit
-        // and the probe below runs it, so the mode is set first
-        if !is_windows && let Err(e) = pyfs::chmod_755(blob) {
-            print_out(
-                &ctx.sink,
-                &format!("  could not set the mode of {blob}: {e}"),
-            );
-            return None;
-        }
-    } else if let Some(st) = stage.as_deref() {
+    if source.how != "raw"
+        && let Some(st) = stage.as_deref()
+    {
         st.set_live(Some("unpacking".to_string()));
     }
     let fresh = if source.how == "raw" {
@@ -213,6 +204,17 @@ fn verify_and_install(
             }
         }
     };
+    // the probe below execs the binary: a fresh download or a fresh
+    // extract carries no exec bit on posix (write_member creates it
+    // 0644), so the mode is set before the first attempt - the probe
+    // would answer "did not run" for a perfectly good build otherwise
+    if !is_windows && let Err(e) = pyfs::chmod_755(&fresh) {
+        print_out(
+            &ctx.sink,
+            &format!("  could not set the mode of {fresh}: {e}"),
+        );
+        return None;
+    }
     if let Some(st) = stage.as_deref() {
         st.set_live(Some("testing the binary".to_string()));
     }
@@ -247,13 +249,7 @@ fn verify_and_install(
         print_out(&ctx.sink, &format!("  could not install into bin/: {e}"));
         return None;
     }
-    if !is_windows && let Err(e) = pyfs::chmod_755(&target) {
-        print_out(
-            &ctx.sink,
-            &format!("  could not set the mode of {target}: {e}"),
-        );
-        return None;
-    }
+    // the rename preserves the mode just set on `fresh`
     Some(target)
 }
 

@@ -1131,9 +1131,19 @@ pub fn real_root() -> Result<String, String> {
     Ok(parent.to_string_lossy().to_string())
 }
 
-/// The process environment as the injected map (unicode entries only).
+/// The process environment as the injected map. `env::vars()` panics on
+/// a non-unicode name or value, so the OsString entries are converted
+/// with `to_string_lossy` instead: unicode entries stay exact and one
+/// stray POSIX var cannot abort the run.
 pub fn env_map_from_process() -> EnvMap {
-    std::env::vars().collect()
+    std::env::vars_os()
+        .map(|(k, v)| {
+            (
+                k.to_string_lossy().into_owned(),
+                v.to_string_lossy().into_owned(),
+            )
+        })
+        .collect()
 }
 
 /// `Path.home()`: env-source expansion (see `home_from_env`).
@@ -1143,8 +1153,11 @@ pub fn home_from_process(env: &EnvMap) -> Result<String, String> {
 
 /// `shutil.which(cmd)` against the real process environment.
 pub fn which_from_process(cmd: &str) -> Option<String> {
-    let path = std::env::var("PATH").ok();
-    let pathext = std::env::var("PATHEXT").ok();
+    // `env::var` answers Err on a non-unicode entry, which silently fell
+    // back to the hard-coded default path list; lossy conversion keeps
+    // the real PATH usable
+    let path = std::env::var_os("PATH").map(|v| v.to_string_lossy().into_owned());
+    let pathext = std::env::var_os("PATHEXT").map(|v| v.to_string_lossy().into_owned());
     which(cmd, path.as_deref(), pathext.as_deref())
 }
 
@@ -1395,6 +1408,15 @@ mod tests {
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect()
+    }
+
+    #[test]
+    fn env_map_from_process_carries_the_path_without_panicking() {
+        let map = env_map_from_process();
+        assert!(
+            map.iter().any(|(k, v)| k == "PATH" && !v.is_empty()),
+            "the real environment is read with vars_os and lossy values"
+        );
     }
 
     #[test]

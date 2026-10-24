@@ -186,10 +186,18 @@ extern "C" fn sigint_handler(_sig: libc::c_int) {
     INTERRUPT_SEEN.store(true, Ordering::SeqCst);
 }
 
+/// The console handler claims only a Ctrl+C or Ctrl+Break (flag + 1):
+/// every other event answers 0 so the default termination proceeds
+/// instead of being swallowed mid-download.
 #[cfg(windows)]
-unsafe extern "system" fn ctrl_handler(_ctrl_type: u32) -> i32 {
-    INTERRUPT_SEEN.store(true, Ordering::SeqCst);
-    1
+unsafe extern "system" fn ctrl_handler(ctrl_type: u32) -> i32 {
+    use windows_sys::Win32::System::Console::{CTRL_BREAK_EVENT, CTRL_C_EVENT};
+    if ctrl_type == CTRL_C_EVENT || ctrl_type == CTRL_BREAK_EVENT {
+        INTERRUPT_SEEN.store(true, Ordering::SeqCst);
+        1
+    } else {
+        0
+    }
 }
 
 /// Ctrl+C during a download run: python raises KeyboardInterrupt in its
@@ -254,6 +262,27 @@ impl RunRt {
             interrupted: Box::new(interrupt_pending),
             sleep_frame: Box::new(|| std::thread::sleep(Duration::from_secs_f64(term::FRAME_SECS))),
             interrupt_scope: Some(InterruptScope::install()),
+        }
+    }
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::*;
+    use windows_sys::Win32::System::Console::{CTRL_BREAK_EVENT, CTRL_C_EVENT, CTRL_CLOSE_EVENT};
+
+    #[test]
+    fn ctrl_handler_claims_only_c_and_break() {
+        unsafe {
+            set_interrupt(false);
+            assert_eq!(ctrl_handler(CTRL_C_EVENT), 1);
+            assert!(interrupt_pending(), "a ctrl+c sets the flag");
+            set_interrupt(false);
+            assert_eq!(ctrl_handler(CTRL_BREAK_EVENT), 1);
+            assert!(interrupt_pending(), "a ctrl+break sets the flag");
+            set_interrupt(false);
+            assert_eq!(ctrl_handler(CTRL_CLOSE_EVENT), 0);
+            assert!(!interrupt_pending(), "other events stay default");
         }
     }
 }

@@ -112,8 +112,13 @@ pub fn run_one(
         mut stderr,
         mut child,
     } = spawned;
+    // both pipes are drained concurrently: a child that fills the 64 KiB
+    // stderr pipe while stdout is still being read would block forever
+    // in a sequential drain and freeze the menu (the download run's two
+    // pump threads do the same)
+    let stderr_text = std::thread::spawn(move || read_all(stderr.as_mut()));
     let stdout = read_all(stdout.as_mut());
-    let stderr = read_all(stderr.as_mut());
+    let stderr = stderr_text.join().unwrap_or_default();
     let rc = child.wait();
     if rc != 0 {
         let first = stderr

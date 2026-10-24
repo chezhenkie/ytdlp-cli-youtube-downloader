@@ -1070,6 +1070,18 @@ mod tests {
             std::fs::read(format!("{}/ffmpeg", w.bin_dir)).unwrap(),
             b"the ffmpeg build"
         );
+        // posix: the installed build is executable - the extracted
+        // member is created 0644, so the mode is set before the probe
+        // runs it (the raw macos path carries the same assert)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = std::fs::metadata(format!("{}/ffmpeg", w.bin_dir))
+                .unwrap()
+                .permissions()
+                .mode();
+            assert_eq!(mode & 0o777, 0o755, "the installed build is executable");
+        }
         std::fs::remove_dir_all(&w.dir).unwrap();
     }
 

@@ -553,8 +553,16 @@ pub fn update_yt_dlp(s: &Obj, ctx: &mut UpdateCtx) -> bool {
     if !saved && binary == bundled {
         return update_bundled_yt_dlp(ctx, &binary, &old);
     }
+    // the flag path only fires when the handler is armed, and it is
+    // armed for one download call at a time: the scope installs it
+    // around the -U child so Ctrl+C cancels the update (python's
+    // KeyboardInterrupt around `subprocess.call`) instead of
+    // terminating the process
+    let scope = crate::exec::InterruptScope::install();
     let update_rc = (ctx.call)(&binary, &["-U".to_string()]);
-    if crate::exec::interrupt_pending() {
+    let cancelled = crate::exec::interrupt_pending();
+    drop(scope);
+    if cancelled {
         // python's `except KeyboardInterrupt` around the call
         tty::emit_line(&ctx.sink, "\ncancelled by user");
         return false;
