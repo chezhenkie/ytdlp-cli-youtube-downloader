@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="generator" content="archify 3.1.0">
+  <meta name="generator" content="archify 3.2.0">
   <meta name="archify-reader-contract" content="declared-wide-v1">
   <title>yt-dlp cli - process flow Diagram</title>
   <script>
@@ -2736,19 +2736,31 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     }
     html[data-reader-rail="bottom"] .node-outline-head { padding: 1rem 2.5rem 0.375rem 0.25rem; }
     html[data-reader-rail="bottom"] .node-outline-list {
-      columns: 15rem;
-      column-gap: 1.75rem;
+      display: grid;
+      gap: 0.5rem;
       padding: 0;
       overflow: visible;
       -webkit-mask-image: none;
       mask-image: none;
     }
-    /* Named groups stay whole; a single unnamed group may split across columns,
-       where a continuous spine would read as a broken line. */
     html[data-reader-rail="bottom"] .node-outline-group + .node-outline-group { margin-top: 0; }
-    html[data-reader-rail="bottom"] .node-outline-group:has(> .node-outline-heading) { break-inside: avoid; padding-bottom: 0.25rem; }
-    html[data-reader-rail="bottom"] .node-outline-group:not(:has(> .node-outline-heading)) > ul::before { display: none; }
-    html[data-reader-rail="bottom"] .node-outline-group li { break-inside: avoid; }
+    html[data-reader-rail="bottom"] .node-outline-group:has(> .node-outline-heading) { padding-bottom: 0.25rem; }
+    html[data-reader-rail="bottom"] .node-outline-group > ul {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem 0.5rem;
+    }
+    html[data-reader-rail="bottom"] .node-outline-group > ul::before { display: none; }
+    html[data-reader-rail="bottom"] .node-outline-group li {
+      flex: 0 1 auto;
+      min-width: min(100%, 12rem);
+      max-width: min(100%, 32rem);
+    }
+    html[data-reader-rail="bottom"] .node-outline-heading {
+      justify-content: flex-start;
+      gap: 0.5rem;
+    }
+    html[data-reader-rail="bottom"] .node-outline-heading > span { overflow-wrap: anywhere; }
     .rail-controls { display: none; }
     html:is([data-reader-rail="true"], [data-reader-rail="overlay"], [data-reader-rail="bottom"]) .rail-controls {
       display: flex;
@@ -2964,6 +2976,37 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     .node-outline-item:hover small,
     .node-outline-item[data-previewing] small,
     .node-outline-item[aria-current="true"] small { color: var(--text-muted); }
+
+    /* The desktop bottom rail is an index: compact rows keep related nodes
+       together while allowing full names and descriptions to wrap naturally. */
+    html[data-reader-rail="bottom"] .node-outline-item {
+      grid-template-columns: 0.625rem minmax(0, 1fr) 0.75rem;
+      align-items: first baseline;
+      column-gap: 0.375rem;
+      min-height: 0;
+      padding-block: 0.375rem;
+    }
+    html[data-reader-rail="bottom"] .node-outline-item strong,
+    html[data-reader-rail="bottom"] .node-outline-item small {
+      overflow: visible;
+      text-overflow: clip;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    html[data-reader-rail="bottom"] .node-outline-item strong {
+      grid-column: 2;
+      grid-row: 1;
+    }
+    html[data-reader-rail="bottom"] .node-outline-item small {
+      grid-column: 2;
+      grid-row: 2;
+      text-align: left;
+    }
+    html[data-reader-rail="bottom"] .node-outline-item::after {
+      grid-column: 3;
+      grid-row: 1;
+      align-self: center;
+    }
 
     .card-header {
       display: flex;
@@ -5154,12 +5197,12 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       </div>
     </div>
 
-    <script id="archify-source-evidence-data" type="application/json">{"schemaVersion":1,"verified":true,"repository":{"url":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader","revision":"40a24288a76b8aa07ab95f4059ddf1393d032b23","shortRevision":"40a2428","label":"chezhenkie/ytdlp-cli-youtube-downloader","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/tree/40a24288a76b8aa07ab95f4059ddf1393d032b23"},"referenceCount":32,"nodes":{"m_paint":[{"path":"rust-src/cli/src/menu.rs","line":744,"endLine":757,"label":"paint when dirty","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/menu.rs#L744-L757"},{"path":"rust-src/cli/src/menu.rs","line":758,"endLine":763,"label":"first paint: quiet update check, then save","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/menu.rs#L758-L763"},{"path":"rust-src/cli/src/ui.rs","line":179,"endLine":322,"label":"menu_items: rows 1-14","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/ui.rs#L179-L322"}],"m_route":[{"path":"rust-src/cli/src/menu.rs","line":778,"endLine":800,"label":"url in prompt: download run","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/menu.rs#L778-L800"},{"path":"rust-src/cli/src/args.rs","line":23,"endLine":53,"label":"clean_url: first http(s) link","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/args.rs#L23-L53"}],"m_act":[{"path":"rust-src/cli/src/menu.rs","line":383,"endLine":722,"label":"act(): items 0-14","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/menu.rs#L383-L722"},{"path":"rust-src/cli/src/menu.rs","line":811,"label":"save after each action (single line)","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/menu.rs#L811"},{"path":"rust-src/cli/src/update.rs","line":565,"endLine":571,"label":"update_all: yt-dlp update, then cli check","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/update.rs#L565-L571"}],"u_cli":[{"path":"rust-src/cli/src/update.rs","line":246,"endLine":289,"label":"fetch_cli: one GET","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/update.rs#L246-L289"},{"path":"rust-src/cli/src/update.rs","line":509,"endLine":517,"label":"refusal: no published cli build","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/update.rs#L509-L517"},{"path":"rust-src/cli/src/net.rs","line":35,"label":"CHECK_TIMEOUT: 6 s check ceiling (single line)","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/net.rs#L35"}],"u_gate":[{"path":"rust-src/cli/src/update.rs","line":296,"endLine":332,"label":"install_cli: selftest, then place","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/update.rs#L296-L332"}],"c_main":[{"path":"rust-src/cli/src/main.rs","line":36,"endLine":95,"label":"run(): load settings once, dispatch order","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/main.rs#L36-L95"},{"path":"rust-src/cli/src/main.rs","line":196,"endLine":241,"label":"run_quick: url argv, one run, exit","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/main.rs#L196-L241"}],"r_do":[{"path":"rust-src/cli/src/exec.rs","line":386,"endLine":553,"label":"do_download: one run","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/exec.rs#L386-L553"},{"path":"rust-src/cli/src/resolve.rs","line":818,"endLine":844,"label":"find_yt_dlp: settings, bin/, PATH","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/resolve.rs#L818-L844"},{"path":"rust-src/cli/src/args.rs","line":255,"endLine":327,"label":"build_args: yt-dlp argv","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/args.rs#L255-L327"}],"r_verdict":[{"path":"rust-src/cli/src/exec.rs","line":37,"endLine":43,"label":"fail_sentence: failed rc text","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/exec.rs#L37-L43"},{"path":"rust-src/cli/src/exec.rs","line":465,"endLine":482,"label":"stopped: rc 130","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/exec.rs#L465-L482"},{"path":"rust-src/cli/src/exec.rs","line":126,"endLine":130,"label":"drop_temp_dir_force: removes work folder","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/exec.rs#L126-L130"}],"r_ytdlp":[{"path":"rust-src/cli/src/exec.rs","line":221,"endLine":342,"label":"run_download: spawn, pumps, poll","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/exec.rs#L221-L342"},{"path":"rust-src/cli/src/exec/run.rs","line":142,"endLine":165,"label":"kill_tree_real: tree kill on escape","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/exec/run.rs#L142-L165"}],"r_subs":[{"path":"rust-src/cli/src/args.rs","line":334,"endLine":371,"label":"build_sub_args: --skip-download","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/args.rs#L334-L371"},{"path":"rust-src/cli/src/exec.rs","line":515,"endLine":550,"label":"subtitle branch: when subtitles on","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/exec.rs#L515-L550"}],"r_strip":[{"path":"rust-src/cli/src/exec.rs","line":561,"endLine":591,"label":"strip_subtitles: loop over new subs","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/exec.rs#L561-L591"},{"path":"rust-src/cli/src/exec/srtstripper.rs","line":97,"endLine":129,"label":"run_one: one spawn per file","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/exec/srtstripper.rs#L97-L129"},{"path":"rust-src/cli/src/exec/srtstripper.rs","line":16,"endLine":24,"label":"mode_flag: stripper mode to flag","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/exec/srtstripper.rs#L16-L24"}],"f_settings":[{"path":"rust-src/cli/src/config.rs","line":425,"endLine":524,"label":"load_settings: read once","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/config.rs#L425-L524"},{"path":"rust-src/cli/src/config.rs","line":530,"endLine":552,"label":"save_settings: atomic, skipped when unchanged","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/config.rs#L530-L552"}],"f_out":[{"path":"rust-src/cli/src/args.rs","line":178,"endLine":201,"label":"output_args: -P home and temp dirs","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/args.rs#L178-L201"},{"path":"rust-src/cli/src/resolve.rs","line":304,"label":"TEMP_DIR_NAME = .ytdlp-tmp (single line)","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/resolve.rs#L304"},{"path":"rust-src/cli/src/exec.rs","line":139,"endLine":156,"label":"newest_since: finished file","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/40a24288a76b8aa07ab95f4059ddf1393d032b23/rust-src/cli/src/exec.rs#L139-L156"}]}}</script>
+    <script id="archify-source-evidence-data" type="application/json">{"schemaVersion":1,"verified":true,"repository":{"url":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader","revision":"a32419d3b0dc81ebc7c4e3a2367060f56b731b1a","shortRevision":"a32419d","label":"chezhenkie/ytdlp-cli-youtube-downloader","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/tree/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a"},"referenceCount":35,"nodes":{"m_paint":[{"path":"rust-src/cli/src/menu.rs","line":773,"endLine":793,"label":"paint when dirty, quiet check, save","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/menu.rs#L773-L793"},{"path":"rust-src/cli/src/ui.rs","line":397,"endLine":426,"label":"summary and 0 rows, then 15 items","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/ui.rs#L397-L426"},{"path":"rust-src/cli/src/ui.rs","line":193,"endLine":341,"label":"menu_items: rows 1-15","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/ui.rs#L193-L341"}],"m_route":[{"path":"rust-src/cli/src/menu.rs","line":794,"endLine":830,"label":"url in prompt: download run","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/menu.rs#L794-L830"},{"path":"rust-src/cli/src/args.rs","line":23,"endLine":53,"label":"clean_url: first http(s) link","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/args.rs#L23-L53"}],"m_act":[{"path":"rust-src/cli/src/menu.rs","line":440,"endLine":752,"label":"act(): items 0-15","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/menu.rs#L440-L752"},{"path":"rust-src/cli/src/menu.rs","line":831,"endLine":841,"label":"save after each action","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/menu.rs#L831-L841"},{"path":"rust-src/cli/src/update.rs","line":875,"endLine":883,"label":"update_all: yt-dlp, then cli","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/update.rs#L875-L883"}],"u_cli":[{"path":"rust-src/cli/src/update.rs","line":267,"endLine":274,"label":"fetch_cli: one GET","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/update.rs#L267-L274"},{"path":"rust-src/cli/src/update.rs","line":233,"endLine":241,"label":"release_asset: lean bundle per platform","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/update.rs#L233-L241"},{"path":"rust-src/cli/src/update.rs","line":806,"endLine":836,"label":"notice, refusal, install prompt","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/update.rs#L806-L836"}],"u_gate":[{"path":"rust-src/cli/src/update.rs","line":358,"endLine":394,"label":"install_cli: selftest, then place","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/update.rs#L358-L394"},{"path":"rust-src/cli/src/update.rs","line":459,"endLine":515,"label":"fetch_and_install: stage, digest, extract","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/update.rs#L459-L515"}],"c_main":[{"path":"rust-src/cli/src/main.rs","line":36,"endLine":95,"label":"run(): load settings once, dispatch order","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/main.rs#L36-L95"},{"path":"rust-src/cli/src/main.rs","line":196,"endLine":241,"label":"run_quick: url argv, one run, exit","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/main.rs#L196-L241"}],"r_do":[{"path":"rust-src/cli/src/exec.rs","line":512,"endLine":617,"label":"do_download: subtitle pass first","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/exec.rs#L512-L617"},{"path":"rust-src/cli/src/exec.rs","line":434,"endLine":484,"label":"preflight: yt-dlp, ffmpeg, offer","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/exec.rs#L434-L484"},{"path":"rust-src/cli/src/args.rs","line":279,"endLine":358,"label":"build_args: yt-dlp argv","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/args.rs#L279-L358"}],"r_sum":[{"path":"rust-src/cli/src/exec.rs","line":680,"endLine":757,"label":"subtitle pass, text strip, text ready","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/exec.rs#L680-L757"},{"path":"rust-src/cli/src/exec.rs","line":759,"endLine":807,"label":"sound fallback from a settings copy","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/exec.rs#L759-L807"}],"r_verdict":[{"path":"rust-src/cli/src/exec.rs","line":37,"endLine":43,"label":"fail_sentence: failed rc text","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/exec.rs#L37-L43"},{"path":"rust-src/cli/src/exec.rs","line":595,"endLine":605,"label":"stopped: rc 130 and cleanup","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/exec.rs#L595-L605"},{"path":"rust-src/cli/src/exec.rs","line":126,"endLine":130,"label":"drop_temp_dir_force: removes work folder","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/exec.rs#L126-L130"}],"r_subs":[{"path":"rust-src/cli/src/args.rs","line":365,"endLine":402,"label":"build_sub_args: --skip-download","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/args.rs#L365-L402"},{"path":"rust-src/cli/src/exec.rs","line":538,"endLine":583,"label":"subtitle pass before the media pass","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/exec.rs#L538-L583"}],"r_ytdlp":[{"path":"rust-src/cli/src/exec.rs","line":267,"endLine":388,"label":"run_download: spawn, pumps, poll","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/exec.rs#L267-L388"},{"path":"rust-src/cli/src/exec/run.rs","line":142,"endLine":165,"label":"kill_tree_real: tree kill on escape","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/exec/run.rs#L142-L165"}],"r_strip":[{"path":"rust-src/cli/src/exec.rs","line":625,"endLine":644,"label":"strip_subtitles: fresh subs only","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/exec.rs#L625-L644"},{"path":"rust-src/cli/src/exec/srtstripper.rs","line":96,"endLine":129,"label":"run_one: one spawn per file","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/exec/srtstripper.rs#L96-L129"},{"path":"rust-src/cli/src/exec/srtstripper.rs","line":16,"endLine":23,"label":"mode_flag: text, timecode, numbered","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/exec/srtstripper.rs#L16-L23"}],"f_settings":[{"path":"rust-src/cli/src/config.rs","line":443,"endLine":542,"label":"load_settings: read once","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/config.rs#L443-L542"},{"path":"rust-src/cli/src/config.rs","line":548,"endLine":570,"label":"save_settings: skipped when unchanged","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/config.rs#L548-L570"}],"f_out":[{"path":"rust-src/cli/src/args.rs","line":201,"endLine":225,"label":"output_args: -P home and temp","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/args.rs#L201-L225"},{"path":"rust-src/cli/src/resolve.rs","line":306,"endLine":310,"label":"DOWNLOADS_DIR_NAME leaf","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/resolve.rs#L306-L310"},{"path":"rust-src/cli/src/resolve.rs","line":998,"endLine":1020,"label":"resolve_outdir: saved wins, else base","href":"https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/blob/a32419d3b0dc81ebc7c4e3a2367060f56b731b1a/rust-src/cli/src/resolve.rs#L998-L1020"}]}}</script>
     <script id="archify-i18n-data" type="application/json">{"locale":"en","messages":{"viewer.kind.frontend":"Frontend","viewer.kind.backend":"Backend","viewer.kind.database":"Database","viewer.kind.cloud":"Cloud","viewer.kind.security":"Security","viewer.kind.messagebus":"Message bus","viewer.kind.external":"External","viewer.kind.neutral":"Neutral","viewer.kind.node":"Node","viewer.kind.start":"Start","viewer.kind.active":"Active","viewer.kind.waiting":"Waiting","viewer.kind.decision":"Decision","viewer.kind.success":"Success","viewer.kind.failure":"Failure","viewer.toolbar.actions":"Diagram actions","viewer.theme.toggle.title":"Toggle theme (T)","viewer.theme.toggle":"Toggle color theme","viewer.theme.dark":"Dark","viewer.theme.light":"Light","viewer.preset.choose.title":"Choose visual style (S cycles)","viewer.preset.choose":"Choose visual style","viewer.preset.style":"Style","viewer.preset.menu":"Visual style","viewer.preset.identity":"Visual identity","viewer.preset.cycles":"to cycle","viewer.preset.classic":"Classic","viewer.preset.classic.short":"Classic","viewer.preset.classic.hint":"Stable technical default","viewer.preset.flow":"Signal Flow","viewer.preset.flow.short":"Flow","viewer.preset.flow.hint":"Motion-forward presentation","viewer.preset.blueprint":"Blueprint","viewer.preset.blueprint.hint":"Engineering review","viewer.preset.editorial":"Editorial","viewer.preset.editorial.hint":"Publication and launch notes","viewer.preset.badge.signalFlow":"SIGNAL FLOW","viewer.preset.badge.blueprint":"BLUEPRINT / REV 01","viewer.preset.badge.editorial":"EDITORIAL / FIELD NOTE","viewer.preset.badge.editorialPlate":"ARCHIFY / PLATE 04","viewer.preset.current":"Visual style: {style}. Choose visual style","viewer.motion.live":"Live","viewer.motion.still":"Still","viewer.motion.pause":"Pause motion","viewer.motion.resume":"Resume motion","viewer.motion.reduced":"Motion paused by reduced-motion preference","viewer.motion.hidden":"Motion paused while this page is hidden","viewer.motion.yielding":"Pause motion; currently yielding to {owner}","viewer.motion.yielding.title":"Live preview enabled · yielding to {owner}","viewer.owner.route":"Route Probe","viewer.owner.lens":"Semantic Lens","viewer.owner.relationship":"Relationship Preview","viewer.owner.intent":"Intent Trace","viewer.owner.focus":"semantic focus","viewer.owner.legend":"legend preview","viewer.owner.reader":"reader interaction","viewer.present.enter":"Enter presentation stage","viewer.present.enter.title":"Presentation stage (F)","viewer.present.exit":"Exit presentation stage","viewer.present.exit.title":"Exit presentation stage (F or Escape)","viewer.present.present":"Present","viewer.present.exit.label":"Exit","viewer.export.button":"Export","viewer.export.button.title":"Export diagram (E)","viewer.export.diagram":"Export diagram","viewer.export.menu":"Export","viewer.export.subtitle":"Portable, clean outputs","viewer.export.share":"Share","viewer.export.shareCard":"Share Card","viewer.export.routeShareCard":"Route Share Card","viewer.export.reachShareCard":"Reach Share Card","viewer.export.copyDiagram":"Copy diagram","viewer.export.clipboardPng":"PNG to clipboard","viewer.export.raster":"Raster images","viewer.export.image":"Image","viewer.export.lossless":"Lossless image","viewer.export.compact":"Compact image","viewer.export.modern":"Modern image","viewer.export.vectorMotion":"Vector and motion","viewer.export.vectorMotion.heading":"Vector \u0026 motion","viewer.export.editable":"Editable vector","viewer.export.svg.auto":"SVG · Auto","viewer.export.svg.auto.hint":"Matches host theme","viewer.export.svg.light":"SVG · Light","viewer.export.svg.light.hint":"Always light","viewer.export.svg.dark":"SVG · Dark","viewer.export.svg.dark.hint":"Always dark","viewer.export.motion6s":"6s motion","viewer.export.unsupported":"Not supported by this browser","viewer.export.clipboardUnsupported":"Clipboard image write not supported by this browser","viewer.export.clipboardUnsupported.short":"Clipboard image write not supported in this browser.","viewer.export.motionUnavailable":"Motion capture unavailable in this browser","viewer.export.webmUnavailable":"WebM unavailable in this browser","viewer.export.failed":"Export failed: {message}","viewer.export.unknownVariant":"Unknown Share Card variant: {variant}","viewer.export.routeRequired":"Trace a route before exporting a Route Share Card","viewer.export.reachRequired":"Trace authored reach before exporting a Reach Share Card","viewer.export.unknown":"unknown","viewer.export.routeFailed":"Route Share Card export failed: {message}","viewer.export.reachFailed":"Reach Share Card export failed: {message}","viewer.export.copyFailed":"Copy failed: {message}","viewer.export.copiedPng":"Copied PNG to clipboard","viewer.export.downloadedRoute":"Downloaded Route Share Card","viewer.export.downloadedReach":"Downloaded Reach Share Card","viewer.export.downloadedWebm":"Downloaded WebM","viewer.export.recording":"Recording 6 seconds of motion…","viewer.export.card.routeSummary.one":"Path: {source} → {target} · {count} step","viewer.export.card.routeSummary.other":"Path: {source} → {target} · {count} steps","viewer.export.card.reachSummary":"Authored {direction} from {origin} · {nodes} · {links} · max {hops}","viewer.export.card.node.one":"{count} node","viewer.export.card.node.other":"{count} nodes","viewer.export.card.link.one":"{count} link","viewer.export.card.link.other":"{count} links","viewer.export.card.hop.one":"{count} hop","viewer.export.card.hop.other":"{count} hops","viewer.export.card.routeBadge":"ARCHIFY · ROUTE · {hops}","viewer.export.card.reachBadge":"ARCHIFY · {direction} REACH","viewer.export.direction.upstream":"Upstream","viewer.export.direction.downstream":"Downstream","viewer.export.error.canvasUnavailable":"Canvas unavailable for {label}","viewer.export.error.contextUnavailable":"2D canvas context unavailable for {label}","viewer.export.error.toBlobUnavailable":"canvas.toBlob unavailable for {label}","viewer.export.error.toBlobNull":"canvas.toBlob returned no data for {label}","viewer.export.error.variantsCombined":"Share Card variants cannot be combined","viewer.export.error.viewerState":"Share Card export could not remove temporary viewer state","viewer.export.error.routeState":"Route Card export could not preserve the resolved route safely","viewer.export.error.reachState":"Reach Card export could not preserve authored reach safely","viewer.export.error.webmRequirements":"WebM motion export requires a trace animation and browser MediaRecorder support","viewer.export.error.mediaRecorder":"MediaRecorder failed","viewer.export.error.emptyWebm":"MediaRecorder produced an empty WebM","viewer.export.error.webmBackground":"SVG background could not be loaded for WebM export","viewer.guide.title":"Explore this system","viewer.focus.selectedNodes":"{count} selected nodes","viewer.guide.eyebrow":"Diagram guide","viewer.guide.close":"Close diagram guide","viewer.guide.inspecting":"Inspecting compiled semantics","viewer.guide.actions":"Diagram exploration actions","viewer.guide.find":"Find any node","viewer.guide.find.hint":"Search labels, responsibilities, kinds, and stable IDs.","viewer.guide.route":"Trace a route","viewer.guide.route.aria":"Trace a directed route","viewer.guide.route.hint":"Ask how two semantic nodes connect in authored direction.","viewer.guide.map":"See the whole system","viewer.guide.map.hint":"Open Semantic Radar with a live viewport and stable nodes.","viewer.guide.lens":"Compare semantic kinds","viewer.guide.lens.hint":"Count roles, reveal their traffic, and compare direct authored links.","viewer.guide.present":"Enter Presentation Stage","viewer.guide.present.hint":"Give the live diagram the viewport without changing export.","viewer.guide.shortcuts":"Additional keyboard shortcuts","viewer.guide.shortcut.export":"Export","viewer.guide.shortcut.theme":"Theme","viewer.guide.shortcut.style":"Style","viewer.guide.shortcut.reset":"Reset","viewer.guide.shortcut.zoomIn":"Zoom in","viewer.guide.shortcut.zoomOut":"Zoom out","viewer.guide.shortcut.close":"Close","viewer.guide.credit":"Find Archify useful? A star on GitHub helps","viewer.guide.star":"Star","viewer.guide.facts":"{nodes} · {relationships}","viewer.guide.fact.node.one":"{count} semantic node","viewer.guide.fact.node.other":"{count} semantic nodes","viewer.guide.fact.relationship.one":"{count} relationship","viewer.guide.fact.relationship.other":"{count} relationships","viewer.guide.open":"Open diagram guide","viewer.finder.title":"Find a node","viewer.finder.close":"Close node finder","viewer.finder.placeholder":"Search labels or IDs","viewer.finder.search":"Search diagram nodes","viewer.finder.results":"Diagram nodes","viewer.finder.empty":"No matching nodes","viewer.finder.result.focus":"Focus {label}","viewer.finder.result.routeStart":"Choose {label} as route start","viewer.finder.result.routeTarget":"Choose {label} as route destination, {links}","viewer.finder.status.empty":"No matching nodes","viewer.finder.status.count.one":"{count} matching node","viewer.finder.status.count.other":"{count} matching nodes","viewer.finder.noun.nodes":"nodes","viewer.finder.link.one":"{count} link","viewer.finder.link.other":"{count} links","viewer.finder.result.focus.one":"Focus {label}, {count} related connection","viewer.finder.result.focus.other":"Focus {label}, {count} related connections","viewer.finder.status.filtered":"{visible} of {available} {noun}","viewer.finder.status.all":"{available} {noun}","viewer.passport.eyebrow":"Semantic passport","viewer.passport.metadata":"Node metadata","viewer.passport.evidence":"Verified source evidence","viewer.passport.verified":"Verified source","viewer.passport.verificationScope":"Verified against local Git at the pinned revision. Remote access has not been checked.","viewer.passport.reach":"Authored reach","viewer.passport.reach.trace":"Trace authored reachability","viewer.passport.upstream":"Upstream","viewer.passport.downstream":"Downstream","viewer.passport.upstream.trace":"Trace upstream authored reachability","viewer.passport.downstream.trace":"Trace downstream authored reachability","viewer.passport.close":"Close semantic passport","viewer.passport.move":"Move semantic passport. Drag, use arrow keys, or press Home to reset.","viewer.passport.copy":"Copy link","viewer.passport.copy.focus":"Copy link to focused node","viewer.passport.relations":"Relations","viewer.passport.relations.show":"Show connected relationships","viewer.passport.relations.hide":"Hide connected relationships","viewer.passport.relations.list":"Connected relationships","viewer.passport.copyRelation":"Copy relation","viewer.passport.copyNode":"Copy node","viewer.passport.copyPinned":"Copy link to pinned relationship","viewer.passport.copySource":"Copy link to source node","viewer.passport.copy.focused.success":"Focused node link copied","viewer.passport.copy.pinned.success":"Pinned relationship link copied","viewer.passport.copy.focused.failed":"Could not copy focused node link","viewer.passport.copy.pinned.failed":"Could not copy pinned relationship link","viewer.passport.relationship.none":"No connected relationships","viewer.passport.relationship.count.one":"{count} relation","viewer.passport.relationship.count.other":"{count} relations","viewer.passport.relationship.show.one":"Show {count} connected relationship","viewer.passport.relationship.show.other":"Show {count} connected relationships","viewer.passport.relationship.summary":"{out} outgoing · {in} incoming{loops}","viewer.passport.relationship.loops":" · {count} loop","viewer.passport.relationship.explorer":"Direct relationship explorer","viewer.passport.relationship.help":"Use arrow keys to explore relationships. Press Enter or Space to pin details; Escape clears.","viewer.passport.relationship.loopsBack":"loops back","viewer.passport.relationship.connectsTo":"connects to","viewer.passport.relationship.connectsFrom":"connects from","viewer.passport.relationship.pinned":"Pinned relationship · {from} → {to} · {label}","viewer.passport.relationship.inspect":"Inspect relationship {index} of {total}: {from} to {to}, {label}. Press Enter for details.","viewer.passport.relationship.group.out":"Outgoing","viewer.passport.relationship.group.in":"Incoming","viewer.passport.relationship.group.loop":"Self loops","viewer.passport.relationship.row":"{group}: {relationship}, {neighbor}","viewer.passport.relationship.direction.out":"OUT →","viewer.passport.relationship.direction.in":"← IN","viewer.passport.relationship.direction.loop":"LOOP","viewer.passport.sourceCount.one":"{count} verified source reference","viewer.passport.sourceCount.other":"{count} verified source references","viewer.passport.repository.open":"Open verified repository revision {revision}","viewer.passport.source.open":"Open verified source {path} at revision {revision}","viewer.passport.source.openLink":"Open ↗","viewer.passport.reach.upstream.one":"Trace {count} upstream authored node","viewer.passport.reach.upstream.other":"Trace {count} upstream authored nodes","viewer.passport.reach.downstream.one":"Trace {count} downstream authored node","viewer.passport.reach.downstream.other":"Trace {count} downstream authored nodes","viewer.passport.reach.noUpstream":"No upstream authored nodes","viewer.passport.reach.noDownstream":"No downstream authored nodes","viewer.passport.reach.status":"{direction} · {nodes} nodes · {links} links · max {hops} hops","viewer.route.eyebrow":"Path","viewer.route.start":"Click where the path starts","viewer.route.start.find":"Find start","viewer.route.start.find.aria":"Find a route start","viewer.route.copy":"Copy link","viewer.route.copy.aria":"Copy link to traced route","viewer.route.clear":"Clear","viewer.route.clear.aria":"Clear route probe","viewer.route.traced":"Path","viewer.route.pickTwo":"Click two nodes on the diagram","viewer.route.pickOne":"Click a node on the diagram","viewer.route.controls":"Route journey controls","viewer.route.previous":"Previous route position","viewer.route.play":"Play route journey","viewer.route.pause":"Pause route journey","viewer.route.replay":"Replay route journey","viewer.route.next":"Next route position","viewer.route.journey":"Journey","viewer.route.pause.label":"Pause","viewer.route.replay.label":"Replay","viewer.route.overview":"Overview","viewer.route.overview.aria":"Show complete route overview","viewer.route.instructions":"Click a start, then an end. Paths follow the arrows.","viewer.route.destination":"Where does the path from {label} end?","viewer.route.destination.find":"Find target","viewer.route.destination.find.aria":"Find a reachable route destination","viewer.route.differentDestination":"Choose a different destination","viewer.route.distinct":"Pick two different nodes.","viewer.route.unreachable":"Cannot reach {label} from here","viewer.route.unreachable.detail":"{target} cannot be reached from {source} along the arrows. Pick a highlighted node.","viewer.route.start.instructions":"Next, pick the end. Only nodes you can reach will light up.","viewer.route.copy.success":"Traced route link copied","viewer.route.copy.failed":"Could not copy traced route link","viewer.route.position":"Route position {index} of {total}: {label}","viewer.route.step":"Step {index} of {total} · {phase} · {label}","viewer.route.motionRequired":"Automatic journey requires Live motion","viewer.route.trigger.clear":"Clear traced route","viewer.route.overview.status":"{nodes} · {hops} · shortest path","viewer.route.overview.node.one":"{count} node","viewer.route.overview.node.other":"{count} nodes","viewer.route.overview.hop.one":"{count} step","viewer.route.overview.hop.other":"{count} steps","viewer.route.phase.playing":"Playing","viewer.route.phase.complete":"Complete","viewer.route.phase.inspecting":"Inspecting","viewer.route.destination.count.one":"{count} reachable node is highlighted. Click it.","viewer.route.destination.count.other":"{count} reachable nodes are highlighted. Click one.","viewer.route.noOutgoing":"No arrows lead out of this node. Clear it and pick another start.","viewer.route.result.title":"{source} to {target}","viewer.route.finder.source.title":"Choose route start","viewer.route.finder.source.placeholder":"Search route sources","viewer.route.finder.source.empty":"No matching route sources","viewer.route.finder.source.results":"Nodes that can start a route","viewer.route.finder.source.noun":"route sources","viewer.route.finder.source.badge":"start","viewer.route.finder.target.title":"Destination from {label}","viewer.route.finder.target.placeholder":"Search reachable destinations","viewer.route.finder.target.empty":"No matching reachable destinations","viewer.route.finder.target.results":"Reachable route destinations","viewer.route.finder.target.noun":"reachable destinations","viewer.route.hop.one":"{count} hop","viewer.route.hop.other":"{count} hops","viewer.lens.eyebrow":"Semantic lens","viewer.lens.title":"Compare system roles","viewer.lens.close":"Close semantic lens","viewer.lens.instruction":"Choose up to two semantic kinds. One reveals its real traffic; two compare only direct authored relationships.","viewer.lens.kinds":"Semantic kinds","viewer.lens.choose":"Choose a kind to inspect its nodes and touching relationships.","viewer.lens.copy":"Copy link to semantic lens","viewer.lens.clear":"Clear semantic lens","viewer.lens.open":"Open semantic lens","viewer.lens.openActive":"Open active semantic lens","viewer.lens.legend":"Semantic legend","viewer.lens.legend.inspect.one":"Inspect {label}, {count} node","viewer.lens.legend.inspect.other":"Inspect {label}, {count} nodes","viewer.lens.kind.count.one":"{label}, {count} node","viewer.lens.kind.count.other":"{label}, {count} nodes","viewer.lens.compare.one":"{first} → {second}: {forward} · {second} → {first}: {reverse} · {count} direct relationship","viewer.lens.compare.other":"{first} → {second}: {forward} · {second} → {first}: {reverse} · {count} direct relationships","viewer.lens.single":"{nodes} · {relationships} · connected peers remain visible","viewer.lens.node.one":"{count} {label} node","viewer.lens.node.other":"{count} {label} nodes","viewer.lens.relationship.one":"{count} touching relationship","viewer.lens.relationship.other":"{count} touching relationships","viewer.radar.title":"Semantic radar","viewer.radar.building":"Building overview","viewer.radar.openFull":"Open full semantic radar","viewer.radar.open":"Open radar","viewer.radar.close":"Close semantic radar","viewer.radar.surface":"Diagram overview. Click a node to focus it, or use arrow keys to pan.","viewer.radar.click":"Click node","viewer.radar.drag":"Drag to pan","viewer.radar.space":"Semantic radar needs more MAP space.","viewer.radar.nodes":"Semantic diagram radar nodes","viewer.radar.focus":"Focus {label} from Semantic Radar","viewer.radar.status":"{count} nodes · {viewport}","viewer.radar.fullMap":"{count} nodes · full map","viewer.radar.compacted":"Radar compacted to avoid covering the Semantic Passport or MAP controls.","viewer.radar.cancelWaiting":"Cancel semantic radar waiting for more MAP space","viewer.radar.needsSpace":"Semantic radar needs more visible MAP space","viewer.radar.viewport.full":"full map","viewer.radar.viewport.width":"{percent}% width","viewer.radar.viewport.scale":"{percent}% viewport","viewer.nav.controls":"Diagram view controls","viewer.nav.route":"Trace a directed route","viewer.nav.route.title":"Trace route (R)","viewer.nav.route.short":"ROUTE","viewer.nav.radar":"Open semantic radar","viewer.nav.radar.title":"Semantic radar (M)","viewer.nav.radar.short":"MAP","viewer.nav.lens":"Open semantic lens","viewer.nav.lens.title":"Semantic lens (L)","viewer.nav.lens.short":"LENS","viewer.nav.find":"Find a node","viewer.nav.find.title":"Find a node (/)","viewer.outline.title":"Node index","viewer.rail.show":"Notes \u0026 index","viewer.rail.controls":"Side panel","viewer.rail.collapse":"Collapse side panel","viewer.rail.bottom":"Move panel below the diagram","viewer.rail.right":"Move panel beside the diagram","viewer.nav.guide":"Open diagram guide","viewer.nav.guide.title":"Diagram guide (?)","viewer.nav.zoomOut":"Zoom out","viewer.nav.zoomOut.title":"Zoom out (-)","viewer.nav.reset":"Reset diagram view","viewer.nav.reset.title":"Reset view (0)","viewer.nav.read":"READ","viewer.nav.zoomIn":"Zoom in","viewer.nav.zoomIn.title":"Zoom in (+)","viewer.nav.camera":"{hint}. Reset diagram view","viewer.nav.camera.title":"{semantic}{hint} · reset view (0)","viewer.nav.camera.semantic":"Semantic camera active · ","viewer.nav.level.map":"MAP","viewer.nav.level.read":"READ","viewer.nav.level.full":"FULL","viewer.nav.level.auto":"AUTO","viewer.nav.detail.map":"Zoom in to reveal relationship labels and node context","viewer.nav.detail.read":"Zoom in again to reveal tags and annotations","viewer.nav.detail.full":"Full diagram detail","viewer.intent.summary":"{label}. {out} outgoing, {in} incoming{loops}. {total} connections. Press Enter for details.","viewer.intent.loops":", {count} self loop","viewer.common.copied":"Copied","viewer.common.copyFailed":"Copy failed","viewer.common.copyLink":"Copy link","viewer.common.clear":"Clear","viewer.common.close":"Close"}}</script>
     <!-- Main Diagram -->
     <div class="diagram-container" data-detail-level="read"
          data-preset-badge-editorial-plate="ARCHIFY / PLATE 04">
-      <svg viewBox="0 0 972 970" data-reader-fit="width-first" data-layout-contract="readable-v2" role="img" lang="en" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-node-ui="">
+      <svg viewBox="0 0 1128 1068" data-reader-fit="width-first" data-layout-contract="readable-v2" role="img" lang="en" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-node-ui="">
         <title id="archify-diagram-title">yt-dlp cli - process flow</title>
         <desc id="archify-diagram-description">A workflow diagram generated by Archify.</desc>
         <!-- Definitions -->
@@ -5206,23 +5249,23 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <rect width="100%" height="100%" fill="url(#grid)" />
 
         <!-- Swimlanes -->
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-0" x="40" y="52" width="895" height="104" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-0" x="40" y="52" width="1030" height="104" rx="10" class="c-lane" stroke-width="1"/>
         <text x="54" y="74" class="t-muted" font-size="10" font-weight="600">01 / human at the terminal</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-1" x="40" y="176" width="895" height="104" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-1" x="40" y="176" width="1030" height="106" rx="10" class="c-lane" stroke-width="1"/>
         <text x="54" y="198" class="t-muted" font-size="10" font-weight="600">02 / menu session</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-2" x="40" y="300" width="895" height="106" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="322" class="t-muted" font-size="10" font-weight="600">03 / updaters</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-2" x="40" y="302" width="1030" height="186" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="54" y="324" class="t-muted" font-size="10" font-weight="600">03 / updaters</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-3" x="40" y="426" width="895" height="106" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="448" class="t-muted" font-size="10" font-weight="600">04 / ytdlp cli logic</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-3" x="40" y="508" width="1030" height="106" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="54" y="530" class="t-muted" font-size="10" font-weight="600">04 / ytdlp cli logic</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-4" x="40" y="552" width="895" height="170" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="574" class="t-muted" font-size="10" font-weight="600">05 / child processes</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-4" x="40" y="634" width="1030" height="186" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="54" y="656" class="t-muted" font-size="10" font-weight="600">05 / child processes</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-5" x="40" y="742" width="895" height="104" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="764" class="t-muted" font-size="10" font-weight="600">06 / files on disk</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-5" x="40" y="840" width="1030" height="104" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="54" y="862" class="t-muted" font-size="10" font-weight="600">06 / files on disk</text>
 
         <!-- Phase headers -->
 
@@ -5231,21 +5274,23 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
 
         <!-- Edge paths -->
-        <path data-edge-from="m_route" data-edge-to="m_act" data-edge-label="1-14 or 0" data-edge-key="0" data-edge-id="e_act" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="589.6,243;650.8,243" d="M 589.6 243 L 650.8 243" class="a-default" data-animate="edge" style="--step:7" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="m_act" data-edge-to="r_do" data-edge-label="0 clipboard, 10 batch" data-edge-key="1" data-edge-id="e_batch" data-edge-role="" data-composition-points="727.8,269;727.8,494;597.6,494" d="M 727.8 269 L 727.8 486 Q 727.8 494 719.8 494 L 597.6 494" class="a-dashed" data-animate="edge" style="--step:8" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="r_verdict" data-edge-to="f_out" data-edge-label="saved file" data-edge-key="2" data-edge-id="e_final" data-edge-role="" data-composition-points="926.8,494;947,494;947,809;886.8,809" d="M 926.8 494 L 939 494 Q 947 494 947 502 L 947 801 Q 947 809 939 809 L 886.8 809" class="a-dashed" data-animate="edge" style="--step:9" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="u_cli" data-edge-to="u_gate" data-edge-label="y + download" data-edge-key="3" data-edge-id="e_gate" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="394,368;469.6,368" d="M 394 368 L 469.6 368" class="a-security" data-animate="edge" style="--step:10" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
-        <path data-edge-from="c_main" data-edge-to="m_paint" data-edge-label="no flags" data-edge-key="4" data-edge-id="e_menu" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="214,460;214,243;286,243" d="M 214 460 L 214 251 Q 214 243 222 243 L 286 243" class="a-emphasis" data-animate="edge" style="--step:1" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="m_paint" data-edge-to="m_route" data-edge-label="prompt" data-edge-key="5" data-edge-id="e_paint_route" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="382,243;493.6,243" d="M 382 243 L 493.6 243" class="a-emphasis" data-animate="edge" style="--step:2" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="r_ytdlp" data-edge-to="r_verdict" data-edge-label="rc + tail" data-edge-key="6" data-edge-id="e_rc" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="621.6,652;688.2,652;688.2,502;754.8,502" d="M 621.6 652 L 680.2 652 Q 688.2 652 688.2 644 L 688.2 510 Q 688.2 502 696.2 502 L 754.8 502" class="a-emphasis" data-animate="edge" style="--step:5" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="c_main" data-edge-to="f_settings" data-edge-label="read at start" data-edge-key="7" data-edge-id="e_read" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="214,528;214,783" d="M 214 528 L 214 783" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="r_do" data-edge-to="r_ytdlp" data-edge-label="spawn" data-edge-key="8" data-edge-id="e_spawn" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="541.6,528;541.6,626" d="M 541.6 528 L 541.6 626" class="a-emphasis" data-animate="edge" style="--step:4" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="u_start" data-edge-to="c_main" data-edge-label="start" data-edge-key="9" data-edge-id="e_start" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="140,119;190,119;190,460" d="M 140 119 L 182 119 Q 190 119 190 127 L 190 460" class="a-emphasis" data-animate="edge" style="--step:0" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="r_subs" data-edge-to="r_strip" data-edge-label="rc 0 + srt on" data-edge-key="10" data-edge-id="e_strip" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="840.8,638;840.8,666" d="M 840.8 638 L 840.8 666" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="r_verdict" data-edge-to="r_subs" data-edge-label="success + subs on" data-edge-key="11" data-edge-id="e_subs" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="840.8,520;840.8,586" d="M 840.8 520 L 840.8 586" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="u_type" data-edge-to="m_route" data-edge-label="keys + enter" data-edge-key="12" data-edge-id="e_type" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="541.6,145;541.6,217" d="M 541.6 145 L 541.6 217" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="m_act" data-edge-to="u_cli" data-edge-label="12 update" data-edge-key="13" data-edge-id="e_update" data-edge-role="" data-composition-points="713.8,269;713.8,290;334,290;334,334" d="M 713.8 269 L 713.8 282 Q 713.8 290 705.8 290 L 342 290 Q 334 290 334 298 L 334 334" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="m_route" data-edge-to="r_do" data-edge-label="http(s) link" data-edge-key="14" data-edge-id="e_url" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="565.6,217;565.6,201;956,201;956,844;452.6,844;452.6,444;541.6,444;541.6,460" d="M 565.6 217 L 565.6 209 Q 565.6 201 573.6 201 L 948 201 Q 956 201 956 209 L 956 836 Q 956 844 948 844 L 460.6 844 Q 452.6 844 452.6 836 L 452.6 452 Q 452.6 444 460.6 444 L 533.6 444 Q 541.6 444 541.6 452 L 541.6 460" class="a-emphasis" data-animate="edge" style="--step:3" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="m_route" data-edge-to="m_act" data-edge-label="1-15 or 0/s" data-edge-key="0" data-edge-id="e_act" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="560.8,244;633.2,244" d="M 560.8 244 L 633.2 244" class="a-default" data-animate="edge" style="--step:8" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="r_verdict" data-edge-to="f_out" data-edge-label="saved file" data-edge-key="1" data-edge-id="e_final" data-edge-role="" data-composition-points="1058,576;1082,576;1082,907;1062,907" d="M 1058 576 L 1074 576 Q 1082 576 1082 584 L 1082 899 Q 1082 907 1074 907 L 1062 907" class="a-dashed" data-animate="edge" style="--step:9" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="u_cli" data-edge-to="u_gate" data-edge-label="y + download" data-edge-key="2" data-edge-id="e_gate" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="1046,370;1109.6,370;1109.6,450;1054,450" d="M 1046 370 L 1101.6 370 Q 1109.6 370 1109.6 378 L 1109.6 442 Q 1109.6 450 1101.6 450 L 1054 450" class="a-security" data-animate="edge" style="--step:10" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
+        <path data-edge-from="r_subs" data-edge-to="r_ytdlp" data-edge-label="then media, always" data-edge-key="3" data-edge-id="e_media" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="574.8,709;590.8,709;590.8,836;504.8,836;504.8,808" d="M 574.8 709 L 582.8 709 Q 590.8 709 590.8 717 L 590.8 828 Q 590.8 836 582.8 836 L 512.8 836 Q 504.8 836 504.8 828 L 504.8 808" class="a-emphasis" data-animate="edge" style="--step:5" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="c_main" data-edge-to="m_paint" data-edge-label="no flags" data-edge-key="4" data-edge-id="e_menu" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="290,576;334,576;334,278" d="M 290 576 L 326 576 Q 334 576 334 568 L 334 278" class="a-emphasis" data-animate="edge" style="--step:1" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="m_paint" data-edge-to="m_route" data-edge-label="prompt" data-edge-key="5" data-edge-id="e_paint_route" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="402,244;448.8,244" d="M 402 244 L 448.8 244" class="a-emphasis" data-animate="edge" style="--step:2" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="r_ytdlp" data-edge-to="r_verdict" data-edge-label="rc + tail" data-edge-key="6" data-edge-id="e_rc" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="480.8,808;480.8,852;982,852;982,602" d="M 480.8 808 L 480.8 844 Q 480.8 852 488.8 852 L 974 852 Q 982 852 982 844 L 982 602" class="a-emphasis" data-animate="edge" style="--step:6" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="c_main" data-edge-to="f_settings" data-edge-label="read at start" data-edge-key="7" data-edge-id="e_read" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="214,610;214,881" d="M 214 610 L 214 881" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="u_start" data-edge-to="c_main" data-edge-label="start" data-edge-key="8" data-edge-id="e_start" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="140,119;214,119;214,542" d="M 140 119 L 206 119 Q 214 119 214 127 L 214 542" class="a-emphasis" data-animate="edge" style="--step:0" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="r_subs" data-edge-to="r_strip" data-edge-label="rc 0 + srt on" data-edge-key="9" data-edge-id="e_strip" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="528.8,668;528.8,652;725.2,652;725.2,668" d="M 528.8 668 L 528.8 660 Q 528.8 652 536.8 652 L 717.2 652 Q 725.2 652 725.2 660 L 725.2 668" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="r_do" data-edge-to="r_subs" data-edge-label="subs on: first" data-edge-key="10" data-edge-id="e_subs" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="504.8,610;504.8,668" d="M 504.8 610 L 504.8 668" class="a-emphasis" data-animate="edge" style="--step:4" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="r_sum" data-edge-to="r_verdict" data-edge-label="text, else sound" data-edge-key="11" data-edge-id="e_sum_rc" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="811.2,576;906,576" d="M 811.2 576 L 906 576" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="m_act" data-edge-to="r_sum" data-edge-label="s: summary" data-edge-key="12" data-edge-id="e_summary" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="725.2,270;725.2,542" d="M 725.2 270 L 725.2 542" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="u_type" data-edge-to="m_route" data-edge-label="keys + enter" data-edge-key="13" data-edge-id="e_type" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="504.8,145;504.8,218" d="M 504.8 145 L 504.8 218" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="m_act" data-edge-to="u_cli" data-edge-label="13 update" data-edge-key="14" data-edge-id="e_update" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="749.2,270;749.2,370;918,370" d="M 749.2 270 L 749.2 362 Q 749.2 370 757.2 370 L 918 370" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="m_route" data-edge-to="r_do" data-edge-label="http(s) link" data-edge-key="15" data-edge-id="e_url" data-composition-routing="workflow-v2-auto" data-edge-role="main" data-composition-points="504.8,270;504.8,542" d="M 504.8 270 L 504.8 542" class="a-emphasis" data-animate="edge" style="--step:3" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="m_act" data-edge-to="r_do" data-edge-label="0: clipboard" data-edge-key="16" data-edge-id="e_zero" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="633.2,251;615,251;615,576;572.8,576" d="M 633.2 251 L 623 251 Q 615 251 615 259 L 615 568 Q 615 576 607 576 L 572.8 576" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
 
         <!-- Nodes -->
         <g id="node-u_start" data-node-id="u_start" data-node-label="open ytdlp" tabindex="0" role="button" aria-label="Focus open ytdlp, start the cli, human at the terminal" aria-pressed="false" data-node-kind="external" data-node-sublabel="start the cli" data-node-context="human at the terminal">
@@ -5260,274 +5305,297 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <text data-detail="context" x="94" y="131" class="t-muted" font-size="8" text-anchor="middle">start the cli</text>
         </g>
 
-        <g id="node-u_type" data-node-id="u_type" data-node-label="type at the prompt" tabindex="0" role="button" aria-label="Focus type at the prompt, url | 0 | 1-14 | q, human at the terminal" aria-pressed="false" data-node-kind="external" data-node-sublabel="url | 0 | 1-14 | q" data-node-context="human at the terminal">
-          <title>type at the prompt · url | 0 | 1-14 | q · human at the terminal</title>
-          <rect x="481.6" y="93" width="120" height="52" rx="8" class="c-mask"/>
-          <rect x="481.6" y="93" width="120" height="52" rx="8" class="c-external" data-animate="node" style="--step:8" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(487.6 99) scale(0.6875)">
+        <g id="node-u_type" data-node-id="u_type" data-node-label="type at the prompt" tabindex="0" role="button" aria-label="Focus type at the prompt, url | 0 | 1-15 | s | q, human at the terminal" aria-pressed="false" data-node-kind="external" data-node-sublabel="url | 0 | 1-15 | s | q" data-node-context="human at the terminal">
+          <title>type at the prompt · url | 0 | 1-15 | s | q · human at the terminal</title>
+          <rect x="444.8" y="93" width="120" height="52" rx="8" class="c-mask"/>
+          <rect x="444.8" y="93" width="120" height="52" rx="8" class="c-external" data-animate="node" style="--step:9" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(450.8 99) scale(0.6875)">
             <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
             <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="541.6" y="124.4" class="t-primary" font-size="10.3" font-weight="600" text-anchor="middle">type at the prompt</text>
-          <text data-detail="context" x="541.6" y="139.1" class="t-muted" font-size="8" text-anchor="middle">url | 0 | 1-14 | q</text>
+          <text data-node-label="" data-detail-anchor="" x="504.8" y="124.4" class="t-primary" font-size="10.3" font-weight="600" text-anchor="middle">type at the prompt</text>
+          <text data-detail="context" x="504.8" y="139.1" class="t-muted" font-size="8" text-anchor="middle">url | 0 | 1-15 | s | q</text>
         </g>
 
-        <g id="node-m_paint" data-node-id="m_paint" data-node-label="paint menu" tabindex="0" role="button" aria-label="Focus paint menu, rows 1-14, saved values, menu session" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="rows 1-14, saved values" data-node-context="menu session">
-          <title>paint menu · rows 1-14, saved values · menu session</title>
-          <rect x="286" y="217" width="96" height="52" rx="8" class="c-mask"/>
-          <rect x="286" y="217" width="96" height="52" rx="8" class="c-frontend" data-animate="node" style="--step:2" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(292 223) scale(0.6875)">
+        <g id="node-m_paint" data-node-id="m_paint" data-node-label="paint menu" tabindex="0" role="button" aria-label="Focus paint menu, s and 0 rows over 15 items, menu session" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="s and 0 rows over 15 items" data-node-tag="hint: DL location" data-node-context="menu session">
+          <title>paint menu · s and 0 rows over 15 items · menu session · hint: DL location</title>
+          <rect x="266" y="210" width="136" height="68" rx="8" class="c-mask"/>
+          <rect x="266" y="210" width="136" height="68" rx="8" class="c-frontend" data-animate="node" style="--step:2" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(272 216) scale(0.6875)">
             <rect x="2" y="3" width="12" height="10" rx="2"/>
             <path d="M2 6.5h12"/>
             <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
             <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="334" y="251.2" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">paint menu</text>
-          <text data-detail="context" x="334" y="264.1" class="t-muted" font-size="6.3" text-anchor="middle">rows 1-14, saved values</text>
+          <text data-node-label="" data-detail-anchor="" x="327" y="231" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">paint menu</text>
+          <text data-detail="context" x="334" y="248" class="t-muted" font-size="8" text-anchor="middle">s and 0 rows over 15 items</text>
+        <text data-detail="fine" x="334" y="266" class="t-frontend" font-size="7" text-anchor="middle">hint: DL location</text>
         </g>
 
         <g id="node-m_route" data-node-id="m_route" data-node-label="route the input" tabindex="0" role="button" aria-label="Focus route the input, first http(s) link wins, menu session" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="first http(s) link wins" data-node-context="menu session">
           <title>route the input · first http(s) link wins · menu session</title>
-          <rect x="493.6" y="217" width="96" height="52" rx="8" class="c-mask"/>
-          <rect x="493.6" y="217" width="96" height="52" rx="8" class="c-frontend" data-animate="node" style="--step:3" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="decision" class="semantic-sigil s-frontend" transform="translate(499.6 223) scale(0.6875)">
+          <rect x="448.8" y="218" width="112" height="52" rx="8" class="c-mask"/>
+          <rect x="448.8" y="218" width="112" height="52" rx="8" class="c-frontend" data-animate="node" style="--step:3" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="decision" class="semantic-sigil s-frontend" transform="translate(454.8 224) scale(0.6875)">
             <path d="M8 2.2 13.8 8 8 13.8 2.2 8Z"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="541.6" y="249.7" class="t-primary" font-size="9.7" font-weight="600" text-anchor="middle">route the input</text>
-          <text data-detail="context" x="541.6" y="262.2" class="t-muted" font-size="6.3" text-anchor="middle">first http(s) link wins</text>
+          <text data-node-label="" data-detail-anchor="" x="504.8" y="250" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">route the input</text>
+          <text data-detail="context" x="504.8" y="261.8" class="t-muted" font-size="7.5" text-anchor="middle">first http(s) link wins</text>
         </g>
 
-        <g id="node-m_act" data-node-id="m_act" data-node-label="menu actions" tabindex="0" role="button" aria-label="Focus menu actions, items 1-14, saved each time, menu session" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="items 1-14, saved each time" data-node-context="menu session">
-          <title>menu actions · items 1-14, saved each time · menu session</title>
-          <rect x="650.8" y="217" width="140" height="52" rx="8" class="c-mask"/>
-          <rect x="650.8" y="217" width="140" height="52" rx="8" class="c-frontend" data-animate="node" style="--step:11" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(656.8 223) scale(0.6875)">
+        <g id="node-m_act" data-node-id="m_act" data-node-label="menu actions" tabindex="0" role="button" aria-label="Focus menu actions, items 1-15, 0 and s; saved each time, menu session" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="items 1-15, 0 and s; saved each time" data-node-context="menu session">
+          <title>menu actions · items 1-15, 0 and s; saved each time · menu session</title>
+          <rect x="633.2" y="218" width="184" height="52" rx="8" class="c-mask"/>
+          <rect x="633.2" y="218" width="184" height="52" rx="8" class="c-frontend" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(639.2 224) scale(0.6875)">
             <rect x="2" y="3" width="12" height="10" rx="2"/>
             <path d="M2 6.5h12"/>
             <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
             <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="720.8" y="249" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">menu actions</text>
-          <text data-detail="context" x="720.8" y="261.3" class="t-muted" font-size="8" text-anchor="middle">items 1-14, saved each time</text>
+          <text data-node-label="" data-detail-anchor="" x="725.2" y="239" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">menu actions</text>
+          <text data-detail="context" x="725.2" y="256" class="t-muted" font-size="8" text-anchor="middle">items 1-15, 0 and s; saved each time</text>
         </g>
 
-        <g id="node-u_cli" data-node-id="u_cli" data-node-label="releases API fetch" tabindex="0" role="button" aria-label="Focus releases API fetch, one GET: tag, asset, digest, updaters" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="one GET: tag, asset, digest" data-node-tag="no bare build: refusal" data-node-context="updaters">
-          <title>releases API fetch · one GET: tag, asset, digest · updaters · no bare build: refusal</title>
-          <rect x="274" y="334" width="120" height="68" rx="8" class="c-mask"/>
-          <rect x="274" y="334" width="120" height="68" rx="8" class="c-cloud" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(280 340) scale(0.6875)">
+        <g id="node-u_cli" data-node-id="u_cli" data-node-label="releases API fetch" tabindex="0" role="button" aria-label="Focus releases API fetch, one GET: tag, asset, digest, updaters" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="one GET: tag, asset, digest" data-node-tag="macOS: page only" data-node-context="updaters">
+          <title>releases API fetch · one GET: tag, asset, digest · updaters · macOS: page only</title>
+          <rect x="918" y="336" width="128" height="68" rx="8" class="c-mask"/>
+          <rect x="918" y="336" width="128" height="68" rx="8" class="c-cloud" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(924 342) scale(0.6875)">
             <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="334" y="367.4" class="t-primary" font-size="10.3" font-weight="600" text-anchor="middle">releases API fetch</text>
-          <text data-detail="context" x="334" y="380.8" class="t-muted" font-size="6.9" text-anchor="middle">one GET: tag, asset, digest</text>
-        <text data-detail="fine" x="334" y="393.3" class="t-cloud" font-size="7" text-anchor="middle">no bare build: refusal</text>
+          <text data-node-label="" data-detail-anchor="" x="982" y="370.2" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">releases API fetch</text>
+          <text data-detail="context" x="982" y="384.4" class="t-muted" font-size="7.4" text-anchor="middle">one GET: tag, asset, digest</text>
+        <text data-detail="fine" x="982" y="397.1" class="t-cloud" font-size="7" text-anchor="middle">macOS: page only</text>
         </g>
 
         <g id="node-u_gate" data-node-id="u_gate" data-node-label="selftest gate + rename" tabindex="0" role="button" aria-label="Focus selftest gate + rename, must pass its own checks, updaters" aria-pressed="false" data-node-kind="security" data-node-sublabel="must pass its own checks" data-node-context="updaters">
           <title>selftest gate + rename · must pass its own checks · updaters</title>
-          <rect x="469.6" y="342" width="144" height="52" rx="8" class="c-mask"/>
-          <rect x="469.6" y="342" width="144" height="52" rx="8" class="c-security" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(475.6 348) scale(0.6875)">
+          <rect x="910" y="424" width="144" height="52" rx="8" class="c-mask"/>
+          <rect x="910" y="424" width="144" height="52" rx="8" class="c-security" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(916 430) scale(0.6875)">
             <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
             <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="541.6" y="373.3" class="t-primary" font-size="10.3" font-weight="600" text-anchor="middle">selftest gate + rename</text>
-          <text data-detail="context" x="541.6" y="385.4" class="t-muted" font-size="8" text-anchor="middle">must pass its own checks</text>
+          <text data-node-label="" data-detail-anchor="" x="982" y="455.3" class="t-primary" font-size="10.3" font-weight="600" text-anchor="middle">selftest gate + rename</text>
+          <text data-detail="context" x="982" y="467.4" class="t-muted" font-size="8" text-anchor="middle">must pass its own checks</text>
         </g>
 
         <g id="node-c_main" data-node-id="c_main" data-node-label="main() dispatch" tabindex="0" role="button" aria-label="Focus main() dispatch, load settings once, ytdlp cli logic" aria-pressed="false" data-node-kind="backend" data-node-sublabel="load settings once" data-node-tag="check, selftest, update, url, menu" data-node-context="ytdlp cli logic">
           <title>main() dispatch · load settings once · ytdlp cli logic · check, selftest, update, url, menu</title>
-          <rect x="138" y="460" width="152" height="68" rx="8" class="c-mask"/>
-          <rect x="138" y="460" width="152" height="68" rx="8" class="c-backend" data-animate="node" style="--step:1" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(144 466) scale(0.6875)">
+          <rect x="138" y="542" width="152" height="68" rx="8" class="c-mask"/>
+          <rect x="138" y="542" width="152" height="68" rx="8" class="c-backend" data-animate="node" style="--step:1" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(144 548) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="214" y="494.2" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">main() dispatch</text>
-          <text data-detail="context" x="214" y="509.1" class="t-muted" font-size="8" text-anchor="middle">load settings once</text>
-        <text data-detail="fine" x="214" y="521.9" class="t-backend" font-size="7" text-anchor="middle">check, selftest, update, url, menu</text>
+          <text data-node-label="" data-detail-anchor="" x="214" y="576.2" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">main() dispatch</text>
+          <text data-detail="context" x="214" y="591.1" class="t-muted" font-size="8" text-anchor="middle">load settings once</text>
+        <text data-detail="fine" x="214" y="603.9" class="t-backend" font-size="7" text-anchor="middle">check, selftest, update, url, menu</text>
         </g>
 
-        <g id="node-r_do" data-node-id="r_do" data-node-label="do_download" tabindex="0" role="button" aria-label="Focus do_download, url check, tools, argv, ytdlp cli logic" aria-pressed="false" data-node-kind="backend" data-node-sublabel="url check, tools, argv" data-node-tag="offers ffmpeg if missing" data-node-context="ytdlp cli logic">
-          <title>do_download · url check, tools, argv · ytdlp cli logic · offers ffmpeg if missing</title>
-          <rect x="485.6" y="460" width="112" height="68" rx="8" class="c-mask"/>
-          <rect x="485.6" y="460" width="112" height="68" rx="8" class="c-backend" data-animate="node" style="--step:4" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(491.6 466) scale(0.6875)">
+        <g id="node-r_do" data-node-id="r_do" data-node-label="do_download" tabindex="0" role="button" aria-label="Focus do_download, url check, preflight, argv, ytdlp cli logic" aria-pressed="false" data-node-kind="backend" data-node-sublabel="url check, preflight, argv" data-node-tag="subs first, then media" data-node-context="ytdlp cli logic">
+          <title>do_download · url check, preflight, argv · ytdlp cli logic · subs first, then media</title>
+          <rect x="436.8" y="542" width="136" height="68" rx="8" class="c-mask"/>
+          <rect x="436.8" y="542" width="136" height="68" rx="8" class="c-backend" data-animate="node" style="--step:4" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(442.8 548) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="541.6" y="494.2" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">do_download</text>
-          <text data-detail="context" x="541.6" y="508.9" class="t-muted" font-size="7.8" text-anchor="middle">url check, tools, argv</text>
-        <text data-detail="fine" x="541.6" y="521.7" class="t-backend" font-size="7" text-anchor="middle">offers ffmpeg if missing</text>
+          <text data-node-label="" data-detail-anchor="" x="494.5" y="563" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">do_download</text>
+          <text data-detail="context" x="504.8" y="580" class="t-muted" font-size="8" text-anchor="middle">url check, preflight, argv</text>
+        <text data-detail="fine" x="504.8" y="598" class="t-backend" font-size="7" text-anchor="middle">subs first, then media</text>
         </g>
 
-        <g id="node-r_verdict" data-node-id="r_verdict" data-node-label="verdict" tabindex="0" role="button" aria-label="Focus verdict, finished | failed rc | stopped 130, ytdlp cli logic" aria-pressed="false" data-node-kind="backend" data-node-sublabel="finished | failed rc | stopped 130" data-node-context="ytdlp cli logic">
-          <title>verdict · finished | failed rc | stopped 130 · ytdlp cli logic</title>
-          <rect x="754.8" y="468" width="172" height="52" rx="8" class="c-mask"/>
-          <rect x="754.8" y="468" width="172" height="52" rx="8" class="c-backend" data-animate="node" style="--step:6" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(760.8 474) scale(0.6875)">
+        <g id="node-r_sum" data-node-id="r_sum" data-node-label="do_summary" tabindex="0" role="button" aria-label="Focus do_summary, subs to text first; sound fallback, ytdlp cli logic" aria-pressed="false" data-node-kind="backend" data-node-sublabel="subs to text first; sound fallback" data-node-tag="stored settings kept" data-node-context="ytdlp cli logic">
+          <title>do_summary · subs to text first; sound fallback · ytdlp cli logic · stored settings kept</title>
+          <rect x="639.2" y="542" width="172" height="68" rx="8" class="c-mask"/>
+          <rect x="639.2" y="542" width="172" height="68" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(645.2 548) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="840.8" y="489" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">verdict</text>
-          <text data-detail="context" x="840.8" y="506" class="t-muted" font-size="8" text-anchor="middle">finished | failed rc | stopped 130</text>
+          <text data-node-label="" data-detail-anchor="" x="725.2" y="563" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">do_summary</text>
+          <text data-detail="context" x="725.2" y="580" class="t-muted" font-size="8" text-anchor="middle">subs to text first; sound fallback</text>
+        <text data-detail="fine" x="725.2" y="598" class="t-backend" font-size="7" text-anchor="middle">stored settings kept</text>
         </g>
 
-        <g id="node-r_ytdlp" data-node-id="r_ytdlp" data-node-label="yt-dlp process" tabindex="0" role="button" aria-label="Focus yt-dlp process, stdout piped; escape kills tree, child processes" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="stdout piped; escape kills tree" data-node-context="child processes">
-          <title>yt-dlp process · stdout piped; escape kills tree · child processes</title>
-          <rect x="461.6" y="626" width="160" height="52" rx="8" class="c-mask"/>
-          <rect x="461.6" y="626" width="160" height="52" rx="8" class="c-messagebus" data-animate="node" style="--step:5" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(467.6 632) scale(0.6875)">
+        <g id="node-r_verdict" data-node-id="r_verdict" data-node-label="run verdict" tabindex="0" role="button" aria-label="Focus run verdict, done | failed rc | stopped 130, ytdlp cli logic" aria-pressed="false" data-node-kind="backend" data-node-sublabel="done | failed rc | stopped 130" data-node-context="ytdlp cli logic">
+          <title>run verdict · done | failed rc | stopped 130 · ytdlp cli logic</title>
+          <rect x="906" y="550" width="152" height="52" rx="8" class="c-mask"/>
+          <rect x="906" y="550" width="152" height="52" rx="8" class="c-backend" data-animate="node" style="--step:7" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(912 556) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="979.7" y="571" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">run verdict</text>
+          <text data-detail="context" x="982" y="588" class="t-muted" font-size="8" text-anchor="middle">done | failed rc | stopped 130</text>
+        </g>
+
+        <g id="node-r_subs" data-node-id="r_subs" data-node-label="subtitle pass" tabindex="0" role="button" aria-label="Focus subtitle pass, runs first, --skip-download, child processes" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="runs first, --skip-download" data-node-tag="escape stops the run" data-node-context="child processes">
+          <title>subtitle pass · runs first, --skip-download · child processes · escape stops the run</title>
+          <rect x="434.8" y="668" width="140" height="68" rx="8" class="c-mask"/>
+          <rect x="434.8" y="668" width="140" height="68" rx="8" class="c-messagebus" data-animate="node" style="--step:5" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(440.8 674) scale(0.6875)">
             <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/>
             <circle cx="5" cy="4.5" r="1" class="sigil-fill"/>
             <circle cx="10.5" cy="8" r="1" class="sigil-fill"/>
             <circle cx="7" cy="11.5" r="1" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="533.4" y="647" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">yt-dlp process</text>
-          <text data-detail="context" x="541.6" y="664" class="t-muted" font-size="8" text-anchor="middle">stdout piped; escape kills tree</text>
+          <text data-node-label="" data-detail-anchor="" x="504.8" y="702.2" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">subtitle pass</text>
+          <text data-detail="context" x="504.8" y="717.1" class="t-muted" font-size="8" text-anchor="middle">runs first, --skip-download</text>
+        <text data-detail="fine" x="504.8" y="729.9" class="t-messagebus" font-size="7" text-anchor="middle">escape stops the run</text>
         </g>
 
-        <g id="node-r_strip" data-node-id="r_strip" data-node-label="srt timecode stripper" tabindex="0" role="button" aria-label="Focus srt timecode stripper, only when srt on and rc 0, child processes" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="only when srt on and rc 0" data-node-context="child processes">
-          <title>srt timecode stripper · only when srt on and rc 0 · child processes</title>
-          <rect x="770.8" y="666" width="140" height="52" rx="8" class="c-mask"/>
-          <rect x="770.8" y="666" width="140" height="52" rx="8" class="c-messagebus" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(776.8 672) scale(0.6875)">
+        <g id="node-r_ytdlp" data-node-id="r_ytdlp" data-node-label="yt-dlp media pass" tabindex="0" role="button" aria-label="Focus yt-dlp media pass, stdout piped; escape kills tree, child processes" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="stdout piped; escape kills tree" data-node-context="child processes">
+          <title>yt-dlp media pass · stdout piped; escape kills tree · child processes</title>
+          <rect x="424.8" y="756" width="160" height="52" rx="8" class="c-mask"/>
+          <rect x="424.8" y="756" width="160" height="52" rx="8" class="c-messagebus" data-animate="node" style="--step:6" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(430.8 762) scale(0.6875)">
             <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/>
             <circle cx="5" cy="4.5" r="1" class="sigil-fill"/>
             <circle cx="10.5" cy="8" r="1" class="sigil-fill"/>
             <circle cx="7" cy="11.5" r="1" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="840.8" y="697.4" class="t-primary" font-size="10.4" font-weight="600" text-anchor="middle">srt timecode stripper</text>
-          <text data-detail="context" x="840.8" y="709.6" class="t-muted" font-size="8" text-anchor="middle">only when srt on and rc 0</text>
+          <text data-node-label="" data-detail-anchor="" x="504.8" y="788" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">yt-dlp media pass</text>
+          <text data-detail="context" x="504.8" y="800.3" class="t-muted" font-size="8" text-anchor="middle">stdout piped; escape kills tree</text>
         </g>
 
-        <g id="node-r_subs" data-node-id="r_subs" data-node-label="subtitle pass" tabindex="0" role="button" aria-label="Focus subtitle pass, --skip-download, after success, child processes" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="--skip-download, after success" data-node-context="child processes">
-          <title>subtitle pass · --skip-download, after success · child processes</title>
-          <rect x="764.8" y="586" width="152" height="52" rx="8" class="c-mask"/>
-          <rect x="764.8" y="586" width="152" height="52" rx="8" class="c-messagebus" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(770.8 592) scale(0.6875)">
+        <g id="node-r_strip" data-node-id="r_strip" data-node-label="srt timecode stripper" tabindex="0" role="button" aria-label="Focus srt timecode stripper, one spawn per file, child processes" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="one spawn per file" data-node-tag="text, timecode, numbered" data-node-context="child processes">
+          <title>srt timecode stripper · one spawn per file · child processes · text, timecode, numbered</title>
+          <rect x="655.2" y="668" width="140" height="68" rx="8" class="c-mask"/>
+          <rect x="655.2" y="668" width="140" height="68" rx="8" class="c-messagebus" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(661.2 674) scale(0.6875)">
             <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/>
             <circle cx="5" cy="4.5" r="1" class="sigil-fill"/>
             <circle cx="10.5" cy="8" r="1" class="sigil-fill"/>
             <circle cx="7" cy="11.5" r="1" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="831.9" y="607" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">subtitle pass</text>
-          <text data-detail="context" x="840.8" y="624" class="t-muted" font-size="8" text-anchor="middle">--skip-download, after success</text>
+          <text data-node-label="" data-detail-anchor="" x="725.2" y="701.5" class="t-primary" font-size="10.4" font-weight="600" text-anchor="middle">srt timecode stripper</text>
+          <text data-detail="context" x="725.2" y="716.3" class="t-muted" font-size="8" text-anchor="middle">one spawn per file</text>
+        <text data-detail="fine" x="725.2" y="729.1" class="t-messagebus" font-size="7" text-anchor="middle">text, timecode, numbered</text>
         </g>
 
         <g id="node-f_settings" data-node-id="f_settings" data-node-label="config/settings.json" tabindex="0" role="button" aria-label="Focus config/settings.json, read at start, saved on change, files on disk" aria-pressed="false" data-node-kind="database" data-node-sublabel="read at start, saved on change" data-node-context="files on disk">
           <title>config/settings.json · read at start, saved on change · files on disk</title>
-          <rect x="148" y="783" width="132" height="52" rx="8" class="c-mask"/>
-          <rect x="148" y="783" width="132" height="52" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(154 789) scale(0.6875)">
+          <rect x="144" y="881" width="140" height="52" rx="8" class="c-mask"/>
+          <rect x="144" y="881" width="140" height="52" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(150 887) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="214" y="816.4" class="t-primary" font-size="10.3" font-weight="600" text-anchor="middle">config/settings.json</text>
-          <text data-detail="context" x="214" y="829.7" class="t-muted" font-size="6.8" text-anchor="middle">read at start, saved on change</text>
+          <text data-node-label="" data-detail-anchor="" x="214" y="913" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">config/settings.json</text>
+          <text data-detail="context" x="214" y="924.6" class="t-muted" font-size="7.3" text-anchor="middle">read at start, saved on change</text>
         </g>
 
-        <g id="node-f_out" data-node-id="f_out" data-node-label="output folder" tabindex="0" role="button" aria-label="Focus output folder, partials in .ytdlp-tmp, files on disk" aria-pressed="false" data-node-kind="database" data-node-sublabel="partials in .ytdlp-tmp" data-node-context="files on disk">
-          <title>output folder · partials in .ytdlp-tmp · files on disk</title>
-          <rect x="794.8" y="783" width="92" height="52" rx="8" class="c-mask"/>
-          <rect x="794.8" y="783" width="92" height="52" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(800.8 789) scale(0.6875)">
+        <g id="node-f_out" data-node-id="f_out" data-node-label="output folder" tabindex="0" role="button" aria-label="Focus output folder, ytdlp-cli-downloads, .ytdlp-tmp, files on disk" aria-pressed="false" data-node-kind="database" data-node-sublabel="ytdlp-cli-downloads, .ytdlp-tmp" data-node-context="files on disk">
+          <title>output folder · ytdlp-cli-downloads, .ytdlp-tmp · files on disk</title>
+          <rect x="902" y="881" width="160" height="52" rx="8" class="c-mask"/>
+          <rect x="902" y="881" width="160" height="52" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(908 887) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="840.8" y="816.9" class="t-primary" font-size="10.7" font-weight="600" text-anchor="middle">output folder</text>
-          <text data-detail="context" x="840.8" y="829.7" class="t-muted" font-size="6.3" text-anchor="middle">partials in .ytdlp-tmp</text>
+          <text data-node-label="" data-detail-anchor="" x="977.1" y="902" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">output folder</text>
+          <text data-detail="context" x="982" y="919" class="t-muted" font-size="8" text-anchor="middle">ytdlp-cli-downloads, .ytdlp-tmp</text>
         </g>
 
         <!-- Edge labels -->
-        <g data-detail="context" data-edge-from="m_route" data-edge-to="m_act" data-edge-label="1-14 or 0" data-edge-key="0" data-edge-id="e_act">
-          <rect x="593.6" y="223" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
-          <text x="620.2" y="233" class="t-muted" font-size="8" text-anchor="middle">1-14 or 0</text>
+        <g data-detail="context" data-edge-from="m_route" data-edge-to="m_act" data-edge-label="1-15 or 0/s" data-edge-key="0" data-edge-id="e_act">
+          <rect x="565.6" y="224" width="62.8" height="14" rx="3" class="c-mask"/>
+          <text x="597" y="234" class="t-muted" font-size="8" text-anchor="middle">1-15 or 0/s</text>
         </g>
-        <g data-detail="context" data-edge-from="m_act" data-edge-to="r_do" data-edge-label="0 clipboard, 10 batch" data-edge-key="1" data-edge-id="e_batch">
-          <rect x="607.3000000000001" y="474" width="110.8" height="14" rx="3" class="c-mask"/>
-          <text x="662.7" y="484" class="t-edge-dashed" font-size="8" text-anchor="middle">0 clipboard, 10 batch</text>
+        <g data-detail="context" data-edge-from="r_verdict" data-edge-to="f_out" data-edge-label="saved file" data-edge-key="1" data-edge-id="e_final">
+          <rect x="1053" y="721.5" width="58" height="14" rx="3" class="c-mask"/>
+          <text x="1082" y="731.5" class="t-edge-dashed" font-size="8" text-anchor="middle">saved file</text>
         </g>
-        <g data-detail="context" data-edge-from="r_verdict" data-edge-to="f_out" data-edge-label="saved file" data-edge-key="2" data-edge-id="e_final">
-          <rect x="887.9" y="789" width="58" height="14" rx="3" class="c-mask"/>
-          <text x="916.9" y="799" class="t-edge-dashed" font-size="8" text-anchor="middle">saved file</text>
+        <g data-detail="context" data-edge-from="u_cli" data-edge-to="u_gate" data-edge-label="y + download" data-edge-key="2" data-edge-id="e_gate">
+          <rect x="1044" y="350" width="67.6" height="14" rx="3" class="c-mask"/>
+          <text x="1077.8" y="360" class="t-edge-security" font-size="8" text-anchor="middle">y + download</text>
         </g>
-        <g data-detail="context" data-edge-from="u_cli" data-edge-to="u_gate" data-edge-label="y + download" data-edge-key="3" data-edge-id="e_gate">
-          <rect x="398" y="348" width="67.6" height="14" rx="3" class="c-mask"/>
-          <text x="431.8" y="358" class="t-edge-security" font-size="8" text-anchor="middle">y + download</text>
+        <g data-detail="context" data-edge-from="r_subs" data-edge-to="r_ytdlp" data-edge-label="then media, always" data-edge-key="3" data-edge-id="e_media">
+          <rect x="499.59999999999997" y="816" width="96.39999999999999" height="14" rx="3" class="c-mask"/>
+          <text x="547.8" y="826" class="t-edge-emphasis" font-size="8" text-anchor="middle">then media, always</text>
         </g>
         <g data-detail="context" data-edge-from="c_main" data-edge-to="m_paint" data-edge-label="no flags" data-edge-key="4" data-edge-id="e_menu">
-          <rect x="225.8" y="223" width="48.4" height="14" rx="3" class="c-mask"/>
-          <text x="250" y="233" class="t-edge-emphasis" font-size="8" text-anchor="middle">no flags</text>
+          <rect x="309.8" y="417" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="334" y="427" class="t-edge-emphasis" font-size="8" text-anchor="middle">no flags</text>
         </g>
         <g data-detail="context" data-edge-from="m_paint" data-edge-to="m_route" data-edge-label="prompt" data-edge-key="5" data-edge-id="e_paint_route">
-          <rect x="418.40000000000003" y="223" width="38.8" height="14" rx="3" class="c-mask"/>
-          <text x="437.8" y="233" class="t-edge-emphasis" font-size="8" text-anchor="middle">prompt</text>
+          <rect x="406" y="224" width="38.8" height="14" rx="3" class="c-mask"/>
+          <text x="425.4" y="234" class="t-edge-emphasis" font-size="8" text-anchor="middle">prompt</text>
         </g>
         <g data-detail="context" data-edge-from="r_ytdlp" data-edge-to="r_verdict" data-edge-label="rc + tail" data-edge-key="6" data-edge-id="e_rc">
-          <rect x="628.3000000000001" y="632" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
-          <text x="654.9000000000001" y="642" class="t-edge-emphasis" font-size="8" text-anchor="middle">rc + tail</text>
+          <rect x="704.8" y="832" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
+          <text x="731.4" y="842" class="t-edge-emphasis" font-size="8" text-anchor="middle">rc + tail</text>
         </g>
         <g data-detail="context" data-edge-from="c_main" data-edge-to="f_settings" data-edge-label="read at start" data-edge-key="7" data-edge-id="e_read">
-          <rect x="177.8" y="645.5" width="72.4" height="14" rx="3" class="c-mask"/>
-          <text x="214" y="655.5" class="t-edge-dashed" font-size="8" text-anchor="middle">read at start</text>
+          <rect x="177.8" y="735.5" width="72.4" height="14" rx="3" class="c-mask"/>
+          <text x="214" y="745.5" class="t-edge-dashed" font-size="8" text-anchor="middle">read at start</text>
         </g>
-        <g data-detail="context" data-edge-from="r_do" data-edge-to="r_ytdlp" data-edge-label="spawn" data-edge-key="8" data-edge-id="e_spawn">
-          <rect x="524.6" y="567" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="541.6" y="577" class="t-edge-emphasis" font-size="8" text-anchor="middle">spawn</text>
+        <g data-detail="context" data-edge-from="u_start" data-edge-to="c_main" data-edge-label="start" data-edge-key="8" data-edge-id="e_start">
+          <rect x="160" y="99" width="34" height="14" rx="3" class="c-mask"/>
+          <text x="177" y="109" class="t-edge-emphasis" font-size="8" text-anchor="middle">start</text>
         </g>
-        <g data-detail="context" data-edge-from="u_start" data-edge-to="c_main" data-edge-label="start" data-edge-key="9" data-edge-id="e_start">
-          <rect x="148" y="99" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="165" y="109" class="t-edge-emphasis" font-size="8" text-anchor="middle">start</text>
+        <g data-detail="context" data-edge-from="r_subs" data-edge-to="r_strip" data-edge-label="rc 0 + srt on" data-edge-key="9" data-edge-id="e_strip">
+          <rect x="590.8" y="632" width="72.4" height="14" rx="3" class="c-mask"/>
+          <text x="627" y="642" class="t-edge-dashed" font-size="8" text-anchor="middle">rc 0 + srt on</text>
         </g>
-        <g data-detail="context" data-edge-from="r_subs" data-edge-to="r_strip" data-edge-label="rc 0 + srt on" data-edge-key="10" data-edge-id="e_strip">
-          <rect x="804.5999999999999" y="642" width="72.4" height="14" rx="3" class="c-mask"/>
-          <text x="840.8" y="652" class="t-edge-dashed" font-size="8" text-anchor="middle">rc 0 + srt on</text>
+        <g data-detail="context" data-edge-from="r_do" data-edge-to="r_subs" data-edge-label="subs on: first" data-edge-key="10" data-edge-id="e_subs">
+          <rect x="466.2" y="629" width="77.2" height="14" rx="3" class="c-mask"/>
+          <text x="504.8" y="639" class="t-edge-emphasis" font-size="8" text-anchor="middle">subs on: first</text>
         </g>
-        <g data-detail="context" data-edge-from="r_verdict" data-edge-to="r_subs" data-edge-label="success + subs on" data-edge-key="11" data-edge-id="e_subs">
-          <rect x="795" y="543" width="91.6" height="14" rx="3" class="c-mask"/>
-          <text x="840.8" y="553" class="t-edge-dashed" font-size="8" text-anchor="middle">success + subs on</text>
+        <g data-detail="context" data-edge-from="r_sum" data-edge-to="r_verdict" data-edge-label="text, else sound" data-edge-key="11" data-edge-id="e_sum_rc">
+          <rect x="815.2" y="556" width="86.8" height="14" rx="3" class="c-mask"/>
+          <text x="858.6" y="566" class="t-edge-dashed" font-size="8" text-anchor="middle">text, else sound</text>
         </g>
-        <g data-detail="context" data-edge-from="u_type" data-edge-to="m_route" data-edge-label="keys + enter" data-edge-key="12" data-edge-id="e_type">
-          <rect x="507.8" y="171" width="67.6" height="14" rx="3" class="c-mask"/>
-          <text x="541.6" y="181" class="t-muted" font-size="8" text-anchor="middle">keys + enter</text>
+        <g data-detail="context" data-edge-from="m_act" data-edge-to="r_sum" data-edge-label="s: summary" data-edge-key="12" data-edge-id="e_summary">
+          <rect x="696.2" y="396" width="58" height="14" rx="3" class="c-mask"/>
+          <text x="725.2" y="406" class="t-edge-dashed" font-size="8" text-anchor="middle">s: summary</text>
         </g>
-        <g data-detail="context" data-edge-from="m_act" data-edge-to="u_cli" data-edge-label="12 update" data-edge-key="13" data-edge-id="e_update">
-          <rect x="497.29999999999995" y="270" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
-          <text x="523.9" y="280" class="t-edge-dashed" font-size="8" text-anchor="middle">12 update</text>
+        <g data-detail="context" data-edge-from="u_type" data-edge-to="m_route" data-edge-label="keys + enter" data-edge-key="13" data-edge-id="e_type">
+          <rect x="512.8000000000001" y="171.5" width="67.6" height="14" rx="3" class="c-mask"/>
+          <text x="546.6" y="181.5" class="t-muted" font-size="8" text-anchor="middle">keys + enter</text>
         </g>
-        <g data-detail="context" data-edge-from="m_route" data-edge-to="r_do" data-edge-label="http(s) link" data-edge-key="14" data-edge-id="e_url">
-          <rect x="670.5" y="824" width="67.6" height="14" rx="3" class="c-mask"/>
-          <text x="704.3" y="834" class="t-edge-emphasis" font-size="8" text-anchor="middle">http(s) link</text>
+        <g data-detail="context" data-edge-from="m_act" data-edge-to="u_cli" data-edge-label="13 update" data-edge-key="14" data-edge-id="e_update">
+          <rect x="807" y="350" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
+          <text x="833.6" y="360" class="t-edge-dashed" font-size="8" text-anchor="middle">13 update</text>
+        </g>
+        <g data-detail="context" data-edge-from="m_route" data-edge-to="r_do" data-edge-label="http(s) link" data-edge-key="15" data-edge-id="e_url">
+          <rect x="429.2" y="396" width="67.6" height="14" rx="3" class="c-mask"/>
+          <text x="463" y="406" class="t-edge-emphasis" font-size="8" text-anchor="middle">http(s) link</text>
+        </g>
+        <g data-detail="context" data-edge-from="m_act" data-edge-to="r_do" data-edge-label="0: clipboard" data-edge-key="16" data-edge-id="e_zero">
+          <rect x="581.2" y="403.5" width="67.6" height="14" rx="3" class="c-mask"/>
+          <text x="615" y="413.5" class="t-edge-dashed" font-size="8" text-anchor="middle">0: clipboard</text>
         </g>
 
         <!-- Legend -->
         <g data-legend="" data-legend-bridge="">
-          <text x="20" y="870" class="t-primary" font-size="12" font-weight="650">Legend</text>
-          <g data-legend-semantic-kind="frontend" data-legend-kind="frontend" data-legend-label="User UI" data-legend-x="20" data-legend-baseline="890" data-legend-width="76">
-            <rect x="20" y="882" width="14" height="9" rx="2" class="c-frontend" stroke-width="1"/>
-            <text x="42" y="890" class="t-muted" font-size="7.5" font-weight="500">User UI</text>
+          <text x="20" y="968" class="t-primary" font-size="12" font-weight="650">Legend</text>
+          <g data-legend-semantic-kind="frontend" data-legend-kind="frontend" data-legend-label="User UI" data-legend-x="20" data-legend-baseline="988" data-legend-width="76">
+            <rect x="20" y="980" width="14" height="9" rx="2" class="c-frontend" stroke-width="1"/>
+            <text x="42" y="988" class="t-muted" font-size="7.5" font-weight="500">User UI</text>
           </g>
-          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Agent logic" data-legend-x="103" data-legend-baseline="890" data-legend-width="95">
-            <rect x="103" y="882" width="14" height="9" rx="2" class="c-backend" stroke-width="1"/>
-            <text x="125" y="890" class="t-muted" font-size="7.5" font-weight="500">Agent logic</text>
+          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Agent logic" data-legend-x="103" data-legend-baseline="988" data-legend-width="95">
+            <rect x="103" y="980" width="14" height="9" rx="2" class="c-backend" stroke-width="1"/>
+            <text x="125" y="988" class="t-muted" font-size="7.5" font-weight="500">Agent logic</text>
           </g>
-          <g data-legend-semantic-kind="security" data-legend-kind="security" data-legend-label="Policy" data-legend-x="205" data-legend-baseline="890" data-legend-width="71">
-            <rect x="205" y="882" width="14" height="9" rx="2" class="c-security" stroke-width="1"/>
-            <text x="227" y="890" class="t-muted" font-size="7.5" font-weight="500">Policy</text>
+          <g data-legend-semantic-kind="security" data-legend-kind="security" data-legend-label="Policy" data-legend-x="205" data-legend-baseline="988" data-legend-width="71">
+            <rect x="205" y="980" width="14" height="9" rx="2" class="c-security" stroke-width="1"/>
+            <text x="227" y="988" class="t-muted" font-size="7.5" font-weight="500">Policy</text>
           </g>
-          <g data-legend-semantic-kind="messagebus" data-legend-kind="messagebus" data-legend-label="Tool action" data-legend-x="283" data-legend-baseline="890" data-legend-width="95">
-            <rect x="283" y="882" width="14" height="9" rx="2" class="c-messagebus" stroke-width="1"/>
-            <text x="305" y="890" class="t-muted" font-size="7.5" font-weight="500">Tool action</text>
+          <g data-legend-semantic-kind="messagebus" data-legend-kind="messagebus" data-legend-label="Tool action" data-legend-x="283" data-legend-baseline="988" data-legend-width="95">
+            <rect x="283" y="980" width="14" height="9" rx="2" class="c-messagebus" stroke-width="1"/>
+            <text x="305" y="988" class="t-muted" font-size="7.5" font-weight="500">Tool action</text>
           </g>
-          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="Context / trace" data-legend-x="385" data-legend-baseline="890" data-legend-width="113">
-            <rect x="385" y="882" width="14" height="9" rx="2" class="c-database" stroke-width="1"/>
-            <text x="407" y="890" class="t-muted" font-size="7.5" font-weight="500">Context / trace</text>
+          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="Context / trace" data-legend-x="385" data-legend-baseline="988" data-legend-width="113">
+            <rect x="385" y="980" width="14" height="9" rx="2" class="c-database" stroke-width="1"/>
+            <text x="407" y="988" class="t-muted" font-size="7.5" font-weight="500">Context / trace</text>
           </g>
-          <g data-legend-semantic-kind="cloud" data-legend-kind="cloud" data-legend-label="Cloud service" data-legend-x="505" data-legend-baseline="890" data-legend-width="104">
-            <rect x="505" y="882" width="14" height="9" rx="2" class="c-cloud" stroke-width="1"/>
-            <text x="527" y="890" class="t-muted" font-size="7.5" font-weight="500">Cloud service</text>
+          <g data-legend-semantic-kind="cloud" data-legend-kind="cloud" data-legend-label="Cloud service" data-legend-x="505" data-legend-baseline="988" data-legend-width="104">
+            <rect x="505" y="980" width="14" height="9" rx="2" class="c-cloud" stroke-width="1"/>
+            <text x="527" y="988" class="t-muted" font-size="7.5" font-weight="500">Cloud service</text>
           </g>
-          <g data-legend-semantic-kind="external" data-legend-kind="external" data-legend-label="External system" data-legend-x="616" data-legend-baseline="890" data-legend-width="113">
-            <rect x="616" y="882" width="14" height="9" rx="2" class="c-external" stroke-width="1"/>
-            <text x="638" y="890" class="t-muted" font-size="7.5" font-weight="500">External system</text>
+          <g data-legend-semantic-kind="external" data-legend-kind="external" data-legend-label="External system" data-legend-x="616" data-legend-baseline="988" data-legend-width="113">
+            <rect x="616" y="980" width="14" height="9" rx="2" class="c-external" stroke-width="1"/>
+            <text x="638" y="988" class="t-muted" font-size="7.5" font-weight="500">External system</text>
           </g>
         </g>
       </svg>
@@ -5707,7 +5775,31 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     </div>
     <!-- Info Cards -->
     <div class="cards">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot cyan"></div>
+          <h3>Download order (FR-9, FR-6)</h3>
+        </div>
+        <ul>
+          <li>The subtitle pass runs first; the media pass runs whatever it answered, so a failed or rate-limited subtitle api never costs the video.</li>
+          <li>Escape during the subtitle pass cleans fresh partials, removes the work folder and returns 130.</li>
+          <li>Item 9 adds --write-description to the video pass; a zero exit renames every *.description next to the media to .txt.</li>
+          <li>Default and fallback downloads land in &lt;base&gt;/ytdlp-cli-downloads; the base is Desktop, then Downloads, then the project root; a saved output_dir wins verbatim.</li>
+        </ul>
+      </div>
 
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot amber"></div>
+          <h3>Summary key (FR-22)</h3>
+        </div>
+        <ul>
+          <li>s and S on the main prompt take the clipboard link; no link prints one amber line and holds.</li>
+          <li>Fresh subtitle files go through the stripper in text mode regardless of the stored stripper settings.</li>
+          <li>Only a missing text result falls back to sound: a settings copy with audio only and playlist off drives that pass, so stored settings are never rewritten.</li>
+          <li>The s row paints directly above the 0 row; the five-line hint block names both keys and the resolved DL location.</li>
+        </ul>
+      </div>
     </div>
     <nav class="node-outline no-print" id="node-outline" hidden aria-labelledby="node-outline-title">
       <div class="node-outline-head">
@@ -5886,6 +5978,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         else open(false);
       });
       btn.addEventListener('keydown', function (e) {
+        if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
           e.preventDefault();
           if (!isOpen()) open(e.key === 'ArrowUp');
@@ -5902,6 +5995,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       menu.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') { e.preventDefault(); close(true); return; }
         if (e.key === 'Tab') { close(false); return; }
+        if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
         var available = options();
         var active = available.indexOf(document.activeElement);
         switch (e.key) {
@@ -7325,6 +7419,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       });
       // APG menu-button pattern: ArrowDown/ArrowUp on the trigger opens the menu.
       btn.addEventListener('keydown', function (e) {
+        if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
           e.preventDefault();
           if (!isOpen()) open(e.key === 'ArrowUp');
@@ -7340,6 +7435,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       menu.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') { e.preventDefault(); close(true); return; }
         if (e.key === 'Tab')    { close(false); return; }
+        if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
 
         var available = items().filter(function (i) { return !i.hidden && !i.disabled; });
         var current = available.indexOf(document.activeElement);
@@ -9967,6 +10063,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         syncRelationshipPreview();
       });
       relationshipList.addEventListener('keydown', function (event) {
+        if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
         if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp' && event.key !== 'Home' && event.key !== 'End') return;
         var buttons = Array.prototype.slice.call(relationshipList.querySelectorAll('[data-relationship-target]'));
         if (!buttons.length) return;
@@ -12755,6 +12852,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       closeBtn.addEventListener('click', function () { close(); });
       input.addEventListener('input', function () { render(input.value); });
       input.addEventListener('keydown', function (event) {
+        if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
         var buttons = resultButtons();
         if (event.key === 'ArrowDown' && buttons.length) {
           event.preventDefault();
@@ -12765,6 +12863,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         }
       });
       results.addEventListener('keydown', function (event) {
+        if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
         var buttons = resultButtons();
         var index = buttons.indexOf(document.activeElement);
         if (index < 0 || !buttons.length) return;
@@ -12799,6 +12898,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         count: items.length
       };
     })();
+
 
     /* ============================================================
        Node Outline — a rail index of the semantic nodes, grouped by their
@@ -13904,6 +14004,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         if (journeyPlaying && event.target.closest('[data-route-journey-index]')) pauseJourney({ preserveElapsed: true });
       });
       path.addEventListener('keydown', function (event) {
+        if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
         var button = event.target.closest('[data-route-journey-index]');
         if (!button) return;
         var index = Number(button.getAttribute('data-route-journey-index'));
@@ -14579,6 +14680,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         select(button.getAttribute('data-kind'));
       });
       kindsRoot.addEventListener('keydown', function (event) {
+        if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
         var buttons = Array.prototype.slice.call(kindsRoot.querySelectorAll('button:not(:disabled)'));
         var index = buttons.indexOf(document.activeElement);
         var next = null;
@@ -14816,6 +14918,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
        ============================================================ */
     document.addEventListener('keydown', function (e) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.shiftKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Home' || e.key === 'End')) return;
       if (e.defaultPrevented) return;
       var t = e.target;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
