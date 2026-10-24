@@ -15,13 +15,13 @@ One-shot URL runs, scripts, CI and piped runs never trigger it: no network conta
 
 | file | size | contains |
 |---|---|---|
-| `ytdlp-cli-v2.8.0-windows-lean.zip` | 20.1 MB | yt-dlp and the srtstripper. Install ffmpeg yourself for merge and audio conversion. |
-| `ytdlp-cli-v2.8.0-windows-portable.zip` | 60.1 MB | yt-dlp, the srtstripper **and** ffmpeg. Nothing else to install. |
-| `ytdlp-cli-v2.8.0-windows-setup.exe` | 46.2 MB | Windows installer, same content as the portable zip: per-user install, no admin prompt, `ytdlp` on your PATH, with an uninstaller. |
-| `ytdlp-cli-v2.8.0-linux-lean.tar.gz` | 42.8 MB | yt-dlp and the srtstripper. Install ffmpeg yourself for merge and audio conversion. |
-| `ytdlp-cli-v2.8.0-linux-portable.tar.gz` | 110.8 MB | yt-dlp, the srtstripper **and** ffmpeg. Nothing else to install. |
-| `ytdlp-cli-v2.8.0-linux-musl.tar.gz` | 2.4 MB | Alpine and other musl systems: the cli and the srtstripper. Get the runtime with `apk add yt-dlp`; that package pulls ffmpeg and the JS runtime with it. |
-| `ytdlp-cli-v2.8.0-macos-arm64.pkg` | 70.5 MB | macOS installer for Apple silicon (yt-dlp, ffmpeg and the srtstripper). Nothing else to install. |
+| `ytdlp-cli-v2.8.1-windows-lean.zip` | 20.1 MB | yt-dlp and the srtstripper. Install ffmpeg yourself for merge and audio conversion. |
+| `ytdlp-cli-v2.8.1-windows-portable.zip` | 60.1 MB | yt-dlp, the srtstripper **and** ffmpeg. Nothing else to install. |
+| `ytdlp-cli-v2.8.1-windows-setup.exe` | 46.2 MB | Windows installer, same content as the portable zip: per-user install, no admin prompt, `ytdlp` on your PATH, with an uninstaller. |
+| `ytdlp-cli-v2.8.1-linux-lean.tar.gz` | 42.5 MB | yt-dlp and the srtstripper. Install ffmpeg yourself for merge and audio conversion. |
+| `ytdlp-cli-v2.8.1-linux-portable.tar.gz` | 110.6 MB | yt-dlp, the srtstripper **and** ffmpeg. Nothing else to install. |
+| `ytdlp-cli-v2.8.1-linux-musl.tar.gz` | 2.1 MB | Alpine and other musl systems: the cli and the srtstripper. Get the runtime with `apk add yt-dlp`; that package pulls ffmpeg and the JS runtime with it. |
+| `ytdlp-cli-v2.8.1-macos-arm64.pkg` | 70.3 MB | macOS installer for Apple silicon (yt-dlp, ffmpeg and the srtstripper). Nothing else to install. |
 The lean bundles skip ffmpeg, on a machine with no ffmpeg at all it also offers to fetch the published build for the platform, with the checksum checked before it is installed.
 
 ![ytdlp-cli process flow](resources/archify%20flow%20ytdlp-cli.png)
@@ -93,13 +93,13 @@ They change nothing else: same arguments, same settings, same output. The yt-dlp
 ## Checksums
 
 ```
-b08a88071bc8eb6649059f08b31295b4f66b8a5da0e3e9c394af4fdd71ff8107  ytdlp-cli-v2.8.0-windows-lean.zip
-e43419bf464c43f76ecbce4b4c074ff1358fc443b54738cc9b8332a1ac48e50a  ytdlp-cli-v2.8.0-windows-portable.zip
-b419dc5362eea90f7d62f041dff99c9c4266ff6e96d4d38df1bacf8491dc4c12  ytdlp-cli-v2.8.0-windows-setup.exe
-3718ead4e3943de249451b979bf09280be101d5b551dfced05031a86fcf10f40  ytdlp-cli-v2.8.0-linux-lean.tar.gz
-79db133093845f3065e7e72e4c2548f02ae144f280d931d34f5cce4ea75a12a5  ytdlp-cli-v2.8.0-linux-portable.tar.gz
-7cd32dac6dea8adc32b7849c52d47e271ea1692ff26315916867708ef0960894  ytdlp-cli-v2.8.0-linux-musl.tar.gz
-075162261e23f2b0d92724ec63d82bd8709e6dfeb6bf76dfff271b3ba67724e1  ytdlp-cli-v2.8.0-macos-arm64.pkg
+c0708713697d40ba0facea9e240c0d6b08452580d7c3816d8bd5371c2c39c46c  ytdlp-cli-v2.8.1-windows-lean.zip
+c7fb678c8da5ad935d6b284cc028f78a4912920058011f78b1aaf052ca118216  ytdlp-cli-v2.8.1-windows-portable.zip
+4d69d222dd03615f7fcd8f938ebefc160c3043266d39d109e6dfa6cbd177df41  ytdlp-cli-v2.8.1-windows-setup.exe
+ecf3abde0c7ee80df8041cfc0ca95d1e5500990e9650d3e2607609cfcb08663a  ytdlp-cli-v2.8.1-linux-lean.tar.gz
+644e7f53a1b8f8a3bb713badf7f3b5ff0af3281fb003aaad2b2ff9e552fa2692  ytdlp-cli-v2.8.1-linux-portable.tar.gz
+40bebc1a86bf3bd340eba51dd31e510675d35f6766da295b5822d3ae6fafa8ca  ytdlp-cli-v2.8.1-linux-musl.tar.gz
+4237a5e70bd65bbd80dd91135b30c330dba39643b5ca95b34f1c5cb6932e7155  ytdlp-cli-v2.8.1-macos-arm64.pkg
 ```
 
 No release publishes a bare cli image: menu item 13 updates the cli from the platform lean bundle.
