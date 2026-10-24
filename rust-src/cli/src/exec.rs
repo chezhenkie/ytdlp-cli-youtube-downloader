@@ -1870,7 +1870,9 @@ mod tests {
         let mut world = InstallWorld::new("summary-text", "linux");
         let outdir = resolve::py_path_join(&world.dir, resolve::DOWNLOADS_DIR_NAME);
         std::fs::create_dir_all(&outdir).unwrap();
-        std::fs::write(resolve::py_path_join(&world.bin_dir, "yt-dlp"), b"x").unwrap();
+        let host = resolve::host_platform();
+        let yt = resolve::platform_bin_name(&host);
+        std::fs::write(resolve::py_path_join(&world.bin_dir, yt), b"x").unwrap();
         std::fs::write(resolve::py_path_join(&world.bin_dir, "ffmpeg"), b"x").unwrap();
         std::fs::write(resolve::py_path_join(&world.bin_dir, "srtstripper"), b"x").unwrap();
         world.probe_answers.push_back(("2026.08.19".to_string(), 0));
@@ -1921,7 +1923,7 @@ mod tests {
         assert_eq!(rc, 0);
         let calls = calls.lock().unwrap().clone();
         assert_eq!(calls.len(), 2, "subtitle pass + text stripper: {calls:?}");
-        assert!(calls[0].0.ends_with("yt-dlp"));
+        assert!(calls[0].0.ends_with(yt));
         assert!(calls[0].1.contains(&"--skip-download".to_string()));
         assert!(calls[1].0.ends_with("srtstripper"));
         assert_eq!(calls[1].1, vec![sub.clone()], "text mode takes no flag");
@@ -1938,7 +1940,9 @@ mod tests {
         let mut world = InstallWorld::new("summary-sound", "linux");
         let outdir = resolve::py_path_join(&world.dir, resolve::DOWNLOADS_DIR_NAME);
         std::fs::create_dir_all(&outdir).unwrap();
-        std::fs::write(resolve::py_path_join(&world.bin_dir, "yt-dlp"), b"x").unwrap();
+        let host = resolve::host_platform();
+        let yt = resolve::platform_bin_name(&host);
+        std::fs::write(resolve::py_path_join(&world.bin_dir, yt), b"x").unwrap();
         std::fs::write(resolve::py_path_join(&world.bin_dir, "ffmpeg"), b"x").unwrap();
         world.probe_answers.push_back(("2026.08.19".to_string(), 0));
         let lines = Arc::clone(&world.lines);
