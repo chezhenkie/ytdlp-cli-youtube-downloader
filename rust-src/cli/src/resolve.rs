@@ -1176,7 +1176,13 @@ pub fn host_platform() -> String {
 
 /// `os.path.getmtime(path)` in seconds, `None` on OSError.
 pub fn mtime_seconds(path: &str) -> Option<f64> {
-    let meta = std::fs::metadata(path).ok()?;
+    mtime_from_meta(&std::fs::metadata(path).ok()?)
+}
+
+/// The mtime out of one already-taken metadata: `std::fs::metadata`
+/// follows symlinks, matching the old two-call sites it replaces (one
+/// stat per directory entry instead of an `is_file` plus a re-stat).
+pub fn mtime_from_meta(meta: &std::fs::Metadata) -> Option<f64> {
     let modified = meta.modified().ok()?;
     match modified.duration_since(std::time::UNIX_EPOCH) {
         Ok(d) => Some(d.as_secs_f64()),

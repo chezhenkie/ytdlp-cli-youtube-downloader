@@ -12,12 +12,14 @@
 //! lzma-rust2 in place of the C xz2 - OQ-N3). python's rule that a
 //! header anywhere in the archive must parse before anything is
 //! written (`getmembers` first) is kept by reading every member header
-//! in one pass and extracting in a second; a truncated archive
-//! therefore reports the same "unreadable" as python instead of
-//! leaving a half-written binary behind.
+//! in one pass, teeing the matching member to `<out>.partial` during
+//! the same decode and renaming only after the pass succeeds; a
+//! truncated archive therefore reports the same "unreadable" as
+//! python, the partial is removed, and nothing is left behind.
 
 use std::io::Write;
 
+use crate::pyfs;
 use crate::resolve::py_path_join;
 use crate::tty::{self, SharedSink};
 
@@ -171,45 +173,54 @@ fn from_tar_gz(blob: &str, binname: &str, out: &str) -> Result<Option<String>, S
     )
 }
 
-/// The shared two-pass tar read: every header first, then the one member.
+/// The single-pass tar read: every member header validates the whole
+/// stream, and the first matching file member tees straight out during
+/// the same decode - the xz stream is read once, not twice (audit perf
+/// 7). The tee lands as `<out>.partial` and is renamed only after the
+/// header pass succeeded, so a truncated archive still writes nothing.
 fn from_tar<R: std::io::Read>(
     open: impl Fn() -> Result<R, String>,
     binname: &str,
     out: &str,
 ) -> Result<Option<String>, String> {
-    // pass 1: every member header (python's getmembers), keeping the
-    // first match only - the raw name bytes, because a path python would
-    // decode with surrogateescape is compared here as bytes
-    let mut members: Vec<(bool, Vec<u8>)> = Vec::new();
-    {
+    let partial = format!("{out}.partial");
+    let mut hit = false;
+    // pass 1: every member header (python's getmembers), comparing the
+    // raw name bytes - a path python would decode with surrogateescape
+    // is compared here as bytes
+    let pass = (|| -> Result<(), String> {
         let mut archive = tar::Archive::new(open()?);
         let entries = archive.entries().map_err(|e| e.to_string())?;
         for entry in entries {
-            let entry = entry.map_err(|e| e.to_string())?;
+            let mut entry = entry.map_err(|e| e.to_string())?;
             let is_file = entry.header().entry_type().is_file();
-            members.push((is_file, entry.path_bytes().into_owned()));
+            let name = entry.path_bytes().into_owned();
+            if !hit && is_file && name.rsplit(|b| *b == b'/').next() == Some(binname.as_bytes()) {
+                hit = true;
+                let mut fh = std::fs::File::create(&partial).map_err(|e| e.to_string())?;
+                std::io::copy(&mut entry, &mut fh).map_err(|e| e.to_string())?;
+                fh.flush().map_err(|e| e.to_string())?;
+            }
         }
+        Ok(())
+    })();
+    if let Err(e) = pass {
+        if hit {
+            pyfs::remove_quiet(&partial);
+        }
+        return Err(e);
     }
-    let hit = members.iter().position(|(is_file, name)| {
-        *is_file && name.rsplit(|b| *b == b'/').next() == Some(binname.as_bytes())
-    });
-    let Some(index) = hit else {
+    if !hit {
         return Ok(None);
-    };
-    // pass 2: re-open and stream the member out. the decoders are
-    // forward-only, so the second pass starts decoding over - the same
-    // work python's seek does.
-    let mut archive = tar::Archive::new(open()?);
-    let entries = archive.entries().map_err(|e| e.to_string())?;
-    for (position, entry) in entries.enumerate() {
-        if position != index {
-            continue;
-        }
-        let mut entry = entry.map_err(|e| e.to_string())?;
-        write_member(&mut entry, out)?;
-        return Ok(Some(out.to_string()));
     }
-    Ok(None)
+    // the header pass ran to the end: the archive is whole, promote the
+    // tee'd member (the rename preserves the file's 0644; the caller
+    // sets the exec mode)
+    if let Err(e) = pyfs::replace(&partial, out) {
+        pyfs::remove_quiet(&partial);
+        return Err(e.to_string());
+    }
+    Ok(Some(out.to_string()))
 }
 
 // fixture builders, shipped: the packaged selftest builds the same

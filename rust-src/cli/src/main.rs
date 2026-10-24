@@ -172,7 +172,8 @@ fn run_check(settings: &Obj, root: &str, is_windows: bool) -> Result<ExitCode, S
         win_desktop: win_desktop.as_deref(),
         win_downloads: win_downloads.as_deref(),
     };
-    let mut which = |cmd: &str| resolve::which_from_process(cmd);
+    let which_memo = std::rc::Rc::new(std::cell::RefCell::new(WhichHits::new()));
+    let mut which = which_closure(&which_memo);
     let mut version_cache = resolve::VersionCache::default();
     let mut probe = |binary: &str| {
         let mtime = resolve::mtime_seconds(binary);
@@ -219,6 +220,8 @@ fn run_quick(
     let mut probe = probe_closure(&cache);
     let mut http = UreqHttp::new();
     let mut sleep = sleep_closure();
+    let which_memo = std::rc::Rc::new(std::cell::RefCell::new(WhichHits::new()));
+    let mut which = which_closure(&which_memo);
     let mut ctx = exec::DownloadCtx {
         root,
         is_windows,
@@ -230,7 +233,7 @@ fn run_quick(
         auto: auto.as_deref(),
         http: &mut http,
         probe: &mut probe,
-        which: &mut |cmd: &str| resolve::which_from_process(cmd),
+        which: &mut which,
         sleep: &mut sleep,
     };
     let mut rt = exec::RunRt::real();
@@ -255,6 +258,28 @@ fn probe_closure(
         resolve::probe_version(binary, mtime, &mut memo, &mut |b, f| {
             resolve::spawn_version_probe(b, f)
         })
+    }
+}
+
+/// The `which` answer map one memo holds (audit perf 6): the query set
+/// is a handful of program names per session.
+type WhichHits = std::collections::HashMap<String, Option<String>>;
+
+/// The `which` memo behind one map per menu session (audit perf 6):
+/// the download half and the updater half answer from the same map,
+/// like the probe memo above; a miss is stored too, so an absent
+/// binary costs one PATH scan per session instead of one per call.
+fn which_closure(
+    hits: &std::rc::Rc<std::cell::RefCell<WhichHits>>,
+) -> impl FnMut(&str) -> Option<String> {
+    let hits = std::rc::Rc::clone(hits);
+    move |cmd: &str| {
+        if let Some(hit) = hits.borrow().get(cmd) {
+            return hit.clone();
+        }
+        let hit = resolve::which_from_process(cmd);
+        hits.borrow_mut().insert(cmd.to_string(), hit.clone());
+        hit
     }
 }
 
@@ -310,6 +335,7 @@ fn updater_run(
         use_color,
         sink,
         cache,
+        which_memo,
     } = world;
     let mut http = UreqHttp::new();
     let mut probe = probe_closure(&cache);
@@ -337,7 +363,7 @@ fn updater_run(
             .map(|d| d.as_secs_f64())
             .unwrap_or(0.0)
     };
-    let mut which = |cmd: &str| resolve::which_from_process(cmd);
+    let mut which = which_closure(&which_memo);
     let mut ctx = UpdateCtx {
         platform: &platform,
         arch,
@@ -378,6 +404,9 @@ struct UpdWorld {
     use_color: bool,
     sink: tty::SharedSink,
     cache: std::rc::Rc<std::cell::RefCell<resolve::VersionCache>>,
+    /// One which memo per menu session: the download half and the
+    /// updater half answer from the same map (audit perf 6).
+    which_memo: std::rc::Rc<std::cell::RefCell<WhichHits>>,
 }
 
 impl UpdWorld {
@@ -391,6 +420,7 @@ impl UpdWorld {
             use_color,
             sink: shared.sink(),
             cache: std::rc::Rc::new(std::cell::RefCell::new(resolve::VersionCache::default())),
+            which_memo: std::rc::Rc::new(std::cell::RefCell::new(WhichHits::new())),
         }
     }
 }
@@ -450,6 +480,10 @@ fn run_menu(
     // python's probe version memo is one for the process: the download
     // half and the updater half of one session answer from the same map
     let memo = std::rc::Rc::new(std::cell::RefCell::new(resolve::VersionCache::default()));
+    // audit perf 6: the which lookups share one memo the same way, so a
+    // batch of downloads answers node/yt-dlp/srtstripper/ffmpeg from
+    // one PATH scan each
+    let which_memo = std::rc::Rc::new(std::cell::RefCell::new(WhichHits::new()));
     let world = menu::World {
         version: ytdlp_cli::VERSION,
         root,
@@ -471,6 +505,7 @@ fn run_menu(
             let mut probe = probe_closure(&memo);
             let mut http = UreqHttp::new();
             let mut sleep = sleep_closure();
+            let mut which = which_closure(&which_memo);
             let mut ctx = exec::DownloadCtx {
                 root: world.root,
                 is_windows: world.is_windows,
@@ -482,7 +517,7 @@ fn run_menu(
                 auto: world.auto,
                 http: &mut http,
                 probe: &mut probe,
-                which: &mut |cmd: &str| resolve::which_from_process(cmd),
+                which: &mut which,
                 sleep: &mut sleep,
             };
             let mut rt = exec::RunRt::real();
@@ -496,6 +531,7 @@ fn run_menu(
     // the forced forms and run no check of their own.
     let mut updater = UpdWorld::new(root, is_windows, use_color, &shared);
     updater.cache = std::rc::Rc::clone(&memo);
+    updater.which_memo = std::rc::Rc::clone(&which_memo);
     let mut update =
         |s: &mut Obj, io: &mut menu::Io| match updater_run(s, UpdMode::All, updater.clone(), io) {
             Ok(_) => Ok(()),

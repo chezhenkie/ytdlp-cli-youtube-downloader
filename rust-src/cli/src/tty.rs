@@ -20,7 +20,7 @@
 
 use std::collections::VecDeque;
 use std::io::{IsTerminal, Read, Write};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 
 use crate::term::{DOTS, FRAME_SECS, Spinner, flat_frames, flat_freeze, plain_cells, render_cells};
 
@@ -804,35 +804,53 @@ impl RawInput {
                 }
                 continue;
             }
-            let bytes: Vec<u8> = self.pending.iter().copied().collect();
-            match std::str::from_utf8(&bytes) {
-                Ok(text) => {
-                    let ch = text.chars().next()?;
-                    self.pending.drain(..ch.len_utf8());
-                    return Some(ch);
+            // decode from a bounded front window: one char is at most 4
+            // bytes, and an incomplete trailing sequence widens the
+            // window by up to 4 more (audit perf 9 - the whole-buffer
+            // revalidation per character copied the entire pending
+            // burst, quadratic in an 8 KiB paste)
+            let mut take = self.pending.len().min(4);
+            loop {
+                let mut buf = [0u8; 8];
+                for (slot, byte) in buf.iter_mut().zip(self.pending.iter().take(take)) {
+                    *slot = *byte;
                 }
-                Err(e) => match e.error_len() {
-                    // an incomplete sequence: read on, exactly like the
-                    // incremental decoder (a split char still returns whole)
-                    None => {
-                        if self.fill() {
-                            continue;
-                        }
-                        self.pending.pop_front();
-                        return Some('\u{fffd}');
-                    }
-                    Some(_) => {
-                        let valid = e.valid_up_to();
-                        if valid == 0 {
-                            self.pending.pop_front();
-                            return Some('\u{fffd}');
-                        }
-                        let text = std::str::from_utf8(&bytes[..valid]).ok()?;
+                let bytes = &buf[..take];
+                match std::str::from_utf8(bytes) {
+                    Ok(text) => {
                         let ch = text.chars().next()?;
                         self.pending.drain(..ch.len_utf8());
                         return Some(ch);
                     }
-                },
+                    Err(e) => match e.error_len() {
+                        // an incomplete sequence: read on, exactly like
+                        // the incremental decoder (a split char still
+                        // returns whole); more pending bytes widen the
+                        // window first
+                        None => {
+                            if take < self.pending.len() {
+                                take = (e.valid_up_to() + 4).min(self.pending.len());
+                                continue;
+                            }
+                            if self.fill() {
+                                continue;
+                            }
+                            self.pending.pop_front();
+                            return Some('\u{fffd}');
+                        }
+                        Some(_) => {
+                            let valid = e.valid_up_to();
+                            if valid == 0 {
+                                self.pending.pop_front();
+                                return Some('\u{fffd}');
+                            }
+                            let text = std::str::from_utf8(&bytes[..valid]).ok()?;
+                            let ch = text.chars().next()?;
+                            self.pending.drain(..ch.len_utf8());
+                            return Some(ch);
+                        }
+                    },
+                }
             }
         }
     }
@@ -1175,6 +1193,9 @@ pub struct Stage {
     freeze: Vec<(String, u8)>,
     use_color: bool,
     state: Arc<Mutex<StageState>>,
+    /// The animator's wait: set_live and done wake it, so a stage join
+    /// no longer waits out a full tick (audit perf 5).
+    signal: Arc<Condvar>,
     sink: SharedSink,
     thread: Option<std::thread::JoinHandle<()>>,
 }
@@ -1198,6 +1219,7 @@ impl Stage {
                 live: None,
                 stop: false,
             })),
+            signal: Arc::new(Condvar::new()),
             sink,
             thread: None,
         }
@@ -1208,31 +1230,38 @@ impl Stage {
             return;
         }
         let state = Arc::clone(&self.state);
+        let signal = Arc::clone(&self.signal);
         let sink = Arc::clone(&self.sink);
         let frames = self.frames.clone();
         let text = self.text.clone();
-        let tick = self.tick;
+        let tick = std::time::Duration::from_secs_f64(self.tick);
         self.thread = Some(std::thread::spawn(move || {
             let count = frames.len().max(1);
             let mut i: usize = 0;
+            let mut guard = lock(&state);
             loop {
+                if guard.stop {
+                    break;
+                }
+                let label = match &guard.live {
+                    Some(live) => live.clone(),
+                    None => text.clone(),
+                };
+                drop(guard);
                 {
                     let mut out = lock(&sink);
-                    let st = lock(&state);
-                    if st.stop {
-                        break;
-                    }
-                    let label = match &st.live {
-                        Some(live) => live.clone(),
-                        None => text.clone(),
-                    };
                     let frame = &frames[i % count];
                     i += 1;
-                    drop(st);
                     out.write(&format!("\r\x1b[K{} {}", render_cells(frame), label));
                     out.flush();
                 }
-                std::thread::sleep(std::time::Duration::from_secs_f64(tick));
+                guard = lock(&state);
+                // the wait ends on the tick, on a live change, or on the
+                // stop flag - never a bare sleep the join must ride out
+                let (next, _) = signal
+                    .wait_timeout(guard, tick)
+                    .unwrap_or_else(|poisoned| poisoned.into_inner());
+                guard = next;
             }
         }));
     }
@@ -1242,6 +1271,7 @@ impl Stage {
     /// attribute).
     pub fn set_live(&self, text: Option<String>) {
         lock(&self.state).live = text;
+        self.signal.notify_all();
     }
 
     /// A shared handle for the download pump threads (python's
@@ -1249,6 +1279,7 @@ impl Stage {
     pub fn live_handle(&self) -> StageLive {
         StageLive {
             state: Arc::clone(&self.state),
+            signal: Arc::clone(&self.signal),
         }
     }
 
@@ -1260,8 +1291,9 @@ impl Stage {
 
     pub fn done(&mut self, text: Option<&str>) {
         lock(&self.state).stop = true;
-        // python joins with a 1.0 s timeout; the loop checks the flag
-        // every tick (<= 0.12 s) and never blocks on the sink for long
+        // the animator waits on the condvar, so the join returns as soon
+        // as the wake lands instead of riding out a full tick
+        self.signal.notify_all();
         if let Some(handle) = self.thread.take() {
             let _ = handle.join();
         }
@@ -1303,21 +1335,24 @@ impl Stage {
 /// (the download pump threads).
 pub struct StageLive {
     state: Arc<Mutex<StageState>>,
+    signal: Arc<Condvar>,
 }
 
 impl StageLive {
     pub fn set(&self, text: Option<String>) {
         lock(&self.state).live = text;
+        self.signal.notify_all();
     }
 }
 
-/// A dropped Stage stops its spin thread at the next tick. Python's
-/// daemon thread would keep running until process exit, which only ever
+/// A dropped Stage stops its spin thread promptly. Python's daemon
+/// thread would keep running until process exit, which only ever
 /// mattered on traceback paths that end the process; the port may
 /// continue (menu flows), so the flag is set here.
 impl Drop for Stage {
     fn drop(&mut self) {
         lock(&self.state).stop = true;
+        self.signal.notify_all();
     }
 }
 

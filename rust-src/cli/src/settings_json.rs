@@ -260,14 +260,23 @@ impl Parser<'_> {
                 }
                 Some(c) if c < 0x20 => return Err(self.err("raw control character in string")),
                 Some(_) => {
-                    let rest = std::str::from_utf8(&self.b[self.i..])
+                    // one plain run up to the next ", \ or control byte:
+                    // none of those bytes can sit inside a multi-byte
+                    // utf-8 sequence, so the run ends at a char boundary
+                    // and the validation cost stays linear in the
+                    // document (the old per-character tail revalidation
+                    // made a long string quadratic)
+                    let mut end = self.i;
+                    while let Some(b) = self.b.get(end) {
+                        if *b == b'"' || *b == b'\\' || *b < 0x20 {
+                            break;
+                        }
+                        end += 1;
+                    }
+                    let run = std::str::from_utf8(&self.b[self.i..end])
                         .map_err(|_| self.err("invalid utf-8"))?;
-                    let ch = rest
-                        .chars()
-                        .next()
-                        .ok_or_else(|| self.err("truncated utf-8"))?;
-                    out.push(ch);
-                    self.i += ch.len_utf8();
+                    out.push_str(run);
+                    self.i = end;
                 }
             }
         }
@@ -602,6 +611,27 @@ mod tests {
     #[test]
     fn parser_bom_is_an_error_like_json_loads() {
         assert!(parse("\u{FEFF}{}").is_err());
+    }
+
+    // audit perf 4: the old per-character tail revalidation made a long
+    // string quadratic; a 100k-char document must still decode, in one
+    // run per plain span
+    #[test]
+    fn parser_decodes_a_long_string_in_linear_runs() {
+        let plain = format!("\"{}\"", "a".repeat(100_000));
+        let Value::Str(got) = parse(&plain).unwrap() else {
+            panic!("string expected");
+        };
+        assert_eq!(got.chars().count(), 100_000);
+        let mut text = String::from("\"");
+        for _ in 0..20_000 {
+            text.push_str("x\u{e9}\\n");
+        }
+        text.push('"');
+        let Value::Str(got) = parse(&text).unwrap() else {
+            panic!("string expected");
+        };
+        assert_eq!(got, "x\u{e9}\n".repeat(20_000));
     }
 
     // Render pins recorded 2026-10-14 from CPython 3.14.4:

@@ -5,7 +5,6 @@
 //! Ctrl+C scope for the duration of one download call. Text moved
 //! verbatim; behaviour unchanged.
 
-use crate::term;
 use crate::tty;
 use std::io::BufRead;
 use std::process::Command;
@@ -251,16 +250,21 @@ impl Drop for InterruptScope {
     }
 }
 
+/// The child poll cadence in the download loop (audit perf 5): 10 ms
+/// keeps the escape and the Ctrl+C reactions near-instant; the 0.1 s
+/// tick added a tenth of a second of pure sleep per poll round.
+const POLL_SECS: f64 = 0.01;
+
 impl RunRt {
     /// The production runtime: a real spawn, a raw KeyWatch, the real
-    /// kill tree, the Ctrl+C flag and the frame tick sleep.
+    /// kill tree, the Ctrl+C flag and the 10 ms child poll sleep.
     pub fn real() -> Self {
         Self {
             spawn: Box::new(spawn_real),
             watch: Box::new(|| Box::new(RealWatch(tty::KeyWatch::new())) as Box<dyn EscapeWatch>),
             kill: Box::new(kill_tree_real),
             interrupted: Box::new(interrupt_pending),
-            sleep_frame: Box::new(|| std::thread::sleep(Duration::from_secs_f64(term::FRAME_SECS))),
+            sleep_frame: Box::new(|| std::thread::sleep(Duration::from_secs_f64(POLL_SECS))),
             interrupt_scope: Some(InterruptScope::install()),
         }
     }

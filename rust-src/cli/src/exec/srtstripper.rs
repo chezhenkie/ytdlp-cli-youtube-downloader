@@ -47,19 +47,23 @@ pub fn subs_since(folder: &str, since: f64, slack: f64) -> Vec<String> {
     let mut found: Vec<String> = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
-        if !path.is_file() {
+        // one stat per entry: is_file and the mtime answer from the
+        // same metadata call (audit perf 8)
+        let Ok(meta) = std::fs::metadata(&path) else {
+            continue;
+        };
+        if !meta.is_file() {
             continue;
         }
-        let text = path.to_string_lossy().into_owned();
         let name = entry.file_name().to_string_lossy().into_owned();
         if !is_sub_name(&name) {
             continue;
         }
-        let Some(mtime) = resolve::mtime_seconds(&text) else {
+        let Some(mtime) = resolve::mtime_from_meta(&meta) else {
             continue;
         };
         if mtime >= since - slack {
-            found.push(resolve::path_render(&text));
+            found.push(resolve::path_render(&path.to_string_lossy()));
         }
     }
     found

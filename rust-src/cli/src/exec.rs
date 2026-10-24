@@ -141,13 +141,18 @@ pub fn newest_since(folder: &str, since: f64, slack: f64) -> Option<String> {
     let mut best: Option<(f64, String)> = None;
     for entry in entries.flatten() {
         let path = entry.path();
-        if !path.is_file() {
-            continue;
-        }
-        let text = path.to_string_lossy().into_owned();
-        let Some(mtime) = resolve::mtime_seconds(&text) else {
+        // one stat per entry: is_file and the mtime answer from the
+        // same metadata call (audit perf 8)
+        let Ok(meta) = std::fs::metadata(&path) else {
             continue;
         };
+        if !meta.is_file() {
+            continue;
+        }
+        let Some(mtime) = resolve::mtime_from_meta(&meta) else {
+            continue;
+        };
+        let text = path.to_string_lossy().into_owned();
         if mtime >= since - slack && best.as_ref().is_none_or(|(bm, _)| mtime > *bm) {
             best = Some((mtime, text));
         }
@@ -234,10 +239,18 @@ pub fn clean_partials(folder: &str, since: f64, slack: f64) -> Vec<String> {
         if !(name_is_part(&name) || name_is_ytdl(&name)) {
             continue;
         }
-        let Some(mtime) = resolve::mtime_seconds(&path.to_string_lossy()) else {
+        // one stat per entry: is_file and the mtime answer from the
+        // same metadata call (audit perf 8)
+        let Ok(meta) = std::fs::metadata(&path) else {
             continue;
         };
-        if mtime < since - slack || !path.is_file() {
+        if !meta.is_file() {
+            continue;
+        }
+        let Some(mtime) = resolve::mtime_from_meta(&meta) else {
+            continue;
+        };
+        if mtime < since - slack {
             continue;
         }
         if std::fs::remove_file(&path).is_ok() {
@@ -525,7 +538,12 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
         Err(rc) => return rc,
     };
 
-    let mut has_node = || resolve::which_from_process("node").is_some();
+    // node goes through the injected which seam like every other
+    // binary lookup (audit perf 6): one memoized PATH scan per session,
+    // and the lazy call keeps the invariant that node is queried only
+    // after output_args succeeded
+    let which = &mut *ctx.which;
+    let mut has_node = || which("node").is_some();
     let opts = match args::build_args(s, url, ffdir.as_deref(), ctx.root, ctx.auto, &mut has_node) {
         Ok(opts) => opts,
         Err(shape) => return shape_abort(shape),
@@ -550,7 +568,8 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
             ctx.sink.clone(),
         );
         st2.start();
-        let mut has_node = || resolve::which_from_process("node").is_some();
+        let which = &mut *ctx.which;
+        let mut has_node = || which("node").is_some();
         let sub_opts =
             match args::build_sub_args(s, url, ffdir.as_deref(), ctx.root, ctx.auto, &mut has_node)
             {
@@ -702,7 +721,8 @@ pub fn do_summary(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) -> 
         ctx.sink.clone(),
     );
     st.start();
-    let mut has_node = || resolve::which_from_process("node").is_some();
+    let which = &mut *ctx.which;
+    let mut has_node = || which("node").is_some();
     let sub_opts =
         match args::build_sub_args(s, url, ffdir.as_deref(), ctx.root, ctx.auto, &mut has_node) {
             Ok(opts) => opts,
@@ -768,7 +788,8 @@ pub fn do_summary(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) -> 
     let mut audio = s.clone();
     config::set(&mut audio, "type", Value::Str("audio only".to_string()));
     config::set(&mut audio, "playlist", Value::Bool(false));
-    let mut has_node = || resolve::which_from_process("node").is_some();
+    let which = &mut *ctx.which;
+    let mut has_node = || which("node").is_some();
     let opts = match args::build_args(
         &audio,
         url,

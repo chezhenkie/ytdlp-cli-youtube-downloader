@@ -266,11 +266,16 @@ fn running_musl() -> bool {
 /// answer, so the lookup can only match the release it is reading.
 pub fn fetch_cli(ctx: &mut UpdateCtx, timeout: u64) -> Result<Release, String> {
     let body = ctx.http.text(RELEASES_API, timeout)?;
-    let tag = parse_release(&body, None)?.version;
+    // one parse of the body: the tag names the asset, and the asset's
+    // binding answers from the same parsed root (the old two
+    // parse_release calls decoded the whole document twice per check)
+    let root = settings_json::parse(&body)
+        .map_err(|e| format!("the release metadata did not parse: {e}"))?;
+    let tag = release_from_root(&root, None)?.version;
     let asset = tag
         .as_deref()
         .and_then(|v| release_asset(ctx.platform, ctx.arch, v, running_musl()));
-    parse_release(&body, asset.as_deref())
+    release_from_root(&root, asset.as_deref())
 }
 
 /// The yt-dlp release API: one GET carries the newest tag, the onedir
@@ -310,7 +315,14 @@ pub fn fetch_yt_dlp(ctx: &mut UpdateCtx) -> Result<Release, String> {
 fn parse_release(body: &str, asset: Option<&str>) -> Result<Release, String> {
     let root = settings_json::parse(body)
         .map_err(|e| format!("the release metadata did not parse: {e}"))?;
-    let obj = match &root {
+    release_from_root(&root, asset)
+}
+
+/// The release struct out of one already-parsed root: the tag, and when
+/// an asset name is given, that asset's url and digest from the same
+/// answer (so the digest cannot disagree with the tag that named it).
+fn release_from_root(root: &Json, asset: Option<&str>) -> Result<Release, String> {
+    let obj = match root {
         Json::Obj(fields) => fields,
         _ => return Err("the release metadata was not an object".to_string()),
     };
