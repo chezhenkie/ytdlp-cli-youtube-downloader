@@ -959,6 +959,9 @@ mod tests {
         selftest_rc: i64,
         updates: Vec<String>,
         stamp: f64,
+        /// When set, the `-U` call raises the interrupt flag mid-run:
+        /// the shape the console handler gives a real Ctrl+C.
+        interrupt_call: bool,
     }
 
     impl Harness {
@@ -980,6 +983,7 @@ mod tests {
                 selftest_rc: 0,
                 updates: Vec::new(),
                 stamp: 1_700_000_000.0,
+                interrupt_call: false,
             }
         }
 
@@ -1063,6 +1067,7 @@ mod tests {
                 selftest_rc,
                 updates,
                 stamp,
+                interrupt_call,
                 ..
             } = self;
             let mut probe = |binary: &str| {
@@ -1077,6 +1082,9 @@ mod tests {
             };
             let mut call = |binary: &str, args: &[String]| {
                 updates.push(format!("{binary} {}", args.join(" ")));
+                if *interrupt_call {
+                    crate::exec::set_interrupt(true);
+                }
                 0
             };
             let mut now = || *stamp;
@@ -2013,6 +2021,32 @@ mod tests {
                 crate::VERSION,
                 crate::VERSION
             )
+        );
+        std::fs::remove_dir_all(&h.dir).unwrap();
+    }
+
+    #[test]
+    fn an_interrupt_during_the_call_cancels_the_yt_dlp_update() {
+        let mut h = Harness::new("int-call");
+        let yt = resolve::py_path_join(&h.dir, "yt-dlp.exe");
+        std::fs::write(&yt, b"yt-dlp").unwrap();
+        let mut s = settings();
+        config::set(&mut s, "yt_dlp_path", Value::Str(yt.clone()));
+        h.interrupt_call = true;
+        h.probes.push_back(("1.5.0".to_string(), 0));
+        // the post-update probe never runs: the cancelled branch returns
+        // right after the call (python's KeyboardInterrupt around it)
+        assert!(!h.all(&mut s).unwrap());
+        assert_eq!(h.updates, vec![format!("{yt} -U")]);
+        assert_eq!(h.probed.len(), 1, "no probe after the cancel");
+        let printed = h.printed();
+        assert!(
+            printed.iter().any(|l| l.ends_with("cancelled by user")),
+            "{printed:?}"
+        );
+        assert!(
+            !printed.iter().any(|l| l.contains("yt-dlp updated")),
+            "{printed:?}"
         );
         std::fs::remove_dir_all(&h.dir).unwrap();
     }

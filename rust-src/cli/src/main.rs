@@ -563,6 +563,8 @@ fn run_menu(
         // recorded deviation)
         Err(MenuErr::Eof) => Ok(exit_one("input ended inside a submenu")),
         Err(MenuErr::Interrupted) => Ok(exit_one("cancelled")),
+        // GoBack cannot escape main_menu (its dispatch loop repaints on
+        // it); the arm stays for exhaustiveness
         Err(MenuErr::GoBack) => Ok(exit_one("escape escaped")),
         Err(MenuErr::Shape(shape)) => Ok(exit_one(&format!(
             "settings value refused with python shape {}",

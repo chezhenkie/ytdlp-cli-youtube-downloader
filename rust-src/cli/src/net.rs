@@ -39,6 +39,11 @@ pub const FORCED_TIMEOUT: u64 = 60;
 /// The read block python's `http_file` streams with (`1 << 16`).
 const CHUNK: usize = 1 << 16;
 
+/// The metadata text ceiling: release bodies and checksum pages are
+/// small documents, and `http_text` answers have no digest gate, so a
+/// larger response is refused instead of buffered (native-only guard).
+const TEXT_CAP: u64 = 8 << 20;
+
 /// What python's `http_file` returns: `(got, final_url, total)`.
 #[derive(Debug, PartialEq)]
 pub struct FileOutcome {
@@ -114,7 +119,11 @@ impl UreqHttp {
 impl HttpRt for UreqHttp {
     fn text(&mut self, url: &str, timeout: u64) -> Result<String, String> {
         let mut res = self.get(url, timeout)?;
-        let bytes = res.body_mut().read_to_vec().map_err(error_text)?;
+        // a declared length past the cap is refused before reading
+        if let Some(len) = res.body().content_length().filter(|n| *n > TEXT_CAP) {
+            return Err(over_cap_text(len));
+        }
+        let bytes = read_capped(res.body_mut().as_reader(), TEXT_CAP)?;
         Ok(String::from_utf8_lossy(&bytes).into_owned())
     }
 
@@ -160,6 +169,28 @@ impl HttpRt for UreqHttp {
             content_length: total,
         })
     }
+}
+
+/// Read a body to EOF, refusing buffers past `cap`. Over-cap answers
+/// are a capped failure, not a truncation: the callers parse or digest
+/// what they get, and a truncated document fails later and worse.
+fn read_capped(mut reader: impl std::io::Read, cap: u64) -> Result<Vec<u8>, String> {
+    let mut out = Vec::new();
+    let mut buf = vec![0u8; CHUNK];
+    loop {
+        let read = reader.read(&mut buf).map_err(|e| e.to_string())?;
+        if read == 0 {
+            return Ok(out);
+        }
+        if out.len() as u64 + read as u64 > cap {
+            return Err(over_cap_text(cap));
+        }
+        out.extend_from_slice(&buf[..read]);
+    }
+}
+
+fn over_cap_text(cap: u64) -> String {
+    format!("response exceeds the {} MiB cap", cap >> 20)
 }
 
 /// ureq's failure text. python's urllib words differ (`HTTP Error
@@ -324,6 +355,36 @@ mod tests {
             // python's errors="replace" semantics
             assert_eq!(body, "\u{fffd}x\u{fffd}y");
         });
+    }
+
+    #[test]
+    fn a_declared_length_past_the_cap_is_refused_before_reading() {
+        env_test(|| {
+            let head = format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                TEXT_CAP + 1
+            );
+            let (port, server) = one_shot(head.into_bytes());
+            let mut http = UreqHttp::new();
+            let err = http
+                .text(&format!("http://127.0.0.1:{port}/v"), FORCED_TIMEOUT)
+                .unwrap_err();
+            server.join().unwrap();
+            assert_eq!(err, over_cap_text(TEXT_CAP));
+        });
+    }
+
+    #[test]
+    fn read_capped_keeps_small_answers_and_refuses_larger_ones() {
+        let data: Vec<u8> = (0..=9u8).collect();
+        assert_eq!(read_capped(std::io::Cursor::new(&data), 10).unwrap(), data);
+        assert_eq!(read_capped(std::io::Cursor::new(&data), 11).unwrap(), data);
+        assert_eq!(
+            read_capped(std::io::Cursor::new(&[]), 1).unwrap(),
+            Vec::<u8>::new()
+        );
+        let err = read_capped(std::io::Cursor::new(&data), 9).unwrap_err();
+        assert_eq!(err, over_cap_text(9));
     }
 
     #[test]

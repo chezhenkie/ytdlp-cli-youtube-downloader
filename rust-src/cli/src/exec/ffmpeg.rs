@@ -116,7 +116,7 @@ pub fn install_ffmpeg(
     };
     let blob = resolve::py_path_join(&tmpdir, asset);
     let result = install_ffmpeg_into(
-        &source, &digest, &blob, &tmpdir, platform, bin_dir, is_windows, stage, ctx,
+        &source, &digest, &blob, &tmpdir, bin_dir, is_windows, stage, ctx,
     );
     pyfs::rmtree_quiet(&tmpdir);
     result
@@ -129,7 +129,6 @@ fn install_ffmpeg_into(
     digest: &str,
     blob: &str,
     tmpdir: &str,
-    _platform: &str,
     bin_dir: &str,
     is_windows: bool,
     stage: Option<&mut Stage>,

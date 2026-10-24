@@ -55,6 +55,21 @@ jobs:
         if: runner.os == 'Linux'
         run: python tools/gen_printable_table.py --check
 
+  audit:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: rust-src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+      - name: cargo audit
+        run: cargo audit
+
   windows-build:
     name: windows release and PE import assertions
     runs-on: windows-latest

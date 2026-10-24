@@ -492,8 +492,11 @@ pub fn home_dir(home: &str, name: &str) -> String {
 
 /// Python `~` expansion of a bare `~`, env-source only: HOME on posix;
 /// USERPROFILE else HOMEDRIVE+HOMEPATH on windows. Python applies
-/// `rstrip(sep)` and an `or sep` fallback; the passwd and `~user`
-/// fallbacks are recorded as not ported.
+/// `rstrip(sep)` and an `or sep` fallback. An unset HOME falls back to
+/// the passwd entry's home directory like python's `pwd.getpwuid`
+/// expansion (port of the recorded-not-ported fallback); a set but
+/// empty HOME stays env-sourced, which is python's `'HOME' in
+/// os.environ` rule.
 pub fn home_from_env(env: &EnvMap) -> Option<String> {
     #[cfg(windows)]
     {
@@ -513,7 +516,10 @@ pub fn home_from_env(env: &EnvMap) -> Option<String> {
     }
     #[cfg(not(windows))]
     {
-        let raw = env_lookup(env, "HOME", false)?;
+        let raw = match env_lookup(env, "HOME", false) {
+            Some(raw) => raw,
+            None => passwd_home()?,
+        };
         let stripped = raw.trim_end_matches('/').to_string();
         Some(if stripped.is_empty() {
             "/".to_string()
@@ -523,20 +529,50 @@ pub fn home_from_env(env: &EnvMap) -> Option<String> {
     }
 }
 
+/// The posix fallback for an unset HOME: the passwd entry's home
+/// directory for the current uid, decoded lossily like the env reads.
+/// No entry, no `pw_dir` or an empty one is no home, which is python's
+/// unexpanded result.
+#[cfg(unix)]
+fn passwd_home() -> Option<String> {
+    let pw = unsafe { libc::getpwuid(libc::getuid()) };
+    if pw.is_null() {
+        return None;
+    }
+    let dir = unsafe { (*pw).pw_dir };
+    if dir.is_null() {
+        return None;
+    }
+    let bytes = unsafe { std::ffi::CStr::from_ptr(dir) }.to_bytes();
+    if bytes.is_empty() {
+        return None;
+    }
+    Some(String::from_utf8_lossy(bytes).into_owned())
+}
+
 // -------------------------------------------------------------- which
 
 /// `os.path.split` for the two shapes this runs on (bare names and
-/// absolute paths): rightmost separator; a lone leading separator is the
-/// head; the drive-relative form falls back to splitroot.
+/// absolute paths): rightmost separator; a lone leading separator is
+/// the head; the drive-relative form falls back to splitroot. A head
+/// that is empty or all separators before the last separator keeps the
+/// separator - ntpath gives ("C:\\", "x") for "C:\\x" and ("/", "x")
+/// for "/x", so a drive-relative "C:x" head is never built.
 fn path_split_name(path: &str) -> (String, String) {
     let chars: Vec<char> = path.chars().collect();
     match chars.iter().rposition(|&c| is_sep(c)) {
         Some(i) => {
-            let head: String = chars[..i].iter().collect();
-            let head = if head.is_empty() && i == 0 {
-                chars[0].to_string()
+            // the optional drive prefix is a windows shape; a posix
+            // path like "a:b/c" keeps its colon in the head verbatim
+            #[cfg(windows)]
+            let had_drive = chars.len() >= 2 && chars[1] == ':';
+            #[cfg(not(windows))]
+            let had_drive = false;
+            let body: &[char] = if had_drive { &chars[2..i] } else { &chars[..i] };
+            let head: String = if body.is_empty() || body.iter().all(|&c| is_sep(c)) {
+                chars[..=i].iter().collect()
             } else {
-                head
+                chars[..i].iter().collect()
             };
             let tail: String = chars[i + 1..].iter().collect();
             (head, tail)
@@ -937,15 +973,6 @@ pub struct SpawnOutcome {
 #[derive(Default)]
 pub struct VersionCache {
     map: std::collections::HashMap<(String, Option<u64>), (String, i64)>,
-}
-
-impl VersionCache {
-    pub fn len(&self) -> usize {
-        self.map.len()
-    }
-    pub fn is_empty(&self) -> bool {
-        self.map.is_empty()
-    }
 }
 
 fn mtime_bits(mtime: Option<f64>) -> Option<u64> {
@@ -1521,6 +1548,42 @@ mod tests {
     }
 
     #[test]
+    fn path_split_name_spot_pins() {
+        // the head keeps the separator when the pre-separator part is a
+        // bare root (ntpath ("C:\\", "x"), posixpath ("//", "x")), so a
+        // join never builds a drive-relative or half-root head
+        #[cfg(windows)]
+        {
+            assert_eq!(
+                path_split_name("C:\\x"),
+                ("C:\\".to_string(), "x".to_string())
+            );
+            assert_eq!(
+                path_split_name("C:/x"),
+                ("C:/".to_string(), "x".to_string())
+            );
+            assert_eq!(
+                path_split_name("C:\\a\\b"),
+                ("C:\\a".to_string(), "b".to_string())
+            );
+            assert_eq!(path_split_name("C:x"), ("C:".to_string(), "x".to_string()));
+            assert_eq!(path_split_name("/x"), ("/".to_string(), "x".to_string()));
+        }
+        #[cfg(not(windows))]
+        {
+            assert_eq!(path_split_name("/x"), ("/".to_string(), "x".to_string()));
+            assert_eq!(path_split_name("//x"), ("//".to_string(), "x".to_string()));
+            assert_eq!(path_split_name("a/b"), ("a".to_string(), "b".to_string()));
+            assert_eq!(path_split_name("x"), (String::new(), "x".to_string()));
+            // a posix colon is an ordinary head character
+            assert_eq!(
+                path_split_name("a:b/c"),
+                ("a:b".to_string(), "c".to_string())
+            );
+        }
+    }
+
+    #[test]
     fn parser_join_spot_pins() {
         // Path(a)/b renders, pinned against the probed matrices
         #[cfg(not(windows))]
@@ -1670,7 +1733,15 @@ mod tests {
                 Some("/home/u".to_string())
             );
             assert_eq!(home_from_env(&env(&[("HOME", "/")])), Some("/".to_string()));
-            assert_eq!(home_from_env(&env(&[])), None);
+            assert_eq!(home_from_env(&env(&[("HOME", "")])), Some("/".to_string()));
+            // HOME unset: the passwd entry takes over (audit item 16's
+            // ported fallback); whatever the account says, it is an
+            // absolute path and never the cwd
+            let fallback = home_from_env(&env(&[])).expect("passwd fallback");
+            assert!(
+                fallback.starts_with('/') && fallback.len() > 1,
+                "{fallback}"
+            );
         }
         #[cfg(windows)]
         {
@@ -1864,9 +1935,8 @@ mod tests {
         assert_eq!(
             fail_spawns.get(),
             4,
-            "two failing calls spawn both flags twice"
+            "two failing calls spawn both flags twice: no failure is ever served or stored"
         );
-        assert!(fail_cache.is_empty(), "no failure is ever stored");
     }
 
     #[cfg(unix)]
@@ -1893,12 +1963,18 @@ mod tests {
         assert_eq!(second.stdout, "ffmpeg version 9\n");
 
         let mut cache = VersionCache::default();
-        let mut spawn = |b: &str, f: &str| spawn_version_probe(b, f);
+        let spawns = std::cell::Cell::new(0);
+        let mut spawn = |b: &str, f: &str| {
+            spawns.set(spawns.get() + 1);
+            spawn_version_probe(b, f)
+        };
         let probe = probe_version(&path, Some(1.0), &mut cache, &mut spawn);
         assert_eq!(probe, ("ffmpeg version 9".to_string(), 0));
         let again = probe_version(&path, Some(1.0), &mut cache, &mut spawn);
         assert_eq!(again, probe);
-        assert_eq!(cache.len(), 1, "the successful answer is memoized");
+        // one uncached answer costs both flags; the second call serves
+        // the memo, so the count stays there
+        assert_eq!(spawns.get(), 2, "the successful answer is memoized");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

@@ -506,6 +506,8 @@ pub(super) fn section_info_field(c: &mut Checker<'_>) {
         counted2 == 0,
         &got_strs(&[&counted2.to_string()]),
     );
+
+    pyfs::rmtree_quiet(&wt);
 }
 
 pub(super) fn section_partials(c: &mut Checker<'_>) {

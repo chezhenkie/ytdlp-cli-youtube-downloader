@@ -675,12 +675,13 @@ fn strip_files(
     let mut written = 0;
     for path in paths {
         match srtstripper::run_one(binary, path, mode, &mut rt.spawn) {
-            Ok(out_path) if out_path.is_empty() => {
-                st.done(Some(&format!("srt timecode stripper - {path}")));
-                written += 1;
-            }
             Ok(out_path) => {
-                st.done(Some(&format!("srt timecode stripper - {out_path}")));
+                let shown = if out_path.is_empty() {
+                    path
+                } else {
+                    out_path.as_str()
+                };
+                st.done(Some(&format!("srt timecode stripper - {shown}")));
                 written += 1;
             }
             Err(text) => st.done(Some(&text)),

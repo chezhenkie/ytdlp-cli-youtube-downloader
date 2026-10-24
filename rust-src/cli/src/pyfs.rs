@@ -6,19 +6,20 @@
 //!
 //! Only the updaters and the ffmpeg install use these; every other path
 //! in the port is rendered by `resolve`. The differences from the std
-//! calls are the ones python's behaviour depends on:
-//! `os.replace` must overwrite an existing destination (windows'
-//! `rename` refuses), `mkdtemp` must hand out a name nobody else holds,
-//! and `rmtree` must swallow every error because it runs in a `finally`
-//! that must not mask the real result.
+//! calls are the ones python's behaviour depends on: `mkdtemp` must
+//! hand out a name nobody else holds, and `rmtree` must swallow every
+//! error because it runs in a `finally` that must not mask the real
+//! result. `replace` is `std::fs::rename` (which overwrites on windows
+//! too); the wrapper stays so the replace steps keep one named call
+//! site.
 
 use std::io;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// `os.replace(src, dst)`: rename over whatever is already there.
-/// `std::fs::rename` fails on windows when the destination exists,
-/// which would turn "replace the old ffmpeg" and "place the new cli"
-/// into refusals.
+/// `std::fs::rename` already overwrites on windows (MoveFileExW with
+/// MOVEFILE_REPLACE_EXISTING), so this is the same call; the wrapper
+/// keeps the one choke point the updaters' replace steps cite.
 pub fn replace(src: &str, dst: &str) -> io::Result<()> {
     #[cfg(windows)]
     {

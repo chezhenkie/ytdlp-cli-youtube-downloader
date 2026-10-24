@@ -51,9 +51,6 @@ pub fn run_selftest(
     section_history(&mut c, &capture);
     section_subs(&mut c);
     section_args(&mut c, root, config_path, auto.as_deref());
-    {
-        let _ = capture; // the args block captures nothing
-    }
     section_progress(&mut c);
     section_spinners(&mut c, &capture);
     section_args2(&mut c, root, auto.as_deref());
