@@ -1445,9 +1445,12 @@ mod tests {
 
     #[test]
     fn env_map_from_process_carries_the_path_without_panicking() {
-        let map = env_map_from_process();
+        // the map keeps the raw spelling the process reports (windows says
+        // `Path`), so the probe goes through the same lookup the product
+        // uses; it is case-insensitive on windows and exact on posix
+        let path = env_lookup(&env_map_from_process(), "PATH", cfg!(windows));
         assert!(
-            map.iter().any(|(k, v)| k == "PATH" && !v.is_empty()),
+            path.is_some_and(|v| !v.is_empty()),
             "the real environment is read with vars_os and lossy values"
         );
     }
