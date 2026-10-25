@@ -7,7 +7,7 @@
     "output": "ytdlp-process-flow.html",
     "repository": {
       "url": "https://github.com/chezhenkie/ytdlp-cli-youtube-downloader.git",
-      "revision": "f86ed2184a43833561393a2d81d9d28bd915d9dc"
+      "revision": "f9c9213e86f15640e8d2850fa7682c36b90ec38a"
     }
   },
   "lanes": [
@@ -25,7 +25,7 @@
     { "id": "m_paint", "lane": "menu", "col": 2, "type": "frontend", "label": "paint menu", "sublabel": "s and 0 rows over 15 items", "tag": "hint: DL location",
       "sources": [
         { "path": "rust-src/cli/src/menu.rs", "line": 793, "end_line": 811, "label": "paint when dirty, quiet check, save" },
-        { "path": "rust-src/cli/src/ui.rs", "line": 397, "end_line": 426, "label": "summary and 0 rows, then 15 items" },
+        { "path": "rust-src/cli/src/ui.rs", "line": 391, "end_line": 420, "label": "summary and 0 rows, then 15 items" },
         { "path": "rust-src/cli/src/ui.rs", "line": 193, "end_line": 342, "label": "menu_items: rows 1-15" }
       ]
     },
@@ -151,7 +151,7 @@
         "s and S on the main prompt take the clipboard link; no link prints one amber line and holds.",
         "Fresh subtitle files go through the stripper in text mode regardless of the stored stripper settings.",
         "Only a missing text result falls back to sound: a settings copy with audio only and playlist off drives that pass, so stored settings are never rewritten.",
-        "The s row paints directly above the 0 row; the five-line hint block names both keys and the resolved DL location."
+        "The s row paints directly above the 0 row; the hint block under the box names the resolved DL location."
       ]
     }
   ]
