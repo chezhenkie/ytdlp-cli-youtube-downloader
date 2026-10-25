@@ -11,9 +11,13 @@
 ; builtin (the Inno Setup version), so /DVer clobbered it and aborted the
 ; compile inside ISPPBuiltins.iss - "Operator not applicable to this operand
 ; type" at its VER comparison (bundles run 39055315895, windows job).
-; The [Registry] entry appends the install dir to the user's PATH once;
-; the [Code] snippet keeps reinstalls clean and removes the entry again on
-; uninstall.
+; The user PATH entry is written from [Code], not [Registry]: a Check parameter
+; on a [Registry] line arrives unexpanded, so a guard built on '{app}' compared
+; the literal text, never matched, and appended the directory on every install.
+; The code path expands the directory itself, normalizes quotes, trailing
+; slashes and case on both sides, and rewrites the value without duplicates:
+; a reinstall keeps one entry, existing duplicates collapse to one, and the
+; uninstall removes every form of the entry.
 
 #ifndef AppVer
   #define AppVer "0.0.0"
@@ -57,44 +61,98 @@ Name: "{autodesktop}\ytdlp"; Filename: "{app}\ytdlp.exe"; WorkingDir: "{app}"; T
 [Run]
 Filename: "{app}\ytdlp.exe"; Description: "Start ytdlp now"; Flags: nowait postinstall skipifsilent unchecked
 
-[Registry]
-Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Check: NeedsAddPath('{app}')
-
 [UninstallDelete]
 ; the tree is the app's own data folder too (settings.json, updated yt-dlp,
 ; an offered ffmpeg); removing the directory removes what the app wrote
 Type: filesandordirs; Name: "{app}"
 
 [Code]
-function NeedsAddPath(Param: string): Boolean;
+function NormalizeEntry(Entry: string): string;
 var
-  OrigPath: string;
+  S: string;
+  N: Integer;
 begin
-  if not RegQueryStringValue(HKCU, 'Environment', 'Path', OrigPath) then
+  S := Trim(Entry);
+  N := Length(S);
+  if (N >= 2) and (S[1] = '"') and (S[N] = '"') then
   begin
-    Result := True;
-    exit;
+    S := Copy(S, 2, N - 2);
+    N := Length(S);
   end;
-  Result := Pos(';' + Uppercase(Param) + ';', ';' + Uppercase(OrigPath) + ';') = 0;
+  while (N > 3) and (S[N] = '\') do
+  begin
+    S := Copy(S, 1, N - 1);
+    N := Length(S);
+  end;
+  Result := Uppercase(S);
 end;
 
-procedure RemoveFromPath(Path: string);
+function WithoutEntry(Path, Entry: string): string;
 var
-  Before, OrigPath: string;
+  Rest, Item, Target: string;
+  P: Integer;
+begin
+  Target := NormalizeEntry(Entry);
+  Rest := Path;
+  Result := '';
+  while Length(Rest) > 0 do
+  begin
+    P := Pos(';', Rest);
+    if P > 0 then
+    begin
+      Item := Copy(Rest, 1, P - 1);
+      Rest := Copy(Rest, P + 1, Length(Rest) - P);
+    end
+    else
+    begin
+      Item := Rest;
+      Rest := '';
+    end;
+    if (Trim(Item) <> '') and (NormalizeEntry(Item) <> Target) then
+    begin
+      if Result = '' then
+        Result := Item
+      else
+        Result := Result + ';' + Item;
+    end;
+  end;
+end;
+
+procedure WritePathEntry;
+var
+  OrigPath, NewPath, Entry: string;
+begin
+  Entry := ExpandConstant('{app}');
+  if not RegQueryStringValue(HKCU, 'Environment', 'Path', OrigPath) then
+    OrigPath := '';
+  NewPath := WithoutEntry(OrigPath, Entry);
+  if NewPath = '' then
+    NewPath := Entry
+  else
+    NewPath := NewPath + ';' + Entry;
+  if NewPath <> OrigPath then
+    RegWriteExpandStringValue(HKCU, 'Environment', 'Path', NewPath);
+end;
+
+procedure RemovePathEntry;
+var
+  OrigPath, NewPath: string;
 begin
   if not RegQueryStringValue(HKCU, 'Environment', 'Path', OrigPath) then
     exit;
-  Before := OrigPath;
-  StringChangeEx(OrigPath, ';' + Path, '', True);
-  StringChangeEx(OrigPath, Path + ';', '', True);
-  if OrigPath = Path then
-    OrigPath := '';
-  if OrigPath <> Before then
-    RegWriteExpandStringValue(HKCU, 'Environment', 'Path', OrigPath);
+  NewPath := WithoutEntry(OrigPath, ExpandConstant('{app}'));
+  if NewPath <> OrigPath then
+    RegWriteExpandStringValue(HKCU, 'Environment', 'Path', NewPath);
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+    WritePathEntry;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usUninstall then
-    RemoveFromPath(ExpandConstant('{app}'));
+    RemovePathEntry;
 end;

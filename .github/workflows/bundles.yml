@@ -151,7 +151,7 @@ jobs:
           & $iscc "/DAppVer=$ver" "/DStage=$stage" "/O$PWD/dist" "rust-src/packaging/windows-installer.iss"
           if ($LASTEXITCODE -ne 0) { throw "ISCC failed with $LASTEXITCODE" }
           if (-not (Test-Path "dist/ytdlp-cli-v$ver-windows-setup.exe")) { throw "setup.exe not produced" }
-      - name: installer proof - silent install, selftest 192/0, PATH add/remove, uninstall
+      - name: installer proof - silent install twice, selftest 192/0, one PATH entry, uninstall
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -162,6 +162,18 @@ jobs:
           # canonical separator form for the registry-value comparisons below;
           # the registry may carry either form (found in run 39055610868)
           $tdirN = $tdir.Replace('/', '\')
+          # seed two duplicates of the target entry into the raw value (percent
+          # variables stay unexpanded); the first install collapses them to one and
+          # the second must not append another - the v2.8.3 setup appended on every run
+          $raw = (Get-Item "HKCU:\Environment").GetValue("Path", $null, "DoNotExpandEnvironmentNames")
+          Set-ItemProperty -Path "HKCU:\Environment" -Name Path -Value "$raw;$tdirN;$tdirN" -Type ExpandString
+          function Count-PathEntry([string]$Path, [string]$Entry) {
+            $target = $Entry.Replace('/', '\').TrimEnd('\').ToUpperInvariant()
+            return @(($Path -split ';') | Where-Object {
+              $e = $_.Trim().Trim('"').Replace('/', '\').TrimEnd('\').ToUpperInvariant()
+              $e -ne '' -and $e -eq $target
+            }).Count
+          }
           Start-Process -FilePath $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/DIR=$tdir" -Wait
           if (-not (Test-Path "$tdir/ytdlp.exe")) { throw "installed ytdlp.exe missing" }
           $report = & "$tdir/ytdlp.exe" --selftest | Out-String
@@ -179,16 +191,19 @@ jobs:
           $payloadVersion = & "$tdir/bin/yt-dlp.exe" --version
           if ($LASTEXITCODE -ne 0) { throw "installed yt-dlp tree failed to run" }
           Write-Host "installed yt-dlp tree runs: $payloadVersion"
-          $pathNow = (Get-ItemProperty -Path "HKCU:\Environment" -Name Path).Path
-          if ($pathNow.Replace('/', '\') -notlike "*$tdirN*") { Write-Host "HKCU Path after install: $pathNow"; throw "PATH entry missing after install" }
+          $pathNow = (Get-Item "HKCU:\Environment").GetValue("Path", $null, "DoNotExpandEnvironmentNames")
+          if ((Count-PathEntry $pathNow $tdirN) -ne 1) { Write-Host "HKCU Path after install: $pathNow"; throw "PATH entry count after install: $(Count-PathEntry $pathNow $tdirN)" }
+          Start-Process -FilePath $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/DIR=$tdir" -Wait
+          $pathAgain = (Get-Item "HKCU:\Environment").GetValue("Path", $null, "DoNotExpandEnvironmentNames")
+          if ((Count-PathEntry $pathAgain $tdirN) -ne 1) { Write-Host "HKCU Path after reinstall: $pathAgain"; throw "PATH entry count after reinstall: $(Count-PathEntry $pathAgain $tdirN)" }
           Start-Process -FilePath "$tdir/unins000.exe" -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait
           $deadline = (Get-Date).AddSeconds(20)
           while ((Test-Path $tdir) -and ((Get-Date) -lt $deadline)) { Start-Sleep -Milliseconds 500 }
           if (Test-Path $tdir) { throw "uninstall left files behind" }
-          $pathAfter = (Get-ItemProperty -Path "HKCU:\Environment" -Name Path).Path
-          if ($pathAfter.Replace('/', '\') -like "*$tdirN*") { Write-Host "HKCU Path after uninstall: $pathAfter"; throw "PATH entry survived uninstall" }
+          $pathAfter = (Get-Item "HKCU:\Environment").GetValue("Path", $null, "DoNotExpandEnvironmentNames")
+          if ((Count-PathEntry $pathAfter $tdirN) -ne 0) { Write-Host "HKCU Path after uninstall: $pathAfter"; throw "PATH entry survived uninstall" }
           Remove-Item -Recurse -Force "$PWD/inst-test" -ErrorAction SilentlyContinue
-          Write-Host "installer proof passed: install, selftest 192/0, PE fields, PATH add/remove, clean uninstall"
+          Write-Host "installer proof passed: two silent installs, selftest 192/0, PE fields, one PATH entry, clean uninstall"
       - name: checksums and sizes
         shell: pwsh
         run: |

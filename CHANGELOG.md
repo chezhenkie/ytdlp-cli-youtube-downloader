@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.8.4
+
+### Fixes
+
+#### Windows
+
+* The setup.exe keeps a single PATH entry. The install-once guard compared the literal `{app}` text, so every installer run appended the directory again; the entry is now written from setup code against the expanded directory, with quotes, trailing slashes and case normalized on both sides. A reinstall keeps one entry, earlier duplicates collapse to one, and uninstall removes every copy.
+
 ## 2.8.3
 
 ### Fixes
