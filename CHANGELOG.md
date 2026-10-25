@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.8.3
+
+### Fixes
+
+#### All platforms
+
+* The menu hint block carries the download-folder pointer and the resolved folder only. The paste prompt, the "enter number" line and the summary-order line are gone, so the block is two grey lines instead of five.
+
 ## 2.8.2
 
 ### Fixes
