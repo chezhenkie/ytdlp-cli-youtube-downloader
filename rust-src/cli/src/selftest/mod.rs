@@ -6,9 +6,8 @@
 //! the info-field checks the menu row 9 stage added and the two
 //! description-rename checks the 2.5.2 stage added and the two
 //! output-extension checks the 2.5.3 stage added and the two summary-key
-//! checks the 2.8.0 stage added (192 total),
-//! so `rust-src/tools/selftest_compare.py` can run both
-//! reports and diff the decoded name/verdict stream. Where python
+//! checks the 2.8.0 stage added (192 total), carried over from the
+//! retired python-oracle compare. Where python
 //! monkeypatched a module global this module injects the seam the
 //! ported function already takes - the same rule the crate tests and
 //! the phase-6 harness arms follow. The deviations with no native

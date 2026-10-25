@@ -1,7 +1,0 @@
-{
-  "fn": "js_runtime_args",
-  "cases": [
-    {"args": [true], "note": "node on PATH -> the flag pair; shutil.which faked by the hook"},
-    {"args": [false], "note": "no node -> empty list"}
-  ]
-}

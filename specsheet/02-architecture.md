@@ -1,6 +1,6 @@
 ## 4. Architecture
 
-The product is `rust-src/`, a cargo workspace with three members: `cli` (the shipped binary, crate name ytdlp-cli), `harness` (the differential dispatcher that drives the same functions against the reference; dev-only, never shipped) and `fake-ytdlp` (the scripted yt-dlp stand-in; dev-only, never shipped). One binary per platform, split into modules along seven layers (term, config, resolve, args, exec, update, ui; layer names followed by the specsheet citations in code comments). The layer boundaries are the constraint that matters; the module count is an implementation detail.
+The product is `rust-src/`, a cargo workspace with two members: `cli` (the shipped binary, crate name ytdlp-cli) and `fake-ytdlp` (the scripted yt-dlp stand-in; dev-only, never shipped, used by the 100-run hygiene test). One binary per platform, split into modules along seven layers (term, config, resolve, args, exec, update, ui; layer names followed by the specsheet citations in code comments). The layer boundaries are the constraint that matters; the module count is an implementation detail.
 
 | capability | windows | posix |
 |---|---|---|

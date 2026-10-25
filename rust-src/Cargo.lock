@@ -733,16 +733,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ytdlp-harness"
-version = "2.8.4"
-dependencies = [
- "lzma-rust2",
- "tar",
- "ytdlp-cli",
- "zip",
-]
-
-[[package]]
 name = "zeroize"
 version = "1.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

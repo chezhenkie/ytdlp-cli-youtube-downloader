@@ -1,11 +1,10 @@
-# Native workspace (specsheet section 4). Three members: the product
-# binary (cli/), the differential harness dispatcher (harness/) and the
-# scripted yt-dlp stand-in (fake-ytdlp/), the latter two development
-# tools that are never shipped in a bundle.
+# Native workspace (specsheet section 4). Two members: the product
+# binary (cli/) and the scripted yt-dlp stand-in (fake-ytdlp/), the
+# latter a development tool that is never shipped in a bundle.
 
 [workspace]
 resolver = "3"
-members = ["cli", "harness", "fake-ytdlp"]
+members = ["cli", "fake-ytdlp"]
 
 [workspace.package]
 version = "2.8.4"
