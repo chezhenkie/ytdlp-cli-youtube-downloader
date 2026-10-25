@@ -43,7 +43,7 @@ pub fn dispatch(name: &str, args: &[Json]) -> Result<Json, String> {
                 str_arr(unknown),
             ]))
         }
-        "one_dec_num" => Ok(Json::Str(term::one_dec_num(arg_str(args, 0)?))),
+        "whole_num" => Ok(Json::Str(term::whole_num(arg_str(args, 0)?))),
         "pad_speed" => Ok(Json::Str(term::pad_speed(arg_str(args, 0)?))),
         "color_progress" => Ok(Json::Str(term::color_progress(arg_str(args, 0)?))),
         "ascii_safe" => Ok(Json::Str(term::ascii_safe(arg_str(args, 0)?))),
@@ -2250,7 +2250,7 @@ impl net::HttpRt for HttpScript {
                     && total > 0
                 {
                     report(&format!(
-                        "downloading ffmpeg - {:.1} / {:.1} MB",
+                        "downloading ffmpeg - {:.0} / {:.0} MB",
                         written as f64 / 1048576.0,
                         total as f64 / 1048576.0
                     ));

@@ -510,7 +510,7 @@ fn report_saved(ctx: &DownloadCtx, outdir: &str, started: f64) {
             print_out(
                 &ctx.sink,
                 &format!(
-                    "{} done - {} ({:.1}MB)",
+                    "{} done - {} ({:.0}MB)",
                     c(ctx.use_color, A_AMBER, "..."),
                     ascii_safe(&name),
                     size as f64 / 1048576.0

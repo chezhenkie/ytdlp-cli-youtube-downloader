@@ -155,7 +155,7 @@ impl HttpRt for UreqHttp {
                 && total > 0
             {
                 report(&format!(
-                    "downloading ffmpeg - {:.1} / {:.1} MB",
+                    "downloading ffmpeg - {:.0} / {:.0} MB",
                     got as f64 / 1048576.0,
                     total as f64 / 1048576.0
                 ));
@@ -491,7 +491,7 @@ mod tests {
     #[test]
     fn file_reports_progress_and_the_final_url() {
         env_test(|| {
-            // 3.5 MiB: exact halves in the python "%.1f MB" text
+            // 3.5 MiB: the whole-MB counter rounds it to 4
             let payload = "x".repeat(3_670_016);
             let (port, server) = one_shot(ok_response(&payload).into_bytes());
             let dir = scratch("file");
@@ -522,12 +522,12 @@ mod tests {
             );
             assert!(
                 seen.iter()
-                    .all(|t| t.starts_with("downloading ffmpeg - ") && t.ends_with(" / 3.5 MB")),
+                    .all(|t| t.starts_with("downloading ffmpeg - ") && t.ends_with(" / 4 MB")),
                 "{seen:?}"
             );
             assert_eq!(
                 seen.last().map(String::as_str),
-                Some("downloading ffmpeg - 3.5 / 3.5 MB")
+                Some("downloading ffmpeg - 4 / 4 MB")
             );
             assert_eq!(std::fs::read(&dest).unwrap().len(), 3_670_016);
             std::fs::remove_dir_all(&dir).unwrap();

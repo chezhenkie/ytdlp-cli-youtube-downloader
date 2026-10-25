@@ -1,10 +1,10 @@
 {
-  "fn": "one_dec_num",
+  "fn": "whole_num",
   "cases": [
-    {"args": ["9.94MiB/s"], "note": "truncation pin"},
+    {"args": ["9.94MiB/s"], "note": "fraction cut, run on"},
     {"args": ["15.2%"], "note": "selftest parity case"},
     {"args": ["100%"], "note": "no decimal, untouched"},
-    {"args": ["1.234GiB"], "note": "three decimals truncate to one"},
+    {"args": ["1.234GiB"], "note": "three decimals cut"},
     {"args": ["~4.63MiB"], "note": "leading tilde is part of group 1"},
     {"args": ["~.5MB"], "note": "tilde without integer digits: no match"},
     {"args": ["5.6"], "note": "no unit tail: no match"},
@@ -12,7 +12,7 @@
     {"args": [".5GB"], "note": "no integer part: no match"},
     {"args": ["3.14159MB"], "note": "pi"},
     {"args": ["0.999999GB"], "note": "zero integer part"},
-    {"args": ["12.0%"], "note": "already one decimal"},
+    {"args": ["12.0%"], "note": "one decimal cut"},
     {"args": ["9.9999KiB"], "note": "trailing digits"},
     {"args": ["-3.5MB"], "note": "minus sign is not in the pattern"},
     {"args": ["07.77MiB"], "note": "leading zero kept"},

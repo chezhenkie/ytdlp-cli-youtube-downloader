@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.8.2
+
+### Fixes
+
+#### All platforms
+
+* The spinner beside the download line keeps its own pace again: animation frames run on the stage tick instead of once per `[download]` chunk, so a fast transfer no longer spins the animation faster.
+* The progress numbers repaint after a whole percent step, no more than four times a second, so chunk arrival cannot make the counters jump.
+* Progress numbers print whole: the percentage, the downloaded size and the speed drop their decimals, and so do the ffmpeg byte counter and the saved-file size. The line reads `45% of 198MiB at 2MiB/s ETA 01:12`.
+
 ## 2.8.1
 
 ### Fixes

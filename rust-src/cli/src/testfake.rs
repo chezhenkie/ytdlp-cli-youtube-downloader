@@ -126,7 +126,7 @@ impl HttpRt for FakeHttp {
         std::fs::write(&part, &body).unwrap();
         if let Some(report) = live {
             let text = format!(
-                "downloading ffmpeg - {:.1} / {:.1} MB",
+                "downloading ffmpeg - {:.0} / {:.0} MB",
                 body.len() as f64 / 1048576.0,
                 body.len() as f64 / 1048576.0
             );

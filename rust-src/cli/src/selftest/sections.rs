@@ -622,17 +622,17 @@ pub(super) fn section_progress(c: &mut Checker<'_>) {
     let cp = term::color_progress("15.2% of 198.15MiB at 2.32MiB/s ETA 01:12");
     c.check(
         "progress percent amber",
-        cp.contains(&format!("{}15.2%{}", term::A_AMBER, term::A_RESET)),
+        cp.contains(&format!("{}15%{}", term::A_AMBER, term::A_RESET)),
         &got_strs(&["15.2%"]),
     );
     c.check(
-        "progress size one decimal",
-        cp.contains(&format!("{}198.1MiB{}", term::A_MINT, term::A_RESET)),
+        "progress size whole",
+        cp.contains(&format!("{}198MiB{}", term::A_MINT, term::A_RESET)),
         &got_strs(&["198.15MiB"]),
     );
     c.check(
         "progress speed padded",
-        cp.contains(&format!("{}002.3MiB/s{}", term::A_LBLUE, term::A_RESET)),
+        cp.contains(&format!("{}  2MiB/s{}", term::A_LBLUE, term::A_RESET)),
         &got_strs(&["2.32MiB/s"]),
     );
     c.check(
@@ -655,24 +655,24 @@ pub(super) fn section_progress(c: &mut Checker<'_>) {
     );
     let cp2 = term::color_progress("5.0% of ~4.63MiB at 9.94MiB/s ETA 00:57");
     c.check(
-        "speed pads the 9 to 10 crossing",
-        cp2.contains(&format!("{}009.9MiB/s{}", term::A_LBLUE, term::A_RESET))
-            && cp2.contains(&format!("{}~4.6MiB{}", term::A_MINT, term::A_RESET)),
+        "speed pads the single digit",
+        cp2.contains(&format!("{}  9MiB/s{}", term::A_LBLUE, term::A_RESET))
+            && cp2.contains(&format!("{}~4MiB{}", term::A_MINT, term::A_RESET)),
         &got_strs(&["9.94MiB/s", "~4.63MiB"]),
     );
     c.check(
         "speed keeps three digits unpadded",
-        term::pad_speed("999.9MiB/s") == "999.9MiB/s",
+        term::pad_speed("999.9MiB/s") == "999MiB/s",
         &got_strs(&["999.9MiB/s"]),
     );
     c.check(
-        "speed truncates one decimal",
-        term::pad_speed("99.99MiB/s") == "099.9MiB/s",
+        "speed drops the fraction",
+        term::pad_speed("99.99MiB/s") == " 99MiB/s",
         &got_strs(&["99.99MiB/s"]),
     );
     c.check(
-        "percent never gains a digit",
-        term::one_dec_num("15.2%") == "15.2%",
+        "percent drops the fraction",
+        term::whole_num("15.2%") == "15%",
         &got_strs(&["15.2%"]),
     );
 }

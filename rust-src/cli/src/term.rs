@@ -178,10 +178,10 @@ fn is_time(word: &str) -> bool {
     b.len() == i + 2 && b[i].is_ascii_digit() && b[i + 1].is_ascii_digit()
 }
 
-/// Numbers print with one decimal, truncated: yt-dlp emits two
-/// (`format_bytes -> %.2f%sB` in the pinned source) and the extra digit
-/// buys nothing. `9.94MiB/s` -> `9.9MiB/s` forever.
-pub fn one_dec_num(word: &str) -> String {
+/// Numbers print whole, the fraction truncated: yt-dlp emits two
+/// (`format_bytes -> %.2f%sB` in the pinned source) and neither a
+/// percentage nor a byte count needs them. `9.94MiB/s` -> `9MiB/s`.
+pub fn whole_num(word: &str) -> String {
     let b = word.as_bytes();
     let mut i = usize::from(b.first() == Some(&b'~'));
     let int_start = i;
@@ -208,21 +208,20 @@ pub fn one_dec_num(word: &str) -> String {
         return word.to_string();
     }
     let mut out = String::with_capacity(word.len());
-    out.push_str(&word[..=dot]);
-    out.push_str(&word[dot + 1..dot + 2]);
+    out.push_str(&word[..dot]);
     out.push_str(&word[tail..]);
     out
 }
 
-/// The speed keeps a zero-padded three-digit integer part so digit
-/// crossings never shift the rest of the line; the field stays the ten
-/// characters yt-dlp itself pads its speed to (`format_speed: >10s`).
+/// The speed keeps a three-digit integer field so digit crossings never
+/// shift the rest of the line; the field is space-padded the way yt-dlp
+/// right-aligns its own speed (`format_speed: >10s`).
 pub fn pad_speed(word: &str) -> String {
     if !is_speed(word) {
         return word.to_string();
     }
-    let once = one_dec_num(word);
-    let b = once.as_bytes();
+    let whole = whole_num(word);
+    let b = whole.as_bytes();
     let mut i = 0;
     while i < b.len() && b[i].is_ascii_digit() {
         i += 1;
@@ -231,16 +230,6 @@ pub fn pad_speed(word: &str) -> String {
         return word.to_string();
     }
     let int_end = i;
-    if at(b, i, b'.') {
-        i += 1;
-        let dec_start = i;
-        while i < b.len() && b[i].is_ascii_digit() {
-            i += 1;
-        }
-        if i == dec_start {
-            return word.to_string();
-        }
-    }
     let tail = i;
     while i < b.len() && (b[i].is_ascii_alphabetic() || b[i] == b'/') {
         i += 1;
@@ -248,18 +237,17 @@ pub fn pad_speed(word: &str) -> String {
     if i == tail || i != b.len() {
         return word.to_string();
     }
-    let mut out = String::with_capacity(once.len() + 2);
+    let mut out = String::with_capacity(whole.len() + 3);
     for _ in int_end..3 {
-        out.push('0');
+        out.push(' ');
     }
-    out.push_str(&once[..int_end]);
-    out.push_str(&once[int_end..]);
+    out.push_str(&whole);
     out
 }
 
 /// Color one `[download]` body: percent amber, size mint, speed light
-/// blue, ETA purple, the plain words grey; numbers shrink to one
-/// decimal and the speed zero-pads. Pure; the caller skips it off a tty.
+/// blue, ETA purple, the plain words grey; numbers print whole and the
+/// speed keeps a three-digit field. Pure; the caller skips it off a tty.
 pub fn color_progress(body: &str) -> String {
     const PLAIN_WORDS: [&str; 4] = ["of", "at", "in", "ETA"];
     let mut out = String::with_capacity(body.len() + 64);
@@ -269,11 +257,11 @@ pub fn color_progress(body: &str) -> String {
         }
         if word.contains('%') {
             out.push_str(A_AMBER);
-            out.push_str(&one_dec_num(word));
+            out.push_str(&whole_num(word));
             out.push_str(A_RESET);
         } else if is_size(word) || word.strip_prefix('~').is_some_and(is_size) {
             out.push_str(A_MINT);
-            out.push_str(&one_dec_num(word));
+            out.push_str(&whole_num(word));
             out.push_str(A_RESET);
         } else if is_speed(word) {
             out.push_str(A_LBLUE);
@@ -686,46 +674,47 @@ mod tests {
     }
 
     #[test]
-    fn one_decimal_truncation_matches_selftest_pins() {
-        assert_eq!(one_dec_num("15.2%"), "15.2%");
-        assert_eq!(one_dec_num("9.94MiB/s"), "9.9MiB/s");
-        assert_eq!(one_dec_num("~4.63MiB"), "~4.6MiB");
-        assert_eq!(one_dec_num("198.15MiB"), "198.1MiB");
-        assert_eq!(one_dec_num("plain"), "plain");
-        assert_eq!(one_dec_num("5.6"), "5.6"); // no unit tail, untouched
+    fn whole_truncation_matches_selftest_pins() {
+        assert_eq!(whole_num("15.2%"), "15%");
+        assert_eq!(whole_num("9.94MiB/s"), "9MiB/s");
+        assert_eq!(whole_num("~4.63MiB"), "~4MiB");
+        assert_eq!(whole_num("198.15MiB"), "198MiB");
+        assert_eq!(whole_num("plain"), "plain");
+        assert_eq!(whole_num("5.6"), "5.6"); // no unit tail, untouched
     }
 
     #[test]
     fn pad_speed_matches_selftest_pins() {
-        assert_eq!(pad_speed("999.9MiB/s"), "999.9MiB/s");
-        assert_eq!(pad_speed("99.99MiB/s"), "099.9MiB/s");
-        assert_eq!(pad_speed("2.32MiB/s"), "002.3MiB/s");
+        assert_eq!(pad_speed("999.9MiB/s"), "999MiB/s");
+        assert_eq!(pad_speed("99.99MiB/s"), " 99MiB/s");
+        assert_eq!(pad_speed("2.32MiB/s"), "  2MiB/s");
         assert_eq!(pad_speed("not a speed"), "not a speed");
     }
 
-    /// Full strings recorded from the reference via a scratch probe
-    /// (USE_COLOR irrelevant: this function emits codes unconditionally)
-    /// on 2026-10-14.
+    /// The rendered strings for the sample bodies recorded from the
+    /// reference via a scratch probe on 2026-10-14; the numbers print
+    /// whole (USE_COLOR is irrelevant: this function emits codes
+    /// unconditionally).
     #[test]
-    fn color_progress_matches_the_reference_strings() {
+    fn color_progress_matches_the_pinned_strings() {
         let cp1 = color_progress("15.2% of 198.15MiB at 2.32MiB/s ETA 01:12");
         assert_eq!(
             cp1,
-            "\x1b[38;5;214m15.2%\x1b[0m \x1b[38;5;250mof\x1b[0m \x1b[38;5;121m198.1MiB\x1b[0m \
-             \x1b[38;5;250mat\x1b[0m \x1b[38;5;117m002.3MiB/s\x1b[0m \x1b[38;5;250mETA\x1b[0m \
+            "\x1b[38;5;214m15%\x1b[0m \x1b[38;5;250mof\x1b[0m \x1b[38;5;121m198MiB\x1b[0m \
+             \x1b[38;5;250mat\x1b[0m \x1b[38;5;117m  2MiB/s\x1b[0m \x1b[38;5;250mETA\x1b[0m \
              \x1b[38;5;176m01:12\x1b[0m"
         );
         let cp2 = color_progress("5.0% of ~4.63MiB at 9.94MiB/s ETA 00:57");
         assert_eq!(
             cp2,
-            "\x1b[38;5;214m5.0%\x1b[0m \x1b[38;5;250mof\x1b[0m \x1b[38;5;121m~4.6MiB\x1b[0m \
-             \x1b[38;5;250mat\x1b[0m \x1b[38;5;117m009.9MiB/s\x1b[0m \x1b[38;5;250mETA\x1b[0m \
+            "\x1b[38;5;214m5%\x1b[0m \x1b[38;5;250mof\x1b[0m \x1b[38;5;121m~4MiB\x1b[0m \
+             \x1b[38;5;250mat\x1b[0m \x1b[38;5;117m  9MiB/s\x1b[0m \x1b[38;5;250mETA\x1b[0m \
              \x1b[38;5;176m00:57\x1b[0m"
         );
         let cp3 = color_progress("100% of 198.15MiB in 00:45");
         assert_eq!(
             cp3,
-            "\x1b[38;5;214m100%\x1b[0m \x1b[38;5;250mof\x1b[0m \x1b[38;5;121m198.1MiB\x1b[0m \
+            "\x1b[38;5;214m100%\x1b[0m \x1b[38;5;250mof\x1b[0m \x1b[38;5;121m198MiB\x1b[0m \
              \x1b[38;5;250min\x1b[0m \x1b[38;5;176m00:45\x1b[0m"
         );
     }
