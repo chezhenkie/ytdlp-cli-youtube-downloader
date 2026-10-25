@@ -21,6 +21,7 @@
 use std::collections::VecDeque;
 use std::io::{IsTerminal, Read, Write};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::time::{Duration, Instant};
 
 use crate::term::{DOTS, FRAME_SECS, Spinner, flat_frames, flat_freeze, plain_cells, render_cells};
 
@@ -1176,6 +1177,61 @@ fn cbreak(fd: i32) -> Option<libc::termios> {
 
 // ----------------------------------------------------------------- Stage
 
+/// The counter deadband: the line repaints when the percentage moves a
+/// whole point (or restarts), at most every `LIVE_MIN_GAP` and at least
+/// every `LIVE_MAX_GAP`. The spinner frames never ride on this - they
+/// keep their own tick - so a burst of `[download]` chunks cannot make
+/// either the animation or the numbers jump.
+const LIVE_MIN_GAP: Duration = Duration::from_millis(250);
+const LIVE_MAX_GAP: Duration = Duration::from_millis(1000);
+const LIVE_PERCENT_STEP: f64 = 1.0;
+
+/// The percentage a `[download]` body carries: the digits directly left
+/// of the first `%` (a color code may sit in front, so the digit run
+/// stops at its `m`). None for a stage label or the ffmpeg byte counter.
+fn live_percent(text: &str) -> Option<f64> {
+    let end = text.find('%')?;
+    let bytes = text.as_bytes();
+    let mut start = end;
+    while start > 0 && (bytes[start - 1].is_ascii_digit() || bytes[start - 1] == b'.') {
+        start -= 1;
+    }
+    if start == end {
+        return None;
+    }
+    text[start..end].parse().ok()
+}
+
+/// Whether the animator adopts `latest` as the text it paints. The first
+/// sample paints at once; after that a change waits for the floor and
+/// then needs a whole percent step (a restart counts), except that any
+/// line refreshes on the ceiling so a slow transfer keeps a live ETA.
+fn live_adopted(
+    shown: Option<&str>,
+    shown_pct: Option<f64>,
+    shown_at: Instant,
+    latest: &str,
+    now: Instant,
+) -> bool {
+    if shown == Some(latest) {
+        return false;
+    }
+    if shown.is_none() {
+        return true;
+    }
+    let waited = now.saturating_duration_since(shown_at);
+    if waited >= LIVE_MAX_GAP {
+        return true;
+    }
+    if waited < LIVE_MIN_GAP {
+        return false;
+    }
+    match (shown_pct, live_percent(latest)) {
+        (Some(before), Some(next)) => next < before || next - before >= LIVE_PERCENT_STEP,
+        _ => true,
+    }
+}
+
 struct StageState {
     live: Option<String>,
     stop: bool,
@@ -1193,8 +1249,9 @@ pub struct Stage {
     freeze: Vec<(String, u8)>,
     use_color: bool,
     state: Arc<Mutex<StageState>>,
-    /// The animator's wait: set_live and done wake it, so a stage join
-    /// no longer waits out a full tick (audit perf 5).
+    /// The animator's wait: done and Drop wake it, so a stage join never
+    /// waits out a full tick. A live text update never wakes it - the
+    /// frames run on the tick alone.
     signal: Arc<Condvar>,
     sink: SharedSink,
     thread: Option<std::thread::JoinHandle<()>>,
@@ -1234,19 +1291,37 @@ impl Stage {
         let sink = Arc::clone(&self.sink);
         let frames = self.frames.clone();
         let text = self.text.clone();
-        let tick = std::time::Duration::from_secs_f64(self.tick);
+        let tick = Duration::from_secs_f64(self.tick);
         self.thread = Some(std::thread::spawn(move || {
             let count = frames.len().max(1);
             let mut i: usize = 0;
+            // the label the line paints, its percentage and the moment it
+            // was adopted: the frames run on the tick, the counters pass
+            // the deadband in live_adopted
+            let mut shown: Option<String> = None;
+            let mut shown_pct: Option<f64> = None;
+            let mut shown_at = Instant::now();
             let mut guard = lock(&state);
             loop {
                 if guard.stop {
                     break;
                 }
-                let label = match &guard.live {
-                    Some(live) => live.clone(),
-                    None => text.clone(),
-                };
+                let latest = guard.live.clone();
+                let now = Instant::now();
+                match latest {
+                    Some(next) => {
+                        if live_adopted(shown.as_deref(), shown_pct, shown_at, &next, now) {
+                            shown_pct = live_percent(&next);
+                            shown_at = now;
+                            shown = Some(next);
+                        }
+                    }
+                    None => {
+                        shown = None;
+                        shown_pct = None;
+                    }
+                }
+                let label = shown.clone().unwrap_or_else(|| text.clone());
                 drop(guard);
                 {
                     let mut out = lock(&sink);
@@ -1255,23 +1330,32 @@ impl Stage {
                     out.write(&format!("\r\x1b[K{} {}", render_cells(frame), label));
                     out.flush();
                 }
+                // the wait is the tick: a progress line never advances a
+                // frame; done and Drop wake it so the join lands at once.
+                // The stop flag is re-checked under the lock, so a wake
+                // that landed while the frame was being written is not
+                // lost to a fresh tick-long wait
+                let deadline = Instant::now() + tick;
                 guard = lock(&state);
-                // the wait ends on the tick, on a live change, or on the
-                // stop flag - never a bare sleep the join must ride out
-                let (next, _) = signal
-                    .wait_timeout(guard, tick)
-                    .unwrap_or_else(|poisoned| poisoned.into_inner());
-                guard = next;
+                while !guard.stop {
+                    let left = deadline.saturating_duration_since(Instant::now());
+                    let (next, wait) = signal
+                        .wait_timeout(guard, left)
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
+                    guard = next;
+                    if wait.timed_out() {
+                        break;
+                    }
+                }
             }
         }));
     }
 
-    /// The live progress text the pump threads publish (python reads and
-    /// writes `stage.live` from two threads; a lock replaces the plain
-    /// attribute).
+    /// The latest progress sample from the pump threads. It only stores:
+    /// the animator paints it on its next tick through the live_adopted
+    /// deadband, so chunk arrival never paces the spinner.
     pub fn set_live(&self, text: Option<String>) {
         lock(&self.state).live = text;
-        self.signal.notify_all();
     }
 
     /// A shared handle for the download pump threads (python's
@@ -1279,7 +1363,6 @@ impl Stage {
     pub fn live_handle(&self) -> StageLive {
         StageLive {
             state: Arc::clone(&self.state),
-            signal: Arc::clone(&self.signal),
         }
     }
 
@@ -1291,8 +1374,8 @@ impl Stage {
 
     pub fn done(&mut self, text: Option<&str>) {
         lock(&self.state).stop = true;
-        // the animator waits on the condvar, so the join returns as soon
-        // as the wake lands instead of riding out a full tick
+        // done and Drop wake the animator, so the join returns as soon as
+        // the stop flag lands instead of riding out a full tick
         self.signal.notify_all();
         if let Some(handle) = self.thread.take() {
             let _ = handle.join();
@@ -1335,13 +1418,13 @@ impl Stage {
 /// (the download pump threads).
 pub struct StageLive {
     state: Arc<Mutex<StageState>>,
-    signal: Arc<Condvar>,
 }
 
 impl StageLive {
+    /// Same contract as `Stage::set_live`: store the newest sample, never
+    /// wake the animator.
     pub fn set(&self, text: Option<String>) {
         lock(&self.state).live = text;
-        self.signal.notify_all();
     }
 }
 
@@ -1736,6 +1819,131 @@ mod tests {
         stage.done(None);
         assert_eq!(rec.text(), "... preflight\n");
         assert_eq!(rec.flush_count(), 1);
+    }
+
+    /// The live percentage comes from the digits left of the first `%`;
+    /// the color wrapper in front of the token must not break the read.
+    #[test]
+    fn live_percent_reads_the_progress_token() {
+        assert_eq!(
+            live_percent(" 15.2% of 198.15MiB at 2.32MiB/s ETA 01:12"),
+            Some(15.2)
+        );
+        assert_eq!(live_percent("100% of 198.15MiB in 00:45"), Some(100.0));
+        assert_eq!(
+            live_percent("\x1b[38;5;214m5.0%\x1b[0m of ~4.63MiB"),
+            Some(5.0)
+        );
+        assert_eq!(live_percent(" 0.0% of 4.63MiB"), Some(0.0));
+        assert_eq!(live_percent("downloading ffmpeg - 12.0 / 60.0 MB"), None);
+        assert_eq!(live_percent("downloading (escape to stop)"), None);
+        assert_eq!(live_percent("%"), None);
+    }
+
+    /// The counter deadband: whole points after the floor, any change on
+    /// the ceiling, and never a repaint of the same text.
+    #[test]
+    fn live_deadband_holds_the_counters() {
+        let t0 = Instant::now();
+        let at = |ms: u64| t0 + Duration::from_millis(ms);
+        let first = " 5.0% of 1.50MiB at 2.34MiB/s ETA 00:12";
+        assert!(live_adopted(None, None, t0, first, t0), "the first sample");
+        assert!(
+            !live_adopted(
+                Some(first),
+                Some(5.0),
+                t0,
+                " 5.4% of 1.50MiB at 2.90MiB/s ETA 00:11",
+                at(120)
+            ),
+            "a sub-point wobble inside the floor"
+        );
+        assert!(
+            !live_adopted(
+                Some(first),
+                Some(5.0),
+                t0,
+                " 6.1% of 1.50MiB at 2.40MiB/s ETA 00:11",
+                at(120)
+            ),
+            "a whole point still waits for the floor"
+        );
+        assert!(
+            live_adopted(
+                Some(first),
+                Some(5.0),
+                t0,
+                " 6.1% of 1.50MiB at 2.40MiB/s ETA 00:11",
+                at(300)
+            ),
+            "a whole point past the floor"
+        );
+        assert!(
+            live_adopted(
+                Some(first),
+                Some(5.0),
+                t0,
+                " 0.0% of 2.00MiB at 1.10MiB/s ETA 00:20",
+                at(300)
+            ),
+            "a restart paints"
+        );
+        assert!(
+            !live_adopted(Some(first), Some(5.0), t0, first, at(5000)),
+            "the same text never repaints"
+        );
+        assert!(
+            live_adopted(
+                Some("downloading ffmpeg - 12.0 / 60.0 MB"),
+                None,
+                t0,
+                "downloading ffmpeg - 14.0 / 60.0 MB",
+                at(300)
+            ),
+            "a byte counter refreshes on the floor"
+        );
+        assert!(
+            live_adopted(
+                Some(first),
+                Some(5.0),
+                t0,
+                " 5.2% of 1.50MiB at 2.30MiB/s ETA 00:12",
+                at(1000)
+            ),
+            "any line refreshes on the ceiling"
+        );
+    }
+
+    /// The spinner cadence is the tick, never the data: a burst of live
+    /// text between two ticks advances no frame. This pins the audit
+    /// regression, where set_live woke the animator on every chunk line.
+    #[test]
+    fn live_text_never_advances_the_spinner() {
+        let rec = RecordingOut::default();
+        let sink: SharedSink = Arc::new(Mutex::new(rec.clone()));
+        let frames = flat_frames(&lines(&["...", ">>"]), 214);
+        let freeze = flat_freeze("...", 214);
+        let mut stage = Stage::new("downloading", frames, 2.0, freeze, true, Arc::clone(&sink));
+        let painted = |rec: &RecordingOut| {
+            rec.writes()
+                .iter()
+                .filter(|w| w.starts_with("\r\x1b[K") && !w.ends_with('\n'))
+                .count()
+        };
+        stage.start();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while painted(&rec) == 0 && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert_eq!(painted(&rec), 1, "the opening frame paints");
+        for pct in 0..40 {
+            stage.set_live(Some(format!("{pct}.0% of 1.00MiB at 1.00MiB/s ETA 00:10")));
+        }
+        std::thread::sleep(Duration::from_millis(20));
+        assert_eq!(painted(&rec), 1, "a data burst advanced the spinner");
+        stage.done(Some("finished"));
+        assert_eq!(painted(&rec), 1, "done must not paint another frame");
+        assert!(rec.text().ends_with(" finished\n"));
     }
 
     #[test]
