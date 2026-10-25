@@ -371,22 +371,16 @@ pub fn header_lines(version: &str, use_color: bool) -> Vec<String> {
     ]
 }
 
-/// `hint(s)`: amber instructions plus grey detail lines, above the
-/// input field. `outdir` is the resolved output folder (python's hint
-/// resolves it here; the port takes the phase-4 answer as a parameter).
+/// `hint(s)`: grey detail lines, above the input field. `outdir` is the
+/// resolved output folder (python's hint resolves it here; the port takes
+/// the phase-4 answer as a parameter).
 pub fn hint_lines(outdir: &str, use_color: bool) -> Vec<String> {
     let div = "-".repeat((WIDTH + 2) as usize);
-    let l1 = "paste url, press enter and download will start";
-    let l2 = "enter number to change default settings";
-    let l3 = "change download location by choosing menu item: 5";
-    let l4 = "s: subtitles to text first, sound only if there are none";
-    let l5 = format!("DL location: {outdir}");
+    let l1 = "change download location by choosing menu item: 5";
+    let l2 = format!("DL location: {outdir}");
     vec![
-        c(use_color, A_AMBER, l1),
-        c(use_color, A_AMBER, l2),
-        c(use_color, A_DARKGREY, l3),
-        c(use_color, A_DARKGREY, l4),
-        c(use_color, A_DARKGREY, &l5),
+        c(use_color, A_DARKGREY, l1),
+        c(use_color, A_DARKGREY, &l2),
         c(use_color, A_LBLUE, &div),
     ]
 }
@@ -613,11 +607,10 @@ mod tests {
     }
 
     #[test]
-    fn hint_lines_explain_the_summary_key() {
+    fn hint_lines_carry_the_output_location() {
         let lines = hint_lines("/x/Downloads", false);
-        assert_eq!(lines.len(), 6, "two amber, three grey, one rule");
-        assert!(lines[2].contains("menu item: 5"));
-        assert!(lines[3].contains("subtitles to text first"));
-        assert!(lines[4].starts_with("DL location: /x/Downloads"));
+        assert_eq!(lines.len(), 3, "two grey, one rule");
+        assert!(lines[0].contains("menu item: 5"));
+        assert!(lines[1].starts_with("DL location: /x/Downloads"));
     }
 }

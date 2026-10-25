@@ -1702,10 +1702,10 @@ pub(super) fn section_batch(
         &mut no_update,
     );
     c.check(
-        "hint names item 5, not item 11, explains s",
+        "hint names item 5, not item 11",
         capture3.text().contains("menu item: 5")
             && !capture3.text().contains("menu item: 11")
-            && capture3.text().contains("subtitles to text first"),
+            && capture3.text().contains("DL location:"),
         &got_strs(&["hint"]),
     );
     c.check(
