@@ -7,7 +7,7 @@
     "output": "ytdlp-process-flow.html",
     "repository": {
       "url": "https://github.com/chezhenkie/ytdlp-cli-youtube-downloader.git",
-      "revision": "f9c9213e86f15640e8d2850fa7682c36b90ec38a"
+      "revision": "5fd5748963138ec6f1da67dd37c2bcf5ecec0641"
     }
   },
   "lanes": [
@@ -90,7 +90,7 @@
     { "id": "r_ytdlp", "lane": "child", "col": 3, "yOffset": 40, "type": "messagebus", "label": "yt-dlp media pass", "sublabel": "stdout piped; escape kills tree",
       "sources": [
         { "path": "rust-src/cli/src/exec.rs", "line": 274, "end_line": 401, "label": "run_download: spawn, pumps, poll" },
-        { "path": "rust-src/cli/src/exec/run.rs", "line": 142, "end_line": 165, "label": "kill_tree_real: tree kill on escape" }
+        { "path": "rust-src/cli/src/exec/run.rs", "line": 139, "end_line": 164, "label": "kill_tree_real: tree kill on escape" }
       ]
     },
     { "id": "r_strip", "lane": "child", "col": 4, "yOffset": -40, "type": "messagebus", "label": "srt timecode stripper", "sublabel": "one spawn per file", "tag": "text, timecode, numbered",
