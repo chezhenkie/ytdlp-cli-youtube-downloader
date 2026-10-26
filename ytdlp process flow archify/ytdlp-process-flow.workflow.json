@@ -24,14 +24,14 @@
     { "id": "u_type", "lane": "human", "col": 3, "type": "external", "label": "type at the prompt", "sublabel": "url | 0 | 1-15 | s | q" },
     { "id": "m_paint", "lane": "menu", "col": 2, "type": "frontend", "label": "paint menu", "sublabel": "s and 0 rows over 15 items", "tag": "hint: DL location",
       "sources": [
-        { "path": "rust-src/cli/src/menu.rs", "line": 793, "end_line": 811, "label": "paint when dirty, quiet check, save" },
+        { "path": "rust-src/cli/src/menu.rs", "line": 793, "end_line": 812, "label": "paint when dirty, quiet check, save" },
         { "path": "rust-src/cli/src/ui.rs", "line": 391, "end_line": 420, "label": "summary and 0 rows, then 15 items" },
         { "path": "rust-src/cli/src/ui.rs", "line": 193, "end_line": 342, "label": "menu_items: rows 1-15" }
       ]
     },
     { "id": "m_route", "lane": "menu", "col": 3, "type": "frontend", "icon": "decision", "label": "route the input", "sublabel": "first http(s) link wins",
       "sources": [
-        { "path": "rust-src/cli/src/menu.rs", "line": 827, "end_line": 848, "label": "url in prompt: download run" },
+        { "path": "rust-src/cli/src/menu.rs", "line": 827, "end_line": 849, "label": "url in prompt: download run" },
         { "path": "rust-src/cli/src/args.rs", "line": 23, "end_line": 53, "label": "clean_url: first http(s) link" }
       ]
     },
@@ -44,7 +44,7 @@
     },
     { "id": "u_cli", "lane": "updates", "col": 5, "yOffset": -40, "type": "cloud", "label": "releases API fetch", "sublabel": "one GET: tag, asset, digest", "tag": "macOS: page only",
       "sources": [
-        { "path": "rust-src/cli/src/update.rs", "line": 267, "end_line": 274, "label": "fetch_cli: one GET" },
+        { "path": "rust-src/cli/src/update.rs", "line": 267, "end_line": 279, "label": "fetch_cli: one GET" },
         { "path": "rust-src/cli/src/update.rs", "line": 233, "end_line": 241, "label": "release_asset: lean bundle per platform" },
         { "path": "rust-src/cli/src/update.rs", "line": 840, "end_line": 879, "label": "notice, refusal, install prompt" }
       ]
@@ -70,14 +70,14 @@
     },
     { "id": "r_sum", "lane": "cli", "col": 4, "type": "backend", "label": "do_summary", "sublabel": "subs to text first; sound fallback", "tag": "stored settings kept",
       "sources": [
-        { "path": "rust-src/cli/src/exec.rs", "line": 693, "end_line": 777, "label": "subtitle pass, text strip, text ready" },
+        { "path": "rust-src/cli/src/exec.rs", "line": 693, "end_line": 778, "label": "subtitle pass, text strip, text ready" },
         { "path": "rust-src/cli/src/exec.rs", "line": 780, "end_line": 804, "label": "sound fallback from a settings copy" }
       ]
     },
     { "id": "r_verdict", "lane": "cli", "col": 5, "type": "backend", "label": "run verdict", "sublabel": "done | failed rc | stopped 130",
       "sources": [
         { "path": "rust-src/cli/src/exec.rs", "line": 37, "end_line": 43, "label": "fail_sentence: failed rc text" },
-        { "path": "rust-src/cli/src/exec.rs", "line": 613, "end_line": 617, "label": "stopped: rc 130 and cleanup" },
+        { "path": "rust-src/cli/src/exec.rs", "line": 613, "end_line": 618, "label": "stopped: rc 130 and cleanup" },
         { "path": "rust-src/cli/src/exec.rs", "line": 126, "end_line": 130, "label": "drop_temp_dir_force: removes work folder" }
       ]
     },
