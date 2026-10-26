@@ -1204,8 +1204,9 @@ fn live_percent(text: &str) -> Option<f64> {
 
 /// Whether the animator adopts `latest` as the text it paints. The first
 /// sample paints at once; after that a change waits for the floor and
-/// then needs a whole percent step (a restart counts), except that any
-/// line refreshes on the ceiling so a slow transfer keeps a live ETA.
+/// then needs a whole percent step, except that any line refreshes on
+/// the ceiling so a slow transfer keeps a live ETA. A step back is
+/// never adopted.
 fn live_adopted(
     shown: Option<&str>,
     shown_pct: Option<f64>,
@@ -1221,15 +1222,72 @@ fn live_adopted(
     }
     let waited = now.saturating_duration_since(shown_at);
     if waited >= LIVE_MAX_GAP {
-        return true;
+        // the ceiling keeps a slow transfer live; it never paints a
+        // lower percent than the line already shows
+        return match (shown_pct, live_percent(latest)) {
+            (Some(before), Some(next)) => next >= before,
+            _ => true,
+        };
     }
     if waited < LIVE_MIN_GAP {
         return false;
     }
     match (shown_pct, live_percent(latest)) {
-        (Some(before), Some(next)) => next < before || next - before >= LIVE_PERCENT_STEP,
+        (Some(before), Some(next)) => next >= before && next - before >= LIVE_PERCENT_STEP,
         _ => true,
     }
+}
+
+/// The stage's own counter state. yt-dlp only supplies samples; the
+/// percent keeps a high-water mark inside the stage, so a revised total
+/// estimate can lower the source number but never the painted one.
+#[derive(Default)]
+struct Counter {
+    floor_pct: Option<u32>,
+}
+
+impl Counter {
+    fn shape(&mut self, text: &str) -> String {
+        let Some(pct) = live_percent(text) else {
+            return text.to_string();
+        };
+        let whole = pct.floor() as u32;
+        let floor = self.floor_pct.map_or(whole, |f| f.max(whole));
+        self.floor_pct = Some(floor);
+        if floor > whole {
+            return floor_percent(text, floor);
+        }
+        text.to_string()
+    }
+}
+
+/// Rewrite the percentage token so the stage line never prints below
+/// `floor`: yt-dlp revises the total estimate and its percent can step
+/// back with it. Only the digits change; the color code and the rest of
+/// the line stay as printed.
+fn floor_percent(text: &str, floor: u32) -> String {
+    let Some(end) = text.find('%') else {
+        return text.to_string();
+    };
+    let bytes = text.as_bytes();
+    let mut start = end;
+    while start > 0 && (bytes[start - 1].is_ascii_digit() || bytes[start - 1] == b'.') {
+        start -= 1;
+    }
+    if start == end {
+        return text.to_string();
+    }
+    let Ok(pct) = text[start..end].parse::<f64>() else {
+        return text.to_string();
+    };
+    if pct >= f64::from(floor) {
+        return text.to_string();
+    }
+    let mut out = String::with_capacity(text.len());
+    out.push_str(&text[..start]);
+    out.push_str(&floor.to_string());
+    out.push_str(&text[end..]);
+    out
 }
 
 struct StageState {
@@ -1301,6 +1359,9 @@ impl Stage {
             let mut shown: Option<String> = None;
             let mut shown_pct: Option<f64> = None;
             let mut shown_at = Instant::now();
+            // the stage owns the counters: the source may step back, the
+            // painted line may not
+            let mut counter = Counter::default();
             let mut guard = lock(&state);
             loop {
                 if guard.stop {
@@ -1310,6 +1371,7 @@ impl Stage {
                 let now = Instant::now();
                 match latest {
                     Some(next) => {
+                        let next = counter.shape(&next);
                         if live_adopted(shown.as_deref(), shown_pct, shown_at, &next, now) {
                             shown_pct = live_percent(&next);
                             shown_at = now;
@@ -1840,6 +1902,36 @@ mod tests {
         assert_eq!(live_percent("%"), None);
     }
 
+    /// The stage counter keeps the percent high-water mark: a later
+    /// sample that steps back paints the floor instead.
+    #[test]
+    fn counter_shapes_the_percent_forward_only() {
+        let mut counter = Counter::default();
+        assert_eq!(counter.shape(" 5.0% of 1.50MiB"), " 5.0% of 1.50MiB");
+        assert_eq!(counter.shape(" 6.2% of 1.50MiB"), " 6.2% of 1.50MiB");
+        assert_eq!(counter.shape(" 4.0% of 1.60MiB"), " 6% of 1.60MiB");
+        assert_eq!(counter.shape(" 6.1% of 1.60MiB"), " 6.1% of 1.60MiB");
+        assert_eq!(counter.shape("no percent"), "no percent");
+        let colored = "\x1b[38;5;214m9%\x1b[0m of 198MiB";
+        assert_eq!(counter.shape(colored), colored);
+        assert_eq!(
+            counter.shape("\x1b[38;5;214m7%\x1b[0m of 198MiB"),
+            "\x1b[38;5;214m9%\x1b[0m of 198MiB"
+        );
+    }
+
+    #[test]
+    fn floor_percent_rewrites_only_the_token() {
+        assert_eq!(floor_percent("45% of 198.15MiB", 46), "46% of 198.15MiB");
+        assert_eq!(
+            floor_percent("45.0% of 198.15MiB", 45),
+            "45.0% of 198.15MiB"
+        );
+        assert_eq!(floor_percent("46% of 198.15MiB", 45), "46% of 198.15MiB");
+        assert_eq!(floor_percent("plain", 45), "plain");
+        assert_eq!(floor_percent("%", 45), "%");
+    }
+
     /// The counter deadband: whole points after the floor, any change on
     /// the ceiling, and never a repaint of the same text.
     #[test]
@@ -1879,14 +1971,14 @@ mod tests {
             "a whole point past the floor"
         );
         assert!(
-            live_adopted(
+            !live_adopted(
                 Some(first),
                 Some(5.0),
                 t0,
                 " 0.0% of 2.00MiB at 1.10MiB/s ETA 00:20",
                 at(300)
             ),
-            "a restart paints"
+            "a step back never paints"
         );
         assert!(
             !live_adopted(Some(first), Some(5.0), t0, first, at(5000)),

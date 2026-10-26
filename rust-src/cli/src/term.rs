@@ -213,6 +213,82 @@ pub fn whole_num(word: &str) -> String {
     out
 }
 
+/// A parsed size word in bytes: `B`, `KiB`, `MiB`, `GiB` or `TiB`
+/// (yt-dlp's `format_bytes` units). None when the word is not a plain
+/// size; a speed keeps its `/s` tail and fails the final length check.
+fn size_bytes(word: &str) -> Option<f64> {
+    const KIB: f64 = 1024.0;
+    const MIB: f64 = 1024.0 * 1024.0;
+    const GIB: f64 = 1024.0 * 1024.0 * 1024.0;
+    const TIB: f64 = 1024.0 * 1024.0 * 1024.0 * 1024.0;
+    let body = word.strip_prefix('~').unwrap_or(word);
+    let b = body.as_bytes();
+    let mut i = 0;
+    while i < b.len() && b[i].is_ascii_digit() {
+        i += 1;
+    }
+    if i == 0 {
+        return None;
+    }
+    if at(b, i, b'.') {
+        i += 1;
+        let digits = i;
+        while i < b.len() && b[i].is_ascii_digit() {
+            i += 1;
+        }
+        if i == digits {
+            return None;
+        }
+    }
+    let num_end = i;
+    let mult = match *b.get(i)? {
+        b'B' => {
+            i += 1;
+            1.0
+        }
+        u @ (b'K' | b'M' | b'G' | b'T') => {
+            let mult = match u {
+                b'K' => KIB,
+                b'M' => MIB,
+                b'G' => GIB,
+                _ => TIB,
+            };
+            i += 1;
+            if at(b, i, b'i') {
+                i += 1;
+            }
+            if !at(b, i, b'B') {
+                return None;
+            }
+            i += 1;
+            mult
+        }
+        _ => return None,
+    };
+    if i != b.len() {
+        return None;
+    }
+    body[..num_end].parse::<f64>().ok().map(|v| v * mult)
+}
+
+/// A size word for the stage line: from the rounding edge of one GiB
+/// (0.95 GiB) the word prints in GiB with one decimal, so a total
+/// estimate hovering at the unit boundary can never alternate between
+/// `1.0GiB` and a four-digit MiB count. Below that the printed unit is
+/// kept and the fraction truncated (`whole_num`).
+pub fn size_word(word: &str) -> String {
+    const GIB: f64 = 1024.0 * 1024.0 * 1024.0;
+    let Some(bytes) = size_bytes(word) else {
+        return word.to_string();
+    };
+    if bytes < GIB * 0.95 {
+        return whole_num(word);
+    }
+    let tenths = (bytes / GIB * 10.0).round() as u64;
+    let tilde = if word.starts_with('~') { "~" } else { "" };
+    format!("{tilde}{}.{}GiB", tenths / 10, tenths % 10)
+}
+
 /// The speed keeps a three-digit integer field so digit crossings never
 /// shift the rest of the line; the field is space-padded the way yt-dlp
 /// right-aligns its own speed (`format_speed: >10s`).
@@ -261,7 +337,7 @@ pub fn color_progress(body: &str) -> String {
             out.push_str(A_RESET);
         } else if is_size(word) || word.strip_prefix('~').is_some_and(is_size) {
             out.push_str(A_MINT);
-            out.push_str(&whole_num(word));
+            out.push_str(&size_word(word));
             out.push_str(A_RESET);
         } else if is_speed(word) {
             out.push_str(A_LBLUE);
@@ -684,6 +760,20 @@ mod tests {
     }
 
     #[test]
+    fn gib_sizes_print_as_one_decimal_gib() {
+        assert_eq!(size_word("1016.20MiB"), "1.0GiB");
+        assert_eq!(size_word("~1018.75MiB"), "~1.0GiB");
+        assert_eq!(size_word("1000MiB"), "1.0GiB");
+        assert_eq!(size_word("1.00GiB"), "1.0GiB");
+        assert_eq!(size_word("1.14GiB"), "1.1GiB");
+        assert_eq!(size_word("1.16GiB"), "1.2GiB");
+        assert_eq!(size_word("1.99GiB"), "2.0GiB");
+        assert_eq!(size_word("4.63MiB"), "4MiB");
+        assert_eq!(size_word("972MiB"), "972MiB");
+        assert_eq!(size_word("973MiB"), "1.0GiB");
+    }
+
+    #[test]
     fn pad_speed_matches_selftest_pins() {
         assert_eq!(pad_speed("999.9MiB/s"), "999MiB/s");
         assert_eq!(pad_speed("99.99MiB/s"), " 99MiB/s");
@@ -715,6 +805,12 @@ mod tests {
         assert_eq!(
             cp3,
             "\x1b[38;5;214m100%\x1b[0m \x1b[38;5;250mof\x1b[0m \x1b[38;5;121m198MiB\x1b[0m \
+             \x1b[38;5;250min\x1b[0m \x1b[38;5;176m00:45\x1b[0m"
+        );
+        let cp4 = color_progress("45.6% of ~1018.75MiB in 00:45");
+        assert_eq!(
+            cp4,
+            "\x1b[38;5;214m45%\x1b[0m \x1b[38;5;250mof\x1b[0m \x1b[38;5;121m~1.0GiB\x1b[0m \
              \x1b[38;5;250min\x1b[0m \x1b[38;5;176m00:45\x1b[0m"
         );
     }

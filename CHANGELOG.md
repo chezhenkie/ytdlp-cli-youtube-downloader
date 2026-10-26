@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.8.5
+
+### Fixes
+
+#### All platforms
+
+* Sizes at the GiB edge print in one unit: from 0.95 GiB up the stage line shows GiB with one decimal (`1.0GiB`, `1.1GiB`), so a total estimate that moves around the boundary can no longer alternate between `1.0GiB` and a four-digit MiB count.
+* The progress percent keeps a high-water mark on the stage line. A revised total estimate that lowers the source percentage no longer moves the painted counter back.
+
 ## 2.8.4
 
 ### Fixes
