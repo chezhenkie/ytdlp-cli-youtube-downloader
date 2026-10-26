@@ -11,7 +11,7 @@ yt-dlp, ffmpeg and srtstripper, and the linux-musl bundle carries ytdlp-cli and
 the musl build of srtstripper only - there yt-dlp and ffmpeg come from the
 system package manager (on Alpine, apk add yt-dlp pulls ffmpeg with it).
 
-1. ytdlp-cli - the menu, the launchers and the defaults
+1. ytdlp-cli - the menu and the defaults
    MIT License. See LICENSE in this bundle.
 
 2. yt-dlp - performs every download

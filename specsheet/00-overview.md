@@ -24,6 +24,6 @@ This file is 00-overview.md; the parts are numbered in reading order (01-06) and
 | [01-problem-goals.md](01-problem-goals.md) | 1-3 | problem, goals, non-goals; FR-1..FR-22 the functional requirements; NFR-1..NFR-8 the non-functional requirements |
 | [02-architecture.md](02-architecture.md) | 4 | components and layers, capability map, crate policy, language gates, build matrix, data model, third-party licensing |
 | [03-native-decisions.md](03-native-decisions.md) | 4 | section 4 continuation: the per-phase native decision record - binding decisions, recorded deviations, evidence method |
-| [04-interfaces.md](04-interfaces.md) | 5-7 | IF-1..IF-8 launchers, argv, settings schema, subprocess contracts, endpoints, CI; startup journey, user flows, states, failure handling; implementation rules, observability, process hygiene |
+| [04-interfaces.md](04-interfaces.md) | 5-7 | IF-1..IF-7 argv, settings schema, subprocess contracts, endpoints, CI; startup journey, user flows, states, failure handling; implementation rules, observability, process hygiene |
 | [05-data.md](05-data.md) | 8-10 | settings.json field table and boundary validation; documentation duties; requirement-to-verification map and the conformance map |
 | [06-phases-and-gates.md](06-phases-and-gates.md) | 12 | phases and gates, native gate 0, G9 + G10 evidence, the cutover record |

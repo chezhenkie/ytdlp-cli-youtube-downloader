@@ -1,5 +1,5 @@
 Smart menu CLI around [yt-dlp](https://github.com/yt-dlp/yt-dlp). Built in Rust, zippy execution.
-Copy youtube link, open app, type '0' and download starts. This project is only the menu, the launchers and the defaults; actual download is performed by yt-dlp, and this is not affiliated with or endorsed by the yt-dlp project.
+Copy youtube link, open app, type '0' and download starts. This project is only the menu and the defaults; actual download is performed by yt-dlp, and this is not affiliated with or endorsed by the yt-dlp project.
 
 The yt-dlp runtime is used exactly as published - nothing in it is patched or rebuilt by this project. Bit for bit.
 
@@ -36,8 +36,6 @@ None beyond the bundle, the Windows binary is statically linked. The musl bundle
 - Linux: `./ytdlp`
 - Alpine and other musl Linux: `./ytdlp` plus the system runtime - `apk add yt-dlp` (that package pulls ffmpeg and the JS runtime with it); no musl yt-dlp or ffmpeg builds are published, so the musl bundle ships the cli and the srtstripper only
 - macOS (Apple silicon): `ytdlp` (the .pkg below installs it and puts it on your PATH)
-
-Every bundle also carries `run-ytdlp.bat` and `run-ytdlp.sh`; they are optional, the chapter below explains when they help (the installers install those files too).
 
 ### Installing on Windows
 
@@ -77,19 +75,6 @@ The menu itself is where the defaults live: type/video mode, container, resoluti
 
 Output goes to a `ytdlp-cli-downloads` folder on your desktop by default, falling back to the same folder inside your downloads folder. Change it with menu item 5.
 
-## Exe or launcher
-
-Normally you use the exe: `ytdlp.exe` on Windows, `./ytdlp` on Linux and macOS, or plain `ytdlp` once the Windows installer or the macOS package has put it on your PATH. It is the whole program - one static binary, no runtime, and every feature and setting lives inside it.
-
-`run-ytdlp.bat` and `run-ytdlp.sh` are optional thin wrappers around that exe:
-
-| file | what it adds |
-|---|---|
-| `run-ytdlp.bat` | Windows double-click entry. Runs `ytdlp.exe` from the bundle folder, forwards arguments, and pauses on a nonzero exit so the console does not close before you can read the error. |
-| `run-ytdlp.sh` | Posix entry that finds its own folder, so it runs from any directory and under `sh`/`dash` (Linux and macOS). |
-
-They change nothing else: same arguments, same settings, same output. The yt-dlp update never touches the launchers, so deleting them is safe.
-
 ## Checksums
 
 ```
@@ -108,7 +93,7 @@ The bundled yt-dlp is the official 2026.08.19 release and matches the SHA-256 su
 
 ## Licensing
 
-The menu, the launchers and the defaults are **MIT**. See `LICENSE` in the bundle.
+The menu and the defaults are **MIT**. See `LICENSE` in the bundle.
 
 yt-dlp, which does all the downloading, is **Unlicense**, a public domain dedication. It ships its own `THIRD_PARTY_LICENSES.txt` listing every library inside it.
 
