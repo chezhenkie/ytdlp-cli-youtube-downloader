@@ -4,8 +4,6 @@
 #   curl -fsSL https://raw.githubusercontent.com/chezhenkie/ytdlp-cli-youtube-downloader/main/install.sh | sh
 #
 # Options (when piped, pass them after sh -s --):
-#   --portable    bundle with ffmpeg (default; glibc)
-#   --lean        smaller bundle without ffmpeg (glibc)
 #   --version V   install release V (like v2.3.0) instead of the latest
 #   --uninstall   remove the tree and the ytdlp link
 #
@@ -23,21 +21,17 @@ set -eu
 repo=chezhenkie/ytdlp-cli-youtube-downloader
 github=https://github.com/$repo
 version=latest
-flavour=portable
-flavour_set=no
 uninstall=no
 
 usage() {
 	cat <<'EOF'
-usage: install.sh [--portable | --lean] [--version vX.Y.Z] [--uninstall]
+usage: install.sh [--version vX.Y.Z] [--uninstall]
 
-  --portable   install the bundle with ffmpeg (default)
-  --lean       install the smaller bundle without ffmpeg
   --version V  install release V instead of the latest one
   --uninstall  remove ~/.local/share/ytdlp-cli and the ~/.local/bin/ytdlp link
 
 On musl (Alpine) the cli-only musl bundle is installed and yt-dlp comes from
-apk; --portable/--lean name the glibc bundles and are refused there.
+apk. The glibc bundle carries yt-dlp, ffmpeg and the srtstripper.
 EOF
 }
 
@@ -45,8 +39,10 @@ die() { echo "install.sh: $*" >&2; exit 1; }
 
 while [ $# -gt 0 ]; do
 	case $1 in
-		--portable) flavour=portable; flavour_set=yes ;;
-		--lean) flavour=lean; flavour_set=yes ;;
+		--portable|--lean)
+			# one bundle per platform now; the flavour flags are gone
+			echo "install.sh: $1 is ignored - the bundle always includes ffmpeg" >&2
+			;;
 		--version)
 			[ $# -ge 2 ] || die "--version needs a value like v2.3.0"
 			version=$2
@@ -79,11 +75,10 @@ case $(uname -m) in
 	x86_64|amd64) ;;
 	*) die "no bundle for $(uname -m) - releases carry Linux x86_64 builds only" ;;
 esac
+suffix=linux
 if { command -v ldd >/dev/null 2>&1 && ldd --version 2>&1 | grep -qi musl; } \
 	|| ls /lib/ld-musl-*.so.1 >/dev/null 2>&1; then
-	[ "$flavour_set" = no ] \
-		|| die "--$flavour names a glibc bundle; on musl (Alpine) install.sh fetches the linux-musl bundle - drop the flag"
-	flavour=musl
+	suffix=linux-musl
 fi
 command -v curl >/dev/null 2>&1 || die "curl is required"
 command -v tar >/dev/null 2>&1 || die "tar is required"
@@ -115,8 +110,8 @@ echo "fetching the release notes ($version)"
 curl -fsSL "$base/RELEASE-NOTES.md" -o "$tmp/notes.md" \
 	|| die "cannot fetch RELEASE-NOTES.md - no network, or no such release?"
 
-row=$(grep -E "^[0-9a-f]{64}[[:space:]]+ytdlp-cli-v[0-9.]+-linux-$flavour\.tar\.gz$" "$tmp/notes.md") \
-	|| die "no linux-$flavour bundle in the checksums of $version"
+row=$(grep -E "^[0-9a-f]{64}[[:space:]]+ytdlp-cli-v[0-9.]+-$suffix\.tar\.gz$" "$tmp/notes.md") \
+	|| die "no $suffix bundle in the checksums of $version"
 [ "$(printf '%s\n' "$row" | awk 'END {print NR}')" = 1 ] \
 	|| die "the checksum block is ambiguous - refusing to guess"
 
@@ -161,7 +156,7 @@ ln -sf "$target/ytdlp" "$link"
 echo "installed $asset"
 echo "  tree: $target"
 echo "  link: $link"
-if [ "$flavour" = musl ] && ! command -v yt-dlp >/dev/null 2>&1; then
+if [ "$suffix" = linux-musl ] && ! command -v yt-dlp >/dev/null 2>&1; then
 	echo "note: yt-dlp is not on PATH yet; on Alpine install it with:"
 	echo "  apk add yt-dlp"
 	echo "  (the Alpine package pulls ffmpeg and the JS runtime with it)"

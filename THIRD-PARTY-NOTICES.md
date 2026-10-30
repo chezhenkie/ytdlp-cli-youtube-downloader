@@ -5,11 +5,11 @@ This bundle contains four independently licensed projects. They are separate
 programs that work together because one invokes the other; each keeps its own
 license.
 
-Which of the four are inside a given artifact: the platform bundles carry
-yt-dlp and srtstripper (the portable ones also ffmpeg), the macOS pkg carries
-yt-dlp, ffmpeg and srtstripper, and the linux-musl bundle carries ytdlp-cli and
-the musl build of srtstripper only - there yt-dlp and ffmpeg come from the
-system package manager (on Alpine, apk add yt-dlp pulls ffmpeg with it).
+Which of the four are inside a given artifact: the windows zip, the windows
+setup.exe, the linux glibc tar and the macOS pkg carry yt-dlp, ffmpeg and
+srtstripper; the linux-musl bundle carries ytdlp-cli and the musl build of
+srtstripper only - there yt-dlp and ffmpeg come from the system package manager
+(on Alpine, apk add yt-dlp pulls ffmpeg with it).
 
 1. ytdlp-cli - the menu and the defaults
    MIT License. See LICENSE in this bundle.
@@ -23,7 +23,8 @@ system package manager (on Alpine, apk add yt-dlp pulls ffmpeg with it).
    system's own copy and its license file apply.
 
 3. ffmpeg - merging, audio extraction and subtitle conversion
-   Present in the portable bundles and the macOS pkg; the lean and linux-musl bundles do not contain it.
+   Present in every glibc bundle and in the macOS pkg; the linux-musl bundle
+   does not contain it.
    Copyright (c) 2000-2026 the FFmpeg developers.
    The builds shipped here are configured --enable-gpl --enable-version3, so
    they are distributed under the GNU General Public License version 2 or later,
@@ -33,31 +34,19 @@ system package manager (on Alpine, apk add yt-dlp pulls ffmpeg with it).
 
    Corresponding source. FFmpeg's own source is published at
    https://ffmpeg.org/download.html and in the git repository at
-   https://github.com/FFmpeg/FFmpeg. The exact tree each bundled binary was
-   built from is named by the provider:
+   https://github.com/FFmpeg/FFmpeg. All three bundled binaries come from one
+   provider, shaka-project/static-ffmpeg-binaries release n8.1.2-1, built from
+   the ffmpeg n8.1.2 tree with libvpx 1.16.0, svt-av1 4.1.0, x264, x265 4.2,
+   lame 3.100, opus 1.6.1 and mbedtls 3.4.1. The build script and the CI
+   workflow that produce these binaries live in that same repository:
+   https://github.com/shaka-project/static-ffmpeg-binaries
 
-   - Windows build, ffmpeg 9.0.2 essentials build, provided by gyan.dev.
-     Archive: ffmpeg-9.0.2-essentials_build.zip
-     sha256: 60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba
-     Build page: https://www.gyan.dev/ffmpeg/builds/
-     That page links the corresponding source of each build it publishes,
-     marked "source code @ github". gyan.dev publishes Windows binaries only,
-     so the Linux build cannot come from there.
-
-   - Linux build, ffmpeg n9.0.2-39-g7adfbe40dc-20261030, provided by
-     BtbN/FFmpeg-Builds.
-     Archive: ffmpeg-n9.0.2-39-g7adfbe40dc-linux64-gpl-9.0.tar.xz (autobuild-2026-10-30-13-01)
-     sha256: 2f787799c77ac8eda96f74fee82e7b18ef8f7c8c57ff99da68cb45046937092c
-     Release page: https://github.com/BtbN/FFmpeg-Builds/releases
-     The scripts used to build these binaries live in that same repository.
-
-   - macOS build (arm64), ffmpeg n8.1.2, provided by
-     shaka-project/static-ffmpeg-binaries.
-     Asset: ffmpeg-osx-arm64 (release n8.1.2-1)
+   - Windows build: asset ffmpeg-win-x64.exe
+     sha256: 4044b3924c977ad31229d504c5d5b8685f9553124fbaff6e9c99048b42830341
+   - Linux build: asset ffmpeg-linux-x64
+     sha256: 9eac5b2b5076db5ff853a6fa0dcd6b8de7d0cac8481eadda6c47cd935825f1ee
+   - macOS build (arm64): asset ffmpeg-osx-arm64
      sha256: e7b9fcd97f95f333512d6e8b8ac24d9dbc08f189f36047695499bd7b57214b22
-     Release page: https://github.com/shaka-project/static-ffmpeg-binaries/releases
-     The build script and the CI workflow that produce these binaries live in
-     that same repository. Present in the macOS pkg.
 
    ffmpeg is free software. You may use, study, modify and redistribute it under
    the terms of the GNU General Public License, exactly as its authors intend.

@@ -1,35 +1,25 @@
 name: bundles
 
-# Phase 10 (owner call 2026-10-16): assemble the release files on the
-# native runners. workflow_dispatch only. This workflow builds artifacts; it does
-# not tag or publish anything. The release commit carries the digests, the tag
-# follows, and gh release upload places exactly these bytes. The 2026-10-17k
-# owner call adds installers and moves macos from the tar bundle to a pkg (the
-# tar is gone - it was the confusing twin): the release is four bundles
-# (windows/linux lean+portable each), the windows setup.exe, the macos-arm64
-# pkg and RELEASE-NOTES.md - seven release files. No bare cli image is
-# published on any platform (owner calls 2026-10-17h and j).
+# Assembles the release files on the native runners. workflow_dispatch only.
+# This workflow builds artifacts; it does not tag or publish anything. The
+# release commit carries the digests, the tag follows, and gh release upload
+# places exactly these bytes.
 #
-# Owner call 2026-10-17n adds the linux musl bundle (FR-19): a fifth release
-# file, the cli built for x86_64-unknown-linux-musl, cli-only (no yt-dlp, no
-# ffmpeg - the system package manager provides them; apk add yt-dlp pulls
-# ffmpeg and the JS runtime along on Alpine). Its job builds, assembles and
-# proves it here: static link, extract, packaged selftest 192/0, and no
-# bin/yt-dlp inside the tar. The release is eight files.
-#
-# Owner call 2026-10-18 (FR-20) adds the standalone srtstripper binary to every
-# bundle's bin/: the windows exe for the windows bundles and the setup.exe, the
-# linux glibc build for the linux bundles, the musl build for the musl bundle
-# (first-party, same MIT author - the NFR-1 deviation stays about yt-dlp and
-# ffmpeg), the arm64 build for the macos pkg. Pinned to the v1.6.4 assets and
-# digest-checked like every other payload.
+# The matrix is one bundle per platform, each carrying the full runtime:
+#   windows zip    cli + yt-dlp onedir tree + ffmpeg + srtstripper
+#   windows setup  the same tree as a per-user installer
+#   linux tar.gz   cli + yt-dlp onedir tree + ffmpeg + srtstripper
+#   linux musl tar cli + srtstripper only; apk provides yt-dlp and ffmpeg
+#   macos pkg      cli + yt-dlp onedir tree + ffmpeg + srtstripper
+# Six release files with RELEASE-NOTES.md. No bare cli image is published on
+# any platform.
 #
 # The installers are built here and proven here, not just assembled: the
 # windows job silently installs the setup.exe, runs the installed binary's
-# selftest (192 checks, 0 failed), checks the PATH entry and uninstalls again;
+# selftest (181 checks, 0 failed), checks the PATH entry and uninstalls again;
 # the macos job installs the pkg with `installer -pkg` on the runner, runs the
-# installed binary, checks writability, the installed tree and the shipped uninstall
-# script. Both installers carry the same portable payload the zip/tar bundles
+# installed binary, checks writability, the installed tree and the shipped
+# uninstall script. Both installers carry the same payload the zip/tar bundles
 # carry.
 #
 # Payload pins:
@@ -40,17 +30,15 @@ name: bundles
 #           139 files / 23,815,375 bytes into %TEMP%\_MEIxxxxx on every
 #           launch (measured 5,698 writes per launch; the app launches it
 #           2x with subs off, 3x with subs on).
-#   ffmpeg: gyan.dev 9.0.2 essentials (windows), BtbN n9.0.2-39-g7adfbe40dc
-#           autobuild-2026-10-30 (linux; the dated tag, so the pin cannot move
-#           under CI the way the moving "latest" tag did),
-#           shaka-project/static-ffmpeg-binaries n8.1.2-1 ffmpeg-osx-arm64
-#           (macos; owner call 2026-10-17g: a public repo with contributors,
-#           CI-built from source, per-asset sha256 - no one-person sites)
+#   ffmpeg: shaka-project/static-ffmpeg-binaries n8.1.2-1, raw per-platform
+#           binaries - ffmpeg-win-x64.exe (windows), ffmpeg-linux-x64
+#           (linux), ffmpeg-osx-arm64 (macos). A public repo with
+#           contributors, CI-built from source, sha256 per asset published in
+#           the release API, and a pinned tag, so no asset can move under CI.
 # Every payload is checked against its pinned digest before anything is staged.
-# The GPL license texts are not fetched: they ship from rust-src/packaging/ (the
-# same bytes the v1.5.0 bundles carried) because the first dispatch showed
-# www.gnu.org unreachable from the windows runners. Their digests are asserted
-# here all the same.
+# The GPL license texts are not fetched: they ship from rust-src/packaging/
+# because www.gnu.org is unreachable from the windows runners. Their digests
+# are asserted here all the same.
 on:
   workflow_dispatch:
 
@@ -63,11 +51,9 @@ env:
   YTDLP_WIN_ZIP_SHA256: 30b4c14aafab6082becff7881e41b76df46dc43ea7633479410a91e29da492bf
   YTDLP_LINUX_ZIP_SHA256: 32e72032766bef9199d99d15beb69fd52e46df8f8b06f0d8745db59e04d339e9
   YTDLP_MACOS_ZIP_SHA256: 07e54b0865303c864006925913bce2604f8ee8cc6f18699bac9c309f9328a6d8
-  FFMPEG_WINDOWS_URL: https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.2-essentials_build.zip
-  FFMPEG_WINDOWS_SHA256: 60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba
-  FFMPEG_LINUX_URL: https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-30-13-01/ffmpeg-n9.0.2-39-g7adfbe40dc-linux64-gpl-9.0.tar.xz
-  FFMPEG_LINUX_SHA256: 2f787799c77ac8eda96f74fee82e7b18ef8f7c8c57ff99da68cb45046937092c
-  FFMPEG_MACOS_URL: https://github.com/shaka-project/static-ffmpeg-binaries/releases/download/n8.1.2-1/ffmpeg-osx-arm64
+  FFMPEG_SHAKA_BASE: https://github.com/shaka-project/static-ffmpeg-binaries/releases/download/n8.1.2-1
+  FFMPEG_WINDOWS_SHA256: 4044b3924c977ad31229d504c5d5b8685f9553124fbaff6e9c99048b42830341
+  FFMPEG_LINUX_SHA256: 9eac5b2b5076db5ff853a6fa0dcd6b8de7d0cac8481eadda6c47cd935825f1ee
   FFMPEG_MACOS_SHA256: e7b9fcd97f95f333512d6e8b8ac24d9dbc08f189f36047695499bd7b57214b22
   SRTSTRIPPER_URL_BASE: https://github.com/chezhenkie/srt-subtitle-stripper/releases/download/v1.6.4
   SRTSTRIPPER_WINDOWS_SHA256: 8cd030d4db776e3db1ca16bb286c1eeaecc71dd99c4ddb162331b0d68cb14cbb
@@ -78,8 +64,8 @@ env:
   GPL3_SHA256: 3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986
 
 jobs:
-  windows-bundles:
-    name: windows lean + portable + setup
+  windows-bundle:
+    name: windows bundle + setup
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -107,7 +93,7 @@ jobs:
           Write-Host "assembling v$ver"
           New-Item -ItemType Directory -Force payload, dist | Out-Null
           Get-Pinned "$env:YTDLP_URL_BASE/yt-dlp_win.zip" payload/yt-dlp-win.zip $env:YTDLP_WIN_ZIP_SHA256
-          Get-Pinned $env:FFMPEG_WINDOWS_URL payload/ffmpeg-windows.zip $env:FFMPEG_WINDOWS_SHA256
+          Get-Pinned "$env:FFMPEG_SHAKA_BASE/ffmpeg-win-x64.exe" payload/ffmpeg.exe $env:FFMPEG_WINDOWS_SHA256
           Get-Pinned "$env:SRTSTRIPPER_URL_BASE/srtstripper-windows-x86_64.exe" payload/srtstripper.exe $env:SRTSTRIPPER_WINDOWS_SHA256
           Expand-Archive -Path payload/yt-dlp-win.zip -DestinationPath payload/yt-dlp-win
           foreach ($f in @("yt-dlp.exe", "_internal")) {
@@ -123,21 +109,20 @@ jobs:
           Copy-Item README.md, CHANGELOG.md, LICENSE, THIRD-PARTY-NOTICES.md "$stage/"
           Copy-Item payload/yt-dlp-win/yt-dlp.exe "$stage/bin/yt-dlp.exe"
           Copy-Item payload/yt-dlp-win/_internal "$stage/bin/_internal" -Recurse
+          Copy-Item payload/ffmpeg.exe "$stage/bin/ffmpeg.exe"
           Copy-Item payload/srtstripper.exe "$stage/bin/srtstripper.exe"
+          Copy-Item rust-src/packaging/GPL-2.0.txt, rust-src/packaging/GPL-3.0.txt "$stage/"
           $probe = & "$stage/bin/yt-dlp.exe" --version
           if ($LASTEXITCODE -ne 0 -or "$probe" -notmatch '^\d{4}\.\d{2}\.\d{2}') { throw "staged yt-dlp tree probe failed: $probe" }
           Write-Host "staged yt-dlp tree runs: $probe"
-          Compress-Archive -Path $stage -DestinationPath "dist/ytdlp-cli-v$ver-windows-lean.zip"
-          Expand-Archive -Path payload/ffmpeg-windows.zip -DestinationPath payload/ffmpeg-windows
-          $ff = Get-ChildItem payload/ffmpeg-windows -Recurse -Filter ffmpeg.exe | Where-Object { $_.Directory.Name -eq "bin" } | Select-Object -First 1
-          if (-not $ff) { throw "ffmpeg.exe not found in the gyan archive" }
-          Copy-Item $ff.FullName "$stage/bin/ffmpeg.exe"
-          Copy-Item rust-src/packaging/GPL-2.0.txt, rust-src/packaging/GPL-3.0.txt "$stage/"
-          Compress-Archive -Path $stage -DestinationPath "dist/ytdlp-cli-v$ver-windows-portable.zip"
+          $ff = & "$stage/bin/ffmpeg.exe" -version
+          if ($LASTEXITCODE -ne 0 -or "$ff" -notmatch '^ffmpeg version') { throw "staged ffmpeg probe failed: $ff" }
+          Write-Host "staged ffmpeg runs: $($ff | Select-Object -First 1)"
+          Compress-Archive -Path $stage -DestinationPath "dist/ytdlp-cli-v$ver-windows.zip"
       - name: install Inno Setup (the setup.exe it builds needs nothing at run time)
         shell: pwsh
         run: choco install innosetup --no-progress -y
-      - name: build the windows installer (per-user, no admin prompt, portable payload)
+      - name: build the windows installer (per-user, no admin prompt)
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -150,7 +135,7 @@ jobs:
           & $iscc "/DAppVer=$ver" "/DStage=$stage" "/O$PWD/dist" "rust-src/packaging/windows-installer.iss"
           if ($LASTEXITCODE -ne 0) { throw "ISCC failed with $LASTEXITCODE" }
           if (-not (Test-Path "dist/ytdlp-cli-v$ver-windows-setup.exe")) { throw "setup.exe not produced" }
-      - name: installer proof - silent install twice, selftest 192/0, one PATH entry, uninstall
+      - name: installer proof - silent install twice, selftest 181/0, one PATH entry, uninstall
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -159,11 +144,11 @@ jobs:
           $setup = "dist/ytdlp-cli-v$ver-windows-setup.exe"
           $tdir = "$PWD\inst-test\ytdlp-cli"
           # canonical separator form for the registry-value comparisons below;
-          # the registry may carry either form (found in run 39055610868)
+          # the registry may carry either form
           $tdirN = $tdir.Replace('/', '\')
           # seed two duplicates of the target entry into the raw value (percent
           # variables stay unexpanded); the first install collapses them to one and
-          # the second must not append another - the v2.8.3 setup appended on every run
+          # the second must not append another
           $raw = (Get-Item "HKCU:\Environment").GetValue("Path", $null, "DoNotExpandEnvironmentNames")
           Set-ItemProperty -Path "HKCU:\Environment" -Name Path -Value "$raw;$tdirN;$tdirN" -Type ExpandString
           function Count-PathEntry([string]$Path, [string]$Entry) {
@@ -178,7 +163,7 @@ jobs:
           $report = & "$tdir/ytdlp.exe" --selftest | Out-String
           $rc = $LASTEXITCODE
           if ($rc -ne 0) { throw "installed selftest rc $rc" }
-          if ($report -notmatch "selftest: 192 checks, 0 failed") { throw "selftest report mismatch: $report" }
+          if ($report -notmatch "selftest: 181 checks, 0 failed") { throw "selftest report mismatch: $report" }
           $pe = (Get-Item "$tdir/ytdlp.exe").VersionInfo
           if ($pe.FileDescription -ne "ytdlp") { throw "FileDescription: $($pe.FileDescription)" }
           if ($pe.ProductName -ne "yt-dlp cli") { throw "ProductName: $($pe.ProductName)" }
@@ -190,6 +175,8 @@ jobs:
           $payloadVersion = & "$tdir/bin/yt-dlp.exe" --version
           if ($LASTEXITCODE -ne 0) { throw "installed yt-dlp tree failed to run" }
           Write-Host "installed yt-dlp tree runs: $payloadVersion"
+          $ffv = & "$tdir/bin/ffmpeg.exe" -version
+          if ($LASTEXITCODE -ne 0 -or "$ffv" -notmatch '^ffmpeg version') { throw "installed ffmpeg failed to run" }
           $pathNow = (Get-Item "HKCU:\Environment").GetValue("Path", $null, "DoNotExpandEnvironmentNames")
           if ((Count-PathEntry $pathNow $tdirN) -ne 1) { Write-Host "HKCU Path after install: $pathNow"; throw "PATH entry count after install: $(Count-PathEntry $pathNow $tdirN)" }
           Start-Process -FilePath $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/DIR=$tdir" -Wait
@@ -202,7 +189,7 @@ jobs:
           $pathAfter = (Get-Item "HKCU:\Environment").GetValue("Path", $null, "DoNotExpandEnvironmentNames")
           if ((Count-PathEntry $pathAfter $tdirN) -ne 0) { Write-Host "HKCU Path after uninstall: $pathAfter"; throw "PATH entry survived uninstall" }
           Remove-Item -Recurse -Force "$PWD/inst-test" -ErrorAction SilentlyContinue
-          Write-Host "installer proof passed: two silent installs, selftest 192/0, PE fields, one PATH entry, clean uninstall"
+          Write-Host "installer proof passed: two silent installs, selftest 181/0, PE fields, one PATH entry, clean uninstall"
       - name: checksums and sizes
         shell: pwsh
         run: |
@@ -213,42 +200,39 @@ jobs:
           } | Set-Content -Encoding ascii SHA256SUMS
           Get-Content SHA256SUMS
           Get-ChildItem *.zip, *.exe | Sort-Object Name | ForEach-Object { "size: $($_.Name) $($_.Length)" }
-      - name: bundle proof - expand both zips, count the tree, run the payload
+      - name: bundle proof - expand the zip, count the tree, run the payloads
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
           $m = [regex]::Match((Get-Content rust-src/Cargo.toml -Raw), '(?m)^version = "([^"]+)"')
           $ver = $m.Groups[1].Value
-          foreach ($kind in @("lean", "portable")) {
-            $zip = "dist/ytdlp-cli-v$ver-windows-$kind.zip"
-            if (-not (Test-Path $zip)) { throw "missing bundle: $zip" }
-            $out = "$PWD/zip-test/$kind"
-            Expand-Archive -Path $zip -DestinationPath $out
-            $root = "$out/ytdlp-cli-v$ver"
-            foreach ($f in @("ytdlp.exe", "bin/yt-dlp.exe", "bin/_internal", "bin/srtstripper.exe", "README.md", "CHANGELOG.md")) {
-              if (-not (Test-Path "$root/$f")) { throw "${kind} bundle missing: $f" }
-            }
-            $n = (Get-ChildItem "$root/bin/_internal" -Recurse -File).Count
-            if ($n -lt 100) { throw "${kind} bundle _internal incomplete: $n files" }
-            $v = & "$root/bin/yt-dlp.exe" --version
-            if ($LASTEXITCODE -ne 0 -or "$v" -notmatch '^\d{4}\.\d{2}\.\d{2}') { throw "${kind} bundle payload failed: $v" }
-            Write-Host "${kind}: _internal files $n, yt-dlp $v"
+          $zip = "dist/ytdlp-cli-v$ver-windows.zip"
+          if (-not (Test-Path $zip)) { throw "missing bundle: $zip" }
+          $out = "$PWD/zip-test"
+          Expand-Archive -Path $zip -DestinationPath $out
+          $root = "$out/ytdlp-cli-v$ver"
+          foreach ($f in @("ytdlp.exe", "bin/yt-dlp.exe", "bin/_internal", "bin/ffmpeg.exe", "bin/srtstripper.exe", "README.md", "CHANGELOG.md", "GPL-2.0.txt", "GPL-3.0.txt")) {
+            if (-not (Test-Path "$root/$f")) { throw "bundle missing: $f" }
           }
-          if (-not (Test-Path "$PWD/zip-test/portable/ytdlp-cli-v$ver/bin/ffmpeg.exe")) { throw "portable bundle lacks ffmpeg.exe" }
-          if (Test-Path "$PWD/zip-test/lean/ytdlp-cli-v$ver/bin/ffmpeg.exe") { throw "lean bundle carries ffmpeg.exe" }
-          Remove-Item -Recurse -Force "$PWD/zip-test"
-          Write-Host "windows bundle proof passed: both zips carry the onedir tree and run"
+          $n = (Get-ChildItem "$root/bin/_internal" -Recurse -File).Count
+          if ($n -lt 100) { throw "bundle _internal incomplete: $n files" }
+          $v = & "$root/bin/yt-dlp.exe" --version
+          if ($LASTEXITCODE -ne 0 -or "$v" -notmatch '^\d{4}\.\d{2}\.\d{2}') { throw "bundle yt-dlp failed: $v" }
+          $ff = & "$root/bin/ffmpeg.exe" -version
+          if ($LASTEXITCODE -ne 0 -or "$ff" -notmatch '^ffmpeg version') { throw "bundle ffmpeg failed: $ff" }
+          Write-Host "windows bundle proof passed: _internal files $n, yt-dlp $v, ffmpeg $($ff[0])"
+          Remove-Item -Recurse -Force $out
       - uses: actions/upload-artifact@v4
         with:
-          name: windows-bundles
+          name: windows-bundle
           path: |
             dist/ytdlp-cli-*.zip
             dist/ytdlp-cli-*.exe
             dist/SHA256SUMS
           if-no-files-found: error
 
-  linux-bundles:
-    name: linux lean + portable
+  linux-bundle:
+    name: linux bundle
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -270,7 +254,7 @@ jobs:
             echo "$3  $2" | sha256sum -c -
           }
           get_pinned "$YTDLP_URL_BASE/yt-dlp_linux.zip" payload/yt-dlp_linux.zip "$YTDLP_LINUX_ZIP_SHA256"
-          get_pinned "$FFMPEG_LINUX_URL" payload/btbn.tar.xz "$FFMPEG_LINUX_SHA256"
+          get_pinned "$FFMPEG_SHAKA_BASE/ffmpeg-linux-x64" payload/ffmpeg "$FFMPEG_LINUX_SHA256"
           get_pinned "$SRTSTRIPPER_URL_BASE/srtstripper-linux-x86_64" payload/srtstripper "$SRTSTRIPPER_LINUX_SHA256"
           echo "$GPL2_SHA256  rust-src/packaging/GPL-2.0.txt" | sha256sum -c -
           echo "$GPL3_SHA256  rust-src/packaging/GPL-3.0.txt" | sha256sum -c -
@@ -278,60 +262,53 @@ jobs:
           unzip -q payload/yt-dlp_linux.zip -d payload/yt-dlp-linux
           test -f payload/yt-dlp-linux/yt-dlp_linux || { echo "yt-dlp_linux.zip lacks the yt-dlp_linux launcher" >&2; exit 1; }
           test -d payload/yt-dlp-linux/_internal || { echo "yt-dlp_linux.zip lacks _internal" >&2; exit 1; }
-          tar -xJf payload/btbn.tar.xz -C payload
-          ff=$(find payload -path '*/bin/ffmpeg' -type f -print -quit)
-          test -n "$ff"
           stage="dist/ytdlp-cli-v$ver"
           mkdir -p "$stage/bin"
           install -m 0755 rust-src/target/release/ytdlp "$stage/ytdlp"
           install -m 0644 README.md CHANGELOG.md LICENSE THIRD-PARTY-NOTICES.md "$stage/"
           install -m 0755 payload/yt-dlp-linux/yt-dlp_linux "$stage/bin/yt-dlp"
           cp -a payload/yt-dlp-linux/_internal "$stage/bin/_internal"
+          install -m 0755 payload/ffmpeg "$stage/bin/ffmpeg"
           install -m 0755 payload/srtstripper "$stage/bin/srtstripper"
-          "$stage/bin/yt-dlp" --version
-          tar -czf "dist/ytdlp-cli-v$ver-linux-lean.tar.gz" -C dist "ytdlp-cli-v$ver"
-          install -m 0755 "$ff" "$stage/bin/ffmpeg"
           install -m 0644 rust-src/packaging/GPL-2.0.txt rust-src/packaging/GPL-3.0.txt "$stage/"
-          tar -czf "dist/ytdlp-cli-v$ver-linux-portable.tar.gz" -C dist "ytdlp-cli-v$ver"
+          "$stage/bin/yt-dlp" --version
+          "$stage/bin/ffmpeg" -version | head -n 1
+          tar -czf "dist/ytdlp-cli-v$ver-linux.tar.gz" -C dist "ytdlp-cli-v$ver"
           cd dist
           sha256sum *.tar.gz > SHA256SUMS
           cat SHA256SUMS
           ls -l ytdlp-cli-*.tar.gz
-      - name: bundle proof - the tars carry the onedir tree
+      - name: bundle proof - the tar carries the onedir tree and ffmpeg
         run: |
           set -euo pipefail
           ver=$(sed -n 's/^version = "\(.*\)"$/\1/p' rust-src/Cargo.toml | head -n1)
           top="ytdlp-cli-v$ver"
-          for kind in lean portable; do
-            tarball="dist/$top-linux-$kind.tar.gz"
-            test -f "$tarball"
-            list="dist/$top-linux-$kind.list"
-            tar -tzf "$tarball" > "$list"
-            grep -qx "$top/bin/yt-dlp" "$list"
-            n=$(grep -c "^$top/bin/_internal/" "$list" || true)
-            test "$n" -ge 100
-            echo "$kind tar: $n _internal entries"
-          done
-          if grep -q "/bin/ffmpeg$" "dist/$top-linux-lean.list"; then
-            echo "lean tar carries ffmpeg" >&2; exit 1
-          fi
-          grep -qx "$top/bin/ffmpeg" "dist/$top-linux-portable.list"
-          echo "linux bundle proof passed: onedir tree in both tars, lean without ffmpeg, portable with ffmpeg"
-      - name: run proof - extract the lean tar, run the packaged suite and the payload
+          tarball="dist/$top-linux.tar.gz"
+          test -f "$tarball"
+          list="dist/$top-linux.list"
+          tar -tzf "$tarball" > "$list"
+          grep -qx "$top/bin/yt-dlp" "$list"
+          grep -qx "$top/bin/ffmpeg" "$list"
+          grep -qx "$top/bin/srtstripper" "$list"
+          n=$(grep -c "^$top/bin/_internal/" "$list" || true)
+          test "$n" -ge 100
+          echo "linux tar: $n _internal entries"
+      - name: run proof - extract the tar, run the packaged suite and the payloads
         run: |
           set -euo pipefail
           ver=$(sed -n 's/^version = "\(.*\)"$/\1/p' rust-src/Cargo.toml | head -n1)
           mkdir -p dist/run
-          tar -xzf "dist/ytdlp-cli-v$ver-linux-lean.tar.gz" -C dist/run
+          tar -xzf "dist/ytdlp-cli-v$ver-linux.tar.gz" -C dist/run
           root="dist/run/ytdlp-cli-v$ver"
           "$root/bin/yt-dlp" --version
+          "$root/bin/ffmpeg" -version | head -n 1
           report=$("$root/ytdlp" --selftest)
-          echo "$report" | grep -q "selftest: 192 checks, 0 failed"
+          echo "$report" | grep -q "selftest: 181 checks, 0 failed"
           echo "$report" | tail -n 3
-          echo "linux run proof passed: onedir payload runs, selftest 192/0"
+          echo "linux run proof passed: onedir payload and ffmpeg run, selftest 181/0"
       - uses: actions/upload-artifact@v4
         with:
-          name: linux-bundles
+          name: linux-bundle
           path: |
             dist/ytdlp-cli-*.tar.gz
             dist/SHA256SUMS
@@ -391,9 +368,9 @@ jobs:
           fi
           echo "$SRTSTRIPPER_MUSL_SHA256  dist/run/ytdlp-cli-v$ver/bin/srtstripper" | sha256sum -c -
           report=$("$bin" --selftest)
-          echo "$report" | grep -q "selftest: 192 checks, 0 failed"
+          echo "$report" | grep -q "selftest: 181 checks, 0 failed"
           echo "$report" | tail -n 3
-          echo "musl run proof passed: static, selftest 192/0, no bundled yt-dlp, srtstripper pinned"
+          echo "musl run proof passed: static, selftest 181/0, no bundled yt-dlp, srtstripper pinned"
       - uses: actions/upload-artifact@v4
         with:
           name: linux-musl-bundle
@@ -425,7 +402,7 @@ jobs:
             echo "$3  $2" | shasum -a 256 -c -
           }
           get_pinned "$YTDLP_URL_BASE/yt-dlp_macos.zip" payload/yt-dlp_macos.zip "$YTDLP_MACOS_ZIP_SHA256"
-          get_pinned "$FFMPEG_MACOS_URL" payload/ffmpeg-osx-arm64 "$FFMPEG_MACOS_SHA256"
+          get_pinned "$FFMPEG_SHAKA_BASE/ffmpeg-osx-arm64" payload/ffmpeg-osx-arm64 "$FFMPEG_MACOS_SHA256"
           get_pinned "$SRTSTRIPPER_URL_BASE/srtstripper-macos-arm64" payload/srtstripper-macos "$SRTSTRIPPER_MACOS_SHA256"
           echo "$GPL2_SHA256  rust-src/packaging/GPL-2.0.txt" | shasum -a 256 -c -
           echo "$GPL3_SHA256  rust-src/packaging/GPL-3.0.txt" | shasum -a 256 -c -
@@ -470,9 +447,9 @@ jobs:
           test -L /usr/local/bin/ytdlp
           report=$(/usr/local/bin/ytdlp --selftest)
           echo "$report" | tail -3
-          echo "$report" | grep -q "selftest: 192 checks, 0 failed"
-          # the tree must be writable by the user running it (settings.json,
-          # yt-dlp -U and the ffmpeg offer all write into the tree)
+          echo "$report" | grep -q "selftest: 181 checks, 0 failed"
+          # the tree must be writable by the user running it (settings.json
+          # and yt-dlp -U both write into the tree)
           touch /usr/local/ytdlp-cli/.wtest && rm /usr/local/ytdlp-cli/.wtest
           echo "$(cat dist/ytdlp-binary.sha256)  /usr/local/ytdlp-cli/bin/yt-dlp" | shasum -a 256 -c -
           test -d /usr/local/ytdlp-cli/bin/_internal
@@ -493,7 +470,7 @@ jobs:
             echo "pkg receipt survived the uninstall" >&2
             exit 1
           fi
-          echo "pkg proof passed: install, selftest 192/0, pins, writability, installed tree, uninstall"
+          echo "pkg proof passed: install, selftest 181/0, pins, writability, installed tree, uninstall"
       - name: checksums and sizes
         run: |
           set -euo pipefail

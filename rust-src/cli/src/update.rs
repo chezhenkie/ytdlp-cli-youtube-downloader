@@ -1,6 +1,6 @@
 //! Update machinery (specsheet section 4, layer 6; FR-13): version
-//! comparison, the two checksum-file parsers, the published-digest
-//! reader, the native self-updater and the two updater halves.
+//! comparison, the release API readers, the native self-updater and the
+//! two updater halves.
 //!
 //! Phase 2 brought the pure half, so the updater's decisions were
 //! testable without a network; phase 8 adds the networked half. Every
@@ -97,119 +97,6 @@ fn decimal_piece(piece: &str) -> i64 {
     piece.parse::<i64>().unwrap_or(i64::MAX)
 }
 
-/// The digest out of a single-asset checksum file. gyan.dev publishes a
-/// bare 64-char hash, a github checksums.sha256 publishes
-/// `<hash>  <file>`, so take the first field that is a digest rather
-/// than assuming a shape.
-pub fn parse_sha256(text: &str) -> Option<String> {
-    for field in text.split_whitespace() {
-        let cand = field.trim_matches('*').to_lowercase();
-        if is_digest(&cand) {
-            return Some(cand);
-        }
-    }
-    None
-}
-
-/// The digest for one asset out of a multi-asset checksums file, where
-/// the digest is the line that names that file.
-pub fn pick_checksum(text: &str, filename: &str) -> Option<String> {
-    for line in text.split('\n') {
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() >= 2 && parts[1].trim_matches('*') == filename {
-            let cand = parts[0].to_lowercase();
-            if is_digest(&cand) {
-                return Some(cand);
-            }
-        }
-    }
-    None
-}
-
-/// 64 lowercase hex characters (`[0-9a-f]{64}` with the input lowered).
-fn is_digest(cand: &str) -> bool {
-    cand.len() == 64 && cand.bytes().all(|b| b.is_ascii_hexdigit())
-}
-
-// -------------------------------------------------- the published digest
-
-/// `expected_sha(url, sha_url, asset_name)`: the published digest for
-/// the asset, read before anything is downloaded. Returns None with the
-/// reason printed, because a download with nothing to check it against
-/// is not a download this CLI should perform. Python's first parameter
-/// is unused and kept for the same call shape.
-pub fn expected_sha(
-    _url: &str,
-    sha_url: &str,
-    asset_name: &str,
-    http: &mut dyn HttpRt,
-    sink: &SharedSink,
-) -> Option<String> {
-    let text = match http.text(sha_url, net::FORCED_TIMEOUT) {
-        Ok(text) => text,
-        Err(e) => {
-            tty::emit_line(
-                sink,
-                &format!("  could not read the published checksum: {e}"),
-            );
-            return None;
-        }
-    };
-    let digest = pick_checksum(&text, asset_name).or_else(|| parse_sha256(&text));
-    if digest.is_none() {
-        tty::emit_line(sink, "  the published checksum did not name this build");
-    }
-    digest
-}
-
-/// `expected_sha_api(api_url, asset_name)`: the published digest for the
-/// asset, read from the GitHub release API object instead of a checksum
-/// file - the shaka-project macos ffmpeg source publishes its sha256 as
-/// the per-asset `digest` field, and the pinned release tag means this
-/// read guards the same artifact the checksum-file read does. Same
-/// contract as `expected_sha`: None with the reason printed.
-pub fn expected_sha_api(
-    api_url: &str,
-    asset_name: &str,
-    http: &mut dyn HttpRt,
-    sink: &SharedSink,
-) -> Option<String> {
-    let text = match http.text(api_url, net::FORCED_TIMEOUT) {
-        Ok(text) => text,
-        Err(e) => {
-            tty::emit_line(
-                sink,
-                &format!("  could not read the published checksum: {e}"),
-            );
-            return None;
-        }
-    };
-    let digest = settings_json::parse(&text).ok().and_then(|root| {
-        let Json::Obj(fields) = root else { return None };
-        let Some(Json::Arr(assets)) = config::get(&fields, "assets") else {
-            return None;
-        };
-        for item in assets {
-            let Json::Obj(entry) = item else { continue };
-            let Some(Json::Str(name)) = config::get(entry, "name") else {
-                continue;
-            };
-            if name != asset_name {
-                continue;
-            }
-            if let Some(Json::Str(text)) = config::get(entry, "digest") {
-                return Some(text.strip_prefix("sha256:").unwrap_or(text).to_lowercase());
-            }
-            return None;
-        }
-        None
-    });
-    if digest.is_none() {
-        tty::emit_line(sink, "  the published checksum did not name this build");
-    }
-    digest
-}
-
 // ------------------------------------------------------- the native updater
 
 /// What one GET of the releases API yields for this platform.
@@ -226,16 +113,16 @@ pub struct Release {
     pub digest: Option<String>,
 }
 
-/// The lean bundle that carries the cli image for a platform, named for
-/// the release tag (FR-13). No page publishes a bare cli image, so the
-/// updater lifts the one member out of the bundle instead. macOS has no
-/// self-update: the mac line ships a pkg.
+/// The bundle that carries the cli image for a platform, named for the
+/// release tag (FR-13). One bundle per platform; no page publishes a
+/// bare cli image, so the updater lifts the one member out of the bundle
+/// instead. macOS has no self-update: the mac line ships a pkg.
 pub fn release_asset(platform: &str, arch: &str, version: &str, musl: bool) -> Option<String> {
     let top = format!("ytdlp-cli-v{version}");
     match (platform, arch) {
-        ("windows", "x86_64") => Some(format!("{top}-windows-lean.zip")),
+        ("windows", "x86_64") => Some(format!("{top}-windows.zip")),
         ("linux", "x86_64") if musl => Some(format!("{top}-linux-musl.tar.gz")),
-        ("linux", "x86_64") => Some(format!("{top}-linux-lean.tar.gz")),
+        ("linux", "x86_64") => Some(format!("{top}-linux.tar.gz")),
         _ => None,
     }
 }
@@ -1116,11 +1003,11 @@ mod tests {
     }
 
     /// A release that publishes a newer version for this platform: the
-    /// lean bundle carries the new image as `<top>/ytdlp.exe`.
+    /// bundle carries the new image as `<top>/ytdlp.exe`.
     fn newer_release(image: &[u8]) -> (String, Vec<u8>) {
         let zip = crate::archive::zip_with(&[("ytdlp-cli-v9.9.9/ytdlp.exe", image)]);
         let digest = crate::sha256::sha256_hex(&zip);
-        let body = release_json("v9.9.9", "ytdlp-cli-v9.9.9-windows-lean.zip", Some(&digest));
+        let body = release_json("v9.9.9", "ytdlp-cli-v9.9.9-windows.zip", Some(&digest));
         (body, zip)
     }
 
@@ -1128,7 +1015,7 @@ mod tests {
     fn current_release() -> String {
         release_json(
             &format!("v{}", crate::VERSION),
-            &format!("ytdlp-cli-v{}-windows-lean.zip", crate::VERSION),
+            &format!("ytdlp-cli-v{}-windows.zip", crate::VERSION),
             Some(GYAN),
         )
     }
@@ -1280,11 +1167,11 @@ mod tests {
     fn release_asset_names_the_platform_bundle() {
         assert_eq!(
             release_asset("windows", "x86_64", "2.6.1", false),
-            Some("ytdlp-cli-v2.6.1-windows-lean.zip".to_string())
+            Some("ytdlp-cli-v2.6.1-windows.zip".to_string())
         );
         assert_eq!(
             release_asset("linux", "x86_64", "2.6.1", false),
-            Some("ytdlp-cli-v2.6.1-linux-lean.tar.gz".to_string())
+            Some("ytdlp-cli-v2.6.1-linux.tar.gz".to_string())
         );
         assert_eq!(
             release_asset("linux", "x86_64", "2.6.1", true),
@@ -1296,63 +1183,20 @@ mod tests {
         assert_eq!(release_asset("linux", "riscv64", "2.6.1", false), None);
         assert_eq!(release_asset("freebsd", "x86_64", "2.6.1", false), None);
         assert_eq!(
-            bundle_image("ytdlp-cli-v2.6.1-windows-lean.zip"),
+            bundle_image("ytdlp-cli-v2.6.1-windows.zip"),
             Some(("zip", "ytdlp.exe"))
         );
         assert_eq!(
-            bundle_image("ytdlp-cli-v2.6.1-linux-lean.tar.gz"),
+            bundle_image("ytdlp-cli-v2.6.1-linux.tar.gz"),
             Some(("tar.gz", "ytdlp"))
         );
         assert_eq!(bundle_image("ytdlp-native-linux-x86_64"), None);
     }
 
     #[test]
-    fn expected_sha_prefers_the_named_line_then_the_first_digest() {
-        let sink = tty::SharedOut::new(RecordingOut::default()).sink();
-        // the multi-asset file: the line naming this build wins
-        let text = format!("aaa  other.zip\n{BTBN}  ffmpeg.exe\nbbb  third.zip\n");
-        let mut http = FakeHttp::new().with_text("sha", &text);
-        assert_eq!(
-            expected_sha("url", "sha", "ffmpeg.exe", &mut http, &sink),
-            Some(BTBN.to_string())
-        );
-        // the single-asset file: the first digest field
-        let mut http = FakeHttp::new().with_text("sha", &format!("{GYAN}\n"));
-        assert_eq!(
-            expected_sha("url", "sha", "ffmpeg.exe", &mut http, &sink),
-            Some(GYAN.to_string())
-        );
-    }
-
-    #[test]
-    fn expected_sha_prints_both_failure_reasons() {
-        let recorder = RecordingOut::default();
-        let sink = tty::SharedOut::new(recorder.clone()).sink();
-        let mut http = FakeHttp::new().with_text_err("sha", "boom");
-        assert_eq!(
-            expected_sha("url", "sha", "ffmpeg.exe", &mut http, &sink),
-            None
-        );
-        let mut http = FakeHttp::new().with_text("sha", "nothing here");
-        assert_eq!(
-            expected_sha("url", "sha", "ffmpeg.exe", &mut http, &sink),
-            None
-        );
-        let text = recorder.text();
-        assert!(
-            text.contains("  could not read the published checksum: boom"),
-            "{text}"
-        );
-        assert!(
-            text.contains("  the published checksum did not name this build"),
-            "{text}"
-        );
-    }
-
-    #[test]
     fn fetch_cli_reads_the_tag_and_the_binding_digest() {
         let sink = tty::SharedOut::new(RecordingOut::default()).sink();
-        let body = release_json("v9.9.9", "ytdlp-cli-v9.9.9-windows-lean.zip", Some(GYAN));
+        let body = release_json("v9.9.9", "ytdlp-cli-v9.9.9-windows.zip", Some(GYAN));
         let mut http = FakeHttp::new().with_text(RELEASES_API, &body);
         let mut reader = ScriptedReader::new(vec![]);
         let mut rec = RecordingOut::default();
@@ -1386,7 +1230,7 @@ mod tests {
         assert_eq!(release.version.as_deref(), Some("9.9.9"));
         assert_eq!(
             release.asset.as_deref(),
-            Some("ytdlp-cli-v9.9.9-windows-lean.zip")
+            Some("ytdlp-cli-v9.9.9-windows.zip")
         );
         assert_eq!(
             release.asset_url.as_deref(),
@@ -1404,7 +1248,7 @@ mod tests {
     #[test]
     fn a_release_without_the_platform_asset_is_a_refusal() {
         let mut h = Harness::new("no-asset");
-        let body = release_json("v9.9.9", "ytdlp-cli-v9.9.9-linux-lean.tar.gz", Some(GYAN));
+        let body = release_json("v9.9.9", "ytdlp-cli-v9.9.9-linux.tar.gz", Some(GYAN));
         h.http = FakeHttp::new().with_text(RELEASES_API, &body);
         h.reader = ScriptedReader::new(vec![ScriptItem::Line("y".to_string())]);
         let mut s = settings();
@@ -1426,15 +1270,17 @@ mod tests {
     #[test]
     fn a_release_without_a_digest_is_a_refusal() {
         let mut h = Harness::new("no-digest");
-        let body = release_json("v9.9.9", "ytdlp-cli-v9.9.9-windows-lean.zip", None);
+        let body = release_json("v9.9.9", "ytdlp-cli-v9.9.9-windows.zip", None);
         h.http = FakeHttp::new().with_text(RELEASES_API, &body);
         h.reader = ScriptedReader::new(vec![ScriptItem::Line("y".to_string())]);
         let mut s = settings();
         assert!(!h.check(&mut s, true).unwrap());
         let printed = h.printed();
         assert!(
-            printed.iter().any(|l| l
-                == "  the published release has no digest for ytdlp-cli-v9.9.9-windows-lean.zip"),
+            printed
+                .iter()
+                .any(|l| l
+                    == "  the published release has no digest for ytdlp-cli-v9.9.9-windows.zip"),
             "{printed:?}"
         );
         assert_eq!(h.selftested, Vec::<String>::new());
@@ -1578,11 +1424,7 @@ mod tests {
         let image = b"the new image";
         let tar = crate::archive::tar_gz_with(&[("ytdlp-cli-v9.9.9/ytdlp", image)]);
         let digest = crate::sha256::sha256_hex(&tar);
-        let body = release_json(
-            "v9.9.9",
-            "ytdlp-cli-v9.9.9-linux-lean.tar.gz",
-            Some(&digest),
-        );
+        let body = release_json("v9.9.9", "ytdlp-cli-v9.9.9-linux.tar.gz", Some(&digest));
         let mut http = FakeHttp::new()
             .with_text(RELEASES_API, &body)
             .with_file("https://example.invalid/asset", &tar);
@@ -1615,7 +1457,7 @@ mod tests {
         let release = fetch_cli(&mut ctx, CHECK_TIMEOUT_FOR_TEST).unwrap();
         assert_eq!(
             release.asset.as_deref(),
-            Some("ytdlp-cli-v9.9.9-linux-lean.tar.gz")
+            Some("ytdlp-cli-v9.9.9-linux.tar.gz")
         );
         let staged = format!("{self_path}.new");
         let (ok, msg) = fetch_and_install(&mut ctx, &release, &staged);
@@ -2105,34 +1947,5 @@ mod tests {
     fn version_piece_beyond_i64_saturates() {
         let big = "9".repeat(30);
         assert_eq!(version_tuple(Some(&format!("1.{big}"))), vec![1, i64::MAX]);
-    }
-
-    #[test]
-    fn parse_sha256_matches_selftest_pins() {
-        assert_eq!(parse_sha256(GYAN), Some(GYAN.to_string()));
-        assert_eq!(
-            parse_sha256(&format!("{GYAN}  ffmpeg-9.0.2.zip")),
-            Some(GYAN.to_string())
-        );
-        assert_eq!(parse_sha256("no digest here"), None);
-        assert_eq!(parse_sha256(""), None);
-        assert_eq!(parse_sha256("tooshort"), None);
-        assert_eq!(parse_sha256(&"g".repeat(64)), None);
-        assert_eq!(
-            parse_sha256(&format!("{}  *ffmpeg.zip", GYAN.to_uppercase())),
-            Some(GYAN.to_string())
-        );
-    }
-
-    #[test]
-    fn pick_checksum_matches_selftest_pins() {
-        let text =
-            format!("aaa  x.zip\n{BTBN}  ffmpeg-n9.0-latest-linux64-gpl-9.0.tar.xz\nbbb  y.zip\n");
-        assert_eq!(
-            pick_checksum(&text, "ffmpeg-n9.0-latest-linux64-gpl-9.0.tar.xz"),
-            Some(BTBN.to_string())
-        );
-        assert_eq!(pick_checksum("aaa  x.zip\nbbb  y.zip\n", "z.zip"), None);
-        assert_eq!(pick_checksum("", "z.zip"), None);
     }
 }

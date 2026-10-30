@@ -218,8 +218,6 @@ fn run_quick(
     let mut reader = tty::TtyReader::new();
     let cache = std::rc::Rc::new(std::cell::RefCell::new(resolve::VersionCache::default()));
     let mut probe = probe_closure(&cache);
-    let mut http = UreqHttp::new();
-    let mut sleep = sleep_closure();
     let which_memo = std::rc::Rc::new(std::cell::RefCell::new(WhichHits::new()));
     let mut which = which_closure(&which_memo);
     let mut ctx = exec::DownloadCtx {
@@ -231,10 +229,8 @@ fn run_quick(
         out: &mut out,
         reader: &mut reader,
         auto: auto.as_deref(),
-        http: &mut http,
         probe: &mut probe,
         which: &mut which,
-        sleep: &mut sleep,
     };
     let mut rt = exec::RunRt::real();
     let rc = exec::do_download(settings, url, &mut ctx, &mut rt);
@@ -281,12 +277,6 @@ fn which_closure(
         hits.borrow_mut().insert(cmd.to_string(), hit.clone());
         hit
     }
-}
-
-/// python's `time.sleep`, real here: the only waits in the port are the
-/// two one-second gaps between the three ffmpeg probe attempts.
-fn sleep_closure() -> impl FnMut(f64) {
-    |secs: f64| std::thread::sleep(std::time::Duration::from_secs_f64(secs))
 }
 
 /// `self_path()`: python's `CLI_SELF_PATH`, the file this image runs
@@ -503,8 +493,6 @@ fn run_menu(
     let mut download =
         |s: &mut Obj, url: &str, io: &mut menu::Io, mode: menu::DownloadMode| -> i32 {
             let mut probe = probe_closure(&memo);
-            let mut http = UreqHttp::new();
-            let mut sleep = sleep_closure();
             let mut which = which_closure(&which_memo);
             let mut ctx = exec::DownloadCtx {
                 root: world.root,
@@ -515,10 +503,8 @@ fn run_menu(
                 out: io.out,
                 reader: io.reader,
                 auto: world.auto,
-                http: &mut http,
                 probe: &mut probe,
                 which: &mut which,
-                sleep: &mut sleep,
             };
             let mut rt = exec::RunRt::real();
             match mode {

@@ -109,7 +109,7 @@ checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 
 [[package]]
 name = "fake-ytdlp"
-version = "2.8.6"
+version = "2.9.0"
 
 [[package]]
 name = "filetime"
@@ -720,7 +720,7 @@ dependencies = [
 
 [[package]]
 name = "ytdlp-cli"
-version = "2.8.6"
+version = "2.9.0"
 dependencies = [
  "flate2",
  "libc",

@@ -4,7 +4,7 @@ Open a NEW terminal window and type ytdlp to start, or use the
 shortcut in the Start Menu. Already-open terminals keep the old PATH.
 
 The program keeps its settings and its yt-dlp runtime in this folder,
-the same portable layout as the zip bundles.
+the same layout as the zip bundle.
 
 To remove it later: use the uninstaller in the Start Menu, or
 Windows Settings > Apps.

@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.9.0
+
+### Changes
+
+#### All platforms
+
+* One bundle per platform, ffmpeg included. The windows zip, the setup.exe and the linux glibc tar now carry yt-dlp, ffmpeg and the srtstripper, so merge, audio conversion and srt subtitles work with nothing else installed. The lean and portable variants are gone; the release drops from seven products to five.
+* The on-demand ffmpeg download is removed. The cli no longer offers to fetch ffmpeg when it is missing, and no longer writes into `bin/` on a download run: it uses the bundled binary, a system ffmpeg on PATH, or the single-file fallback with one frozen preflight line.
+* The bundled ffmpeg is the shaka-project/static-ffmpeg-binaries n8.1.2-1 build on every platform, digest-checked at build time against the release API's per-asset sha256. The dated BtbN pin and the gyan.dev windows pin are gone.
+* The cli self-update reads the platform bundle under its new name (`-windows.zip`, `-linux.tar.gz`); the musl asset name is unchanged.
+* `install.sh` takes `--version` and `--uninstall`; `--portable` and `--lean` are accepted as ignored with one line on stderr.
+
 ## 2.8.6
 
 ### Fixes

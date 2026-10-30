@@ -3,11 +3,11 @@ Copy youtube link, open app, type '0' and download starts. This project is only 
 
 The yt-dlp runtime is used exactly as published - nothing in it is patched or rebuilt by this project. Bit for bit.
 
-**Updates.** Menu item 13 updates both halves: the bundled yt-dlp payload from the official yt-dlp releases (or yt-dlp's own update for a yt-dlp you point it at), then the cli from this project's newest release - the platform lean bundle is digest-verified, the cli is lifted out of it and installed after the new build passes its own checks. Menu item 14 toggles the daily update check, which only tells you a newer cli exists. macOS has no cli self-update (the mac line ships a pkg): item 13 points at this page. The check runs only at the start of the interactive menu, in a real console window.
+**Updates.** Menu item 13 updates both halves: the bundled yt-dlp payload from the official yt-dlp releases (or yt-dlp's own update for a yt-dlp you point it at), then the cli from this project's newest release - the platform bundle is digest-verified, the cli is lifted out of it and installed after the new build passes its own checks. Menu item 14 toggles the daily update check, which only tells you a newer cli exists. macOS has no cli self-update (the mac line ships a pkg): item 13 points at this page. The check runs only at the start of the interactive menu, in a real console window.
 
 One-shot URL runs, scripts, CI and piped runs never trigger it: no network contact, nothing written. There is no background process either - the check is a single event when you open the menu yourself. If updates have not happened for a while, start the program normally, or run menu item 13 to update on demand.
 
-**ffmpeg.** The lean bundles ship without it: when none is found on the machine, the CLI offers to fetch a published build - BtbN/FFmpeg-Builds on Windows and Linux, shaka-project/static-ffmpeg-binaries on macOS - and checks it against the provider's published checksum or digest before installing. FFmpeg's own repository is source code only and publishes no binaries, so that is not where a binary can come from.
+**ffmpeg.** The Windows zip, the setup.exe, the Linux glibc tar and the macOS pkg carry ffmpeg in `bin/` - shaka-project/static-ffmpeg-binaries n8.1.2-1, digest-checked at build time - so merge, audio conversion and srt subtitles work with nothing else installed. The cli looks in `bin/` first and then on PATH; a system ffmpeg you install yourself is used too. The Alpine/musl bundle carries no third-party binaries: `apk add yt-dlp` provides yt-dlp and ffmpeg there.
 
 ![ytdlp-cli main menu](resources/screenshot%20ytdlp-cli.png)
 
@@ -22,7 +22,7 @@ One-shot URL runs, scripts, CI and piped runs never trigger it: no network conta
 | `ytdlp-cli-v2.8.6-linux-portable.tar.gz` | 110.9 MB | yt-dlp, the srtstripper **and** ffmpeg. Nothing else to install. |
 | `ytdlp-cli-v2.8.6-linux-musl.tar.gz` | 2.1 MB | Alpine and other musl systems: the cli and the srtstripper. Get the runtime with `apk add yt-dlp`; that package pulls ffmpeg and the JS runtime with it. |
 | `ytdlp-cli-v2.8.6-macos-arm64.pkg` | 70.3 MB | macOS installer for Apple silicon (yt-dlp, ffmpeg and the srtstripper). Nothing else to install. |
-The lean bundles skip ffmpeg, on a machine with no ffmpeg at all it also offers to fetch the published build for the platform, with the checksum checked before it is installed.
+Every glibc bundle and the macOS pkg carries the full runtime: yt-dlp, ffmpeg and the srtstripper. The musl bundle carries the cli and the srtstripper, and takes yt-dlp and ffmpeg from apk.
 
 ![ytdlp-cli process flow](resources/archify%20flow%20ytdlp-cli.png)
 
@@ -53,9 +53,9 @@ Download a tar.gz from the table and unpack it, or let the script do it: it fetc
 curl -fsSL https://raw.githubusercontent.com/chezhenkie/ytdlp-cli-youtube-downloader/main/install.sh | sh
 ```
 
-The portable bundle (with ffmpeg) is the default; `sh -s -- --lean` installs the smaller bundle without ffmpeg instead, `sh -s -- --version v2.8.6` pins a release, and `sh -s -- --uninstall` removes the install and the link.
+`sh -s -- --version v2.8.6` pins a release, and `sh -s -- --uninstall` removes the install and the link. `--portable` and `--lean` are accepted as ignored: one bundle per platform now, ffmpeg included.
 
-On Alpine and other musl systems the script installs the musl bundle automatically - the cli and the srtstripper; get the download runtime with `apk add yt-dlp`, which pulls ffmpeg and the JS runtime with it. `--lean` and `--portable` name the glibc bundles and are refused on musl.
+On Alpine and other musl systems the script installs the musl bundle automatically - the cli and the srtstripper; get the download runtime with `apk add yt-dlp`, which pulls ffmpeg and the JS runtime with it.
 
 Linux builds are x86_64: glibc bundles plus a musl bundle for Alpine (cli plus the srtstripper, the download runtime comes from apk), and the macOS build is arm64 (Apple silicon). On any other architecture put `yt-dlp` on PATH or set `yt_dlp_path` in `config/settings.json`. Menu item 13 updates the cli from the platform bundle; macOS takes its cli from this page.
 
@@ -71,7 +71,7 @@ ytdlp.exe https://youtu.be/xxxx
 
 One-shot overrides look like `-f mkv -r 720 --subs`, also `-a`, `--af`, `-o`, `--template`, `--playlist`. Overrides apply to that run only and are never written to your settings.
 
-The menu itself is where the defaults live: type/video mode, container, resolution, audio format, output folder, filename template, subtitles, the srt timecode stripper, playlists, and reset. Item 10 takes several URLs and downloads them one after another. Every bundle ships the stripper in `bin/`, so with subtitles on and item 8 turned on, a stripped copy lands next to each downloaded subtitle. Escape stops a running download and removes the partial files.
+The menu itself is where the defaults live: type/video mode, container, resolution, audio format, output folder, filename template, subtitles, the srt timecode stripper, playlists, and reset. Item 11 takes several URLs and downloads them one after another. Every bundle ships the stripper in `bin/`, so with subtitles on and item 8 turned on, a stripped copy lands next to each downloaded subtitle. Escape stops a running download and removes the partial files.
 
 Output goes to a `ytdlp-cli-downloads` folder on your desktop by default, falling back to the same folder inside your downloads folder. Change it with menu item 5.
 
@@ -87,9 +87,9 @@ cf1e17b497273d1646166f957fbdbbcf62db1edc9a177ae2711d6d52a51ffe63  ytdlp-cli-v2.8
 ff1ae4c6ecc201af92e73579615f3b6cd60e0a06dd719677d1c6496a4e25939a  ytdlp-cli-v2.8.6-windows-setup.exe
 ```
 
-No release publishes a bare cli image: menu item 13 updates the cli from the platform lean bundle.
+No release publishes a bare cli image: menu item 13 updates the cli from the platform bundle.
 
-The bundled yt-dlp is the official 2026.08.19 release and matches the SHA-256 sums published with it. The Windows ffmpeg is the gyan.dev 9.0.2 essentials build, the Linux one is the BtbN n9.0.2 build and the macOS one is the shaka-project 8.1.2 static arm64 build; each matched its provider's published checksum or digest, and `THIRD-PARTY-NOTICES.md` in each bundle and installer names the exact archive and its digest. The linux-musl bundle ships none of the three: its yt-dlp and ffmpeg are the system's own packages.
+The bundled yt-dlp is the official 2026.08.19 release and matches the SHA-256 sums published with it. The bundled ffmpeg is the shaka-project/static-ffmpeg-binaries n8.1.2-1 build for each platform, matched to the release's published per-asset digest, and `THIRD-PARTY-NOTICES.md` in each bundle and installer names the exact asset and its digest. The linux-musl bundle ships none of the three: its yt-dlp and ffmpeg are the system's own packages.
 
 ## Licensing
 
@@ -97,7 +97,7 @@ The menu and the defaults are **MIT**. See `LICENSE` in the bundle.
 
 yt-dlp, which does all the downloading, is **Unlicense**, a public domain dedication. It ships its own `THIRD_PARTY_LICENSES.txt` listing every library inside it.
 
-The portable bundles and the installers also contain **ffmpeg**, built `--enable-gpl --enable-version3`, so it is distributed under the GNU General Public License version 2 or later and includes components under GPL version 3 or later. Both license texts ship with it as `GPL-2.0.txt` and `GPL-3.0.txt`, and `THIRD-PARTY-NOTICES.md` points at the corresponding source for each build.
+The Windows zip, the setup.exe, the Linux glibc tar and the macOS pkg also contain **ffmpeg**, built `--enable-gpl --enable-version3`, so it is distributed under the GNU General Public License version 2 or later and includes components under GPL version 3 or later. Both license texts ship with it as `GPL-2.0.txt` and `GPL-3.0.txt`, and `THIRD-PARTY-NOTICES.md` points at the corresponding source for each build.
 
 The `linux-musl` bundle contains no third-party binaries: its yt-dlp and ffmpeg are the system's own Alpine packages, under the licenses named above.
 

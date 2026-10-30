@@ -8,7 +8,6 @@
 
 use crate::args;
 use crate::config::{self, Obj, Value};
-use crate::net;
 use crate::pyfs;
 use crate::pytext::{py_repr_str, py_rstrip, py_split_ws, py_strip};
 use crate::resolve::{self, ShapeKind};
@@ -17,10 +16,6 @@ use crate::tty::{self, Out, Reader, SharedSink, Stage};
 use std::io::BufRead;
 use std::sync::mpsc;
 use std::time::Duration;
-
-mod ffmpeg;
-
-pub use ffmpeg::{FfmpegSource, ffmpeg_source, install_ffmpeg, offer_ffmpeg};
 
 mod run;
 
@@ -416,10 +411,10 @@ pub fn run_download(
     }
 }
 
-// ----------------------------------------------------- ffmpeg offer
+// --------------------------------------------------- download context
 
-/// Everything `do_download` and `offer_ffmpeg` read from their world
-/// (python reads module globals, the filesystem and the console).
+/// Everything `do_download` reads from its world (python reads module
+/// globals, the filesystem and the console).
 pub struct DownloadCtx<'a> {
     pub root: &'a str,
     pub is_windows: bool,
@@ -429,17 +424,12 @@ pub struct DownloadCtx<'a> {
     pub out: &'a mut dyn Out,
     pub reader: &'a mut dyn Reader,
     pub auto: Option<&'a str>,
-    /// the network seam (phase 8): the ffmpeg offer's only way out
-    pub http: &'a mut dyn net::HttpRt,
     /// `probe_version` with its memo, shared by the preflight check and
-    /// the ffmpeg install so both answer from one cache - python's is a
+    /// the updater half so both answer from one cache - python's is a
     /// single module-level memo for the whole process
     pub probe: &'a mut dyn FnMut(&str) -> (String, i64),
     /// `which(cmd)`, injected so a test never sees the host's PATH
     pub which: &'a mut dyn FnMut(&str) -> Option<String>,
-    /// `time.sleep`, injected so the three probe attempts cost nothing
-    /// in tests and the harness can pin the waits
-    pub sleep: &'a mut dyn FnMut(f64),
 }
 
 /// python `print(...)`: the text plus its newline, flushed (one write
@@ -457,9 +447,9 @@ fn shape_abort(shape: ShapeKind) -> i32 {
 }
 
 /// The shared download prelude (FR-7): the yt-dlp gate, the grouped
-/// preflight stage, the ffmpeg lookup and the offer. `kind` only picks
-/// the wording of the missing-ffmpeg line and the offer. Returns the
-/// binary and the ffmpeg dir, or the rc the caller answers with.
+/// preflight stage and the ffmpeg lookup. `kind` only picks the wording
+/// of the missing-ffmpeg line. Returns the binary and the ffmpeg dir, or
+/// the rc the caller answers with.
 fn preflight(s: &Obj, ctx: &mut DownloadCtx, kind: &str) -> Result<(String, Option<String>), i32> {
     let bin_dir = resolve::py_path_join(ctx.root, "bin");
     let platform = resolve::host_platform();
@@ -486,7 +476,7 @@ fn preflight(s: &Obj, ctx: &mut DownloadCtx, kind: &str) -> Result<(String, Opti
     );
     st.start();
     let (ver, vrc) = (ctx.probe)(&binary);
-    let mut ffdir = match resolve::find_ffmpeg_dir(s, &bin_dir, ctx.is_windows, ctx.which) {
+    let ffdir = match resolve::find_ffmpeg_dir(s, &bin_dir, ctx.is_windows, ctx.which) {
         Ok(dir) => dir,
         Err(shape) => {
             st.done(None);
@@ -505,10 +495,6 @@ fn preflight(s: &Obj, ctx: &mut DownloadCtx, kind: &str) -> Result<(String, Opti
         "yt-dlp, ytdlp-cli are present, ffmpeg is missing - single best file".to_string()
     };
     st.done(Some(&ffs));
-
-    if ffdir.is_none() {
-        ffdir = offer_ffmpeg(s, kind, ctx);
-    }
     Ok((binary, ffdir))
 }
 
@@ -856,82 +842,22 @@ pub fn do_summary(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sha256;
-    use crate::testfake::{FakeHttp, LinesOut};
-    use crate::tty::{RecordingOut, ScriptItem, ScriptedReader};
+    use crate::testfake::LinesOut;
+    use crate::tty::{RecordingOut, ScriptedReader};
     use crate::ui::WIDTH;
     use std::collections::VecDeque;
-    use std::io::Write;
     use std::sync::{Arc, Mutex};
 
-    // ---------------------------------------------------- phase 8: ffmpeg
-
-    /// The archive a provider publishes: one versioned folder, `bin/`
-    /// inside it, the binary at the end. Built from the source record so
-    /// the fixture follows whichever platform a test asks for.
-    fn provider_archive(platform: &str, binary: &[u8]) -> Vec<u8> {
-        let source = ffmpeg_source(platform).expect("a published source");
-        let name = format!("build-1/bin/{}", source.binname);
-        archive_named(source.how, &name, binary)
-    }
-
-    /// The same archive shape with a chosen member, so a test can hold
-    /// something other than the binary it wants.
-    fn provider_archive_member(platform: &str, member: &str, body: &[u8]) -> Vec<u8> {
-        let source = ffmpeg_source(platform).expect("a published source");
-        archive_named(source.how, member, body)
-    }
-
-    fn archive_named(how: &str, name: &str, binary: &[u8]) -> Vec<u8> {
-        match how {
-            "zip" => {
-                use zip::write::SimpleFileOptions;
-                use zip::{CompressionMethod, ZipWriter};
-                let mut buf = std::io::Cursor::new(Vec::new());
-                let options =
-                    SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
-                let mut w = ZipWriter::new(&mut buf);
-                w.start_file(name, options).unwrap();
-                w.write_all(binary).unwrap();
-                w.finish().unwrap();
-                buf.into_inner()
-            }
-            _ => {
-                let mut raw = Vec::new();
-                {
-                    let mut b = tar::Builder::new(&mut raw);
-                    let mut header = tar::Header::new_gnu();
-                    header.set_size(binary.len() as u64);
-                    header.set_mode(0o755);
-                    header.set_cksum();
-                    b.append_data(&mut header, name, binary).unwrap();
-                    b.finish().unwrap();
-                }
-                let mut out = Vec::new();
-                let mut enc =
-                    lzma_rust2::XzWriter::new(&mut out, lzma_rust2::XzOptions::with_preset(1))
-                        .unwrap();
-                enc.write_all(&raw).unwrap();
-                enc.finish().unwrap();
-                out
-            }
-        }
-    }
-
-    /// One ffmpeg install's world: the provider's archive and its
-    /// published digest, a scripted console, a scripted probe and the
-    /// waits the retries asked for.
+    /// One download test's world: a scratch root with bin/, a scripted
+    /// console, a scripted probe and scripted which answers.
     struct InstallWorld {
         dir: String,
         bin_dir: String,
         platform: String,
         lines: Arc<Mutex<Vec<String>>>,
-        http: FakeHttp,
         rec: RecordingOut,
         reader: ScriptedReader,
-        probed: Vec<String>,
         probe_answers: VecDeque<(String, i64)>,
-        slept: Vec<f64>,
         which_answers: Vec<(&'static str, Option<String>)>,
     }
 
@@ -943,21 +869,17 @@ mod tests {
         ($world:expr, $sink:expr, |$ctx:ident| $body:block) => {{
             let world = $world;
             let InstallWorld {
-                http,
                 rec,
                 reader,
-                probed,
                 probe_answers,
-                slept,
                 which_answers,
                 ..
             } = world;
             let is_windows = world.platform == "windows";
-            let mut probe = |binary: &str| {
-                probed.push(binary.to_string());
+            let mut probe = |_binary: &str| {
                 probe_answers
                     .pop_front()
-                    .unwrap_or_else(|| ("ffmpeg version 9.0.2".to_string(), 0))
+                    .unwrap_or_else(|| ("2026.08.19".to_string(), 0))
             };
             let mut which = |cmd: &str| {
                 which_answers
@@ -965,7 +887,6 @@ mod tests {
                     .find(|(name, _)| *name == cmd)
                     .and_then(|(_, answer)| answer.clone())
             };
-            let mut sleep = |secs: f64| slept.push(secs);
             let mut $ctx = DownloadCtx {
                 root: &world.dir,
                 is_windows,
@@ -975,71 +896,30 @@ mod tests {
                 out: rec,
                 reader,
                 auto: None,
-                http,
                 probe: &mut probe,
                 which: &mut which,
-                sleep: &mut sleep,
             };
             $body
         }};
     }
 
-    /// The ffmpeg install and the offer that fronts it, over a scripted
-    /// provider, console, probe and clock.
     impl InstallWorld {
-        /// `platform` is the platform under test: the install takes it
-        /// as an argument, so the fixture does not depend on the host.
+        /// `platform` only decides the windows spelling of a path here,
+        /// so the fixture does not depend on the host.
         fn new(tag: &str, platform: &str) -> Self {
             let dir = scratch(tag);
             let bin_dir = resolve::py_path_join(&dir.to_string_lossy(), "bin");
             std::fs::create_dir_all(&bin_dir).unwrap();
-            // a source with an archive gets a scripted provider file plus
-            // its checksums text; the macos source publishes the binary
-            // raw and carries the digest in the release API object, so
-            // its world scripts that shape; a sourceless platform gets an
-            // empty script (the refusal must happen before any contact)
-            let http = match ffmpeg_source(platform) {
-                Some(source) if source.how == "raw" => {
-                    let asset = source.url.rsplit('/').next().unwrap_or("");
-                    let bin = b"the ffmpeg build".to_vec();
-                    let body = format!(
-                        "{{\"assets\": [{{\"name\": \"{asset}\", \"digest\": \"sha256:{}\"}}]}}",
-                        sha256::sha256_hex(&bin)
-                    );
-                    FakeHttp::new()
-                        .with_text(source.sha_url, &body)
-                        .with_file(source.url, &bin)
-                }
-                Some(source) => {
-                    let archive = provider_archive(platform, b"the ffmpeg build");
-                    let digest = sha256::sha256_hex(&archive);
-                    FakeHttp::new()
-                        .with_text(source.sha_url, &format!("{digest}\n"))
-                        .with_file(source.url, &archive)
-                }
-                None => FakeHttp::new(),
-            };
             Self {
                 dir: dir.to_string_lossy().into_owned(),
                 bin_dir,
                 platform: platform.to_string(),
                 lines: Arc::new(Mutex::new(Vec::new())),
-                http,
                 rec: RecordingOut::default(),
                 reader: ScriptedReader::new(vec![]),
-                probed: Vec::new(),
                 probe_answers: VecDeque::new(),
-                slept: Vec::new(),
                 which_answers: Vec::new(),
             }
-        }
-
-        fn printed(&self) -> Vec<String> {
-            self.lines.lock().unwrap().clone()
-        }
-
-        fn source(&self) -> FfmpegSource {
-            ffmpeg_source(&self.platform).expect("a published source")
         }
 
         /// The sink the tests read back: one line per `emit_line`.
@@ -1049,400 +929,6 @@ mod tests {
             })
             .sink()
         }
-
-        fn install(&mut self, platform: &str, stage: bool) -> Option<String> {
-            let sink = self.sink();
-            let bin_dir = self.bin_dir.clone();
-            let is_windows = platform == "windows";
-            with_ctx!(self, sink, |ctx| {
-                let mut dot = tty::dot_stage("downloading ffmpeg", false, ctx.sink.clone());
-                if stage {
-                    dot.start();
-                    let got =
-                        install_ffmpeg(Some(&mut dot), platform, &bin_dir, is_windows, &mut ctx);
-                    dot.done(Some("done"));
-                    return got;
-                }
-                install_ffmpeg(None, platform, &bin_dir, is_windows, &mut ctx)
-            })
-        }
-
-        /// `offer_ffmpeg` against this world.
-        fn offer(&mut self, kind: &str, stdin_tty: bool) -> Option<String> {
-            let sink = self.sink();
-            let s = config::defaults();
-            with_ctx!(self, sink, |ctx| {
-                ctx.stdin_tty = stdin_tty;
-                offer_ffmpeg(&s, kind, &mut ctx)
-            })
-        }
-
-        /// What is left in bin/ after a run.
-        fn bin_listing(&self) -> Vec<String> {
-            let mut names: Vec<String> = std::fs::read_dir(&self.bin_dir)
-                .unwrap()
-                .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
-                .collect();
-            names.sort();
-            names
-        }
-    }
-
-    #[test]
-    fn install_ffmpeg_verifies_then_installs() {
-        let mut w = InstallWorld::new("ffmpeg-ok", "linux");
-        let got = w.install("linux", false);
-        assert_eq!(got, Some(resolve::py_path_join(&w.bin_dir, "ffmpeg")));
-        assert_eq!(w.printed(), Vec::<String>::new());
-        // the order is the gate: the published digest first, then the
-        // download with the 30-minute ceiling and the .ff- temp dir
-        let calls = w.http.calls();
-        let source = w.source();
-        assert_eq!(
-            calls[0],
-            format!("text {} 60", source.sha_url),
-            "the digest is read before anything is downloaded"
-        );
-        assert!(
-            calls[1].starts_with(&format!("file {} ", source.url)),
-            "{}",
-            calls[1]
-        );
-        assert!(calls[1].ends_with(" 1800"), "{}", calls[1]);
-        assert!(calls[1].contains(".ff-"), "{}", calls[1]);
-        // the temp directory is gone and only the binary landed
-        assert_eq!(w.bin_listing(), vec!["ffmpeg".to_string()]);
-        assert_eq!(
-            std::fs::read(format!("{}/ffmpeg", w.bin_dir)).unwrap(),
-            b"the ffmpeg build"
-        );
-        // posix: the installed build is executable - the extracted
-        // member is created 0644, so the mode is set before the probe
-        // runs it (the raw macos path carries the same assert)
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let mode = std::fs::metadata(format!("{}/ffmpeg", w.bin_dir))
-                .unwrap()
-                .permissions()
-                .mode();
-            assert_eq!(mode & 0o777, 0o755, "the installed build is executable");
-        }
-        std::fs::remove_dir_all(&w.dir).unwrap();
-    }
-
-    #[test]
-    fn install_ffmpeg_works_on_the_windows_archive_too() {
-        let mut w = InstallWorld::new("ffmpeg-win", "windows");
-        let got = w.install("windows", false);
-        assert_eq!(got, Some(resolve::py_path_join(&w.bin_dir, "ffmpeg.exe")));
-        assert_eq!(w.bin_listing(), vec!["ffmpeg.exe".to_string()]);
-        assert_eq!(w.printed(), Vec::<String>::new());
-        std::fs::remove_dir_all(&w.dir).unwrap();
-    }
-
-    #[test]
-    fn the_stage_line_reports_progress_and_its_verdicts() {
-        let mut w = InstallWorld::new("ffmpeg-stage", "linux");
-        let got = w.install("linux", true);
-        assert_eq!(got, Some(resolve::py_path_join(&w.bin_dir, "ffmpeg")));
-        // the live texts the download reported, and the stage's own
-        // final line (off a tty the spin frames never print)
-        let live = w.http.live();
-        assert!(!live.is_empty(), "one live text per transfer");
-        assert!(live.iter().all(|t| t.starts_with("downloading ffmpeg - ")));
-        let printed = w.printed();
-        assert_eq!(printed.len(), 1, "{printed:?}");
-        assert_eq!(printed[0].trim_end(), "... done");
-        std::fs::remove_dir_all(&w.dir).unwrap();
-    }
-
-    #[test]
-    fn a_wrong_published_digest_installs_nothing() {
-        let mut w = InstallWorld::new("ffmpeg-digest", "linux");
-        let source = w.source();
-        w.http
-            .set_text(source.sha_url, &format!("{}\n", "0".repeat(64)));
-        assert_eq!(w.install("linux", false), None);
-        assert_eq!(
-            w.printed(),
-            vec!["  checksum mismatch - nothing was changed"]
-        );
-        assert!(w.probed.is_empty(), "a mismatch is never probed");
-        assert_eq!(w.bin_listing(), Vec::<String>::new());
-        std::fs::remove_dir_all(&w.dir).unwrap();
-    }
-
-    #[test]
-    fn an_archive_without_the_binary_installs_nothing() {
-        let mut w = InstallWorld::new("ffmpeg-nomember", "windows");
-        let source = w.source();
-        // an archive that holds a sibling instead, published with its own
-        // (correct) digest, so the gate passes and the member is missing
-        let other = provider_archive_member("windows", "build-1/bin/ffprobe.exe", b"probe");
-        w.http
-            .set_file(source.url, &other)
-            .set_text(source.sha_url, &format!("{}\n", sha256::sha256_hex(&other)));
-        assert_eq!(w.install("windows", false), None);
-        assert_eq!(
-            w.printed(),
-            vec!["  no ffmpeg.exe inside the downloaded archive"]
-        );
-        assert_eq!(w.bin_listing(), Vec::<String>::new());
-        std::fs::remove_dir_all(&w.dir).unwrap();
-    }
-
-    #[test]
-    fn a_truncated_archive_reports_unreadable_and_installs_nothing() {
-        let mut w = InstallWorld::new("ffmpeg-truncated", "windows");
-        let source = w.source();
-        let whole = provider_archive("windows", b"the ffmpeg build");
-        let cut = whole[..whole.len() / 2].to_vec();
-        w.http
-            .set_file(source.url, &cut)
-            .set_text(source.sha_url, &format!("{}\n", sha256::sha256_hex(&cut)));
-        assert_eq!(w.install("windows", false), None);
-        // python prints both: extract_member reports the fault, then the
-        // caller reports the member it did not find
-        let printed = w.printed();
-        assert_eq!(printed.len(), 2, "{printed:?}");
-        assert!(
-            printed[0].starts_with("  the downloaded archive was unreadable: "),
-            "{printed:?}"
-        );
-        assert_eq!(printed[1], "  no ffmpeg.exe inside the downloaded archive");
-        assert_eq!(w.bin_listing(), Vec::<String>::new());
-        std::fs::remove_dir_all(&w.dir).unwrap();
-    }
-
-    #[test]
-    fn an_unrunnable_build_is_probed_three_times_and_installed_nowhere() {
-        let mut w = InstallWorld::new("ffmpeg-unrunnable", "linux");
-        for _ in 0..3 {
-            w.probe_answers.push_back((String::new(), 127));
-        }
-        assert_eq!(w.install("linux", false), None);
-        assert_eq!(
-            w.printed(),
-            vec!["  the downloaded ffmpeg did not run on this system (rc=127)"]
-        );
-        // three attempts, one second apart
-        assert_eq!(w.probed.len(), 3, "{:?}", w.probed);
-        assert_eq!(w.slept, vec![1.0, 1.0]);
-        assert_eq!(w.bin_listing(), Vec::<String>::new());
-        std::fs::remove_dir_all(&w.dir).unwrap();
-    }
-
-    #[test]
-    fn a_transient_probe_failure_is_retried_and_then_installed() {
-        let mut w = InstallWorld::new("ffmpeg-retry", "linux");
-        w.probe_answers.push_back((String::new(), -1));
-        let got = w.install("linux", false);
-        assert_eq!(got, Some(resolve::py_path_join(&w.bin_dir, "ffmpeg")));
-        assert_eq!(w.probed.len(), 2);
-        assert_eq!(w.slept, vec![1.0]);
-        assert!(w.printed().is_empty());
-        std::fs::remove_dir_all(&w.dir).unwrap();
-    }
-
-    #[test]
-    fn a_download_failure_is_reported_and_installs_nothing() {
-        let mut w = InstallWorld::new("ffmpeg-dlfail", "linux");
-        let source = w.source();
-        w.http.set_file_err(source.url, "host not found");
-        assert_eq!(w.install("linux", false), None);
-        assert_eq!(w.printed(), vec!["  download failed: host not found"]);
-        assert_eq!(w.bin_listing(), Vec::<String>::new());
-        std::fs::remove_dir_all(&w.dir).unwrap();
-    }
-
-    #[test]
-    fn an_unreadable_published_digest_installs_nothing() {
-        let mut w = InstallWorld::new("ffmpeg-nosha", "linux");
-        let source = w.source();
-        w.http.set_text_err(source.sha_url, "connection refused");
-        assert_eq!(w.install("linux", false), None);
-        assert_eq!(
-            w.printed(),
-            vec!["  could not read the published checksum: connection refused"]
-        );
-        // python reads the digest first: no download was even started
-        assert_eq!(w.http.calls().len(), 1);
-        assert_eq!(w.bin_listing(), Vec::<String>::new());
-        std::fs::remove_dir_all(&w.dir).unwrap();
-    }
-
-    #[test]
-    fn a_platform_without_a_published_build_gets_instructions() {
-        let mut w = InstallWorld::new("ffmpeg-nosource", "plan9");
-        let sink = w.sink();
-        let bin_dir = w.bin_dir.clone();
-        let got = with_ctx!(&mut w, sink, |ctx| {
-            install_ffmpeg(None, "plan9", &bin_dir, false, &mut ctx)
-        });
-        assert_eq!(got, None);
-        assert_eq!(
-            w.printed(),
-            vec![
-                "  no published ffmpeg download for plan9",
-                "  install it with your package manager - it is then found on PATH",
-            ]
-        );
-        assert!(w.http.calls().is_empty(), "no contact without a source");
-        std::fs::remove_dir_all(&w.dir).unwrap();
-    }
-
-    #[test]
-    fn install_ffmpeg_installs_the_macos_raw_binary() {
-        // the 2026-10-17g FR-14 amendment: macos reads the digest from
-        // the release API object and installs the published binary as-is
-        let mut w = InstallWorld::new("ffmpeg-macos-raw", "macos");
-        let got = w.install("macos", false);
-        assert_eq!(got, Some(resolve::py_path_join(&w.bin_dir, "ffmpeg")));
-        assert_eq!(w.printed(), Vec::<String>::new());
-        let calls = w.http.calls();
-        let source = w.source();
-        assert_eq!(
-            calls[0],
-            format!("text {} 60", source.sha_url),
-            "the digest is read before anything is downloaded"
-        );
-        assert!(
-            calls[1].starts_with(&format!("file {} ", source.url)),
-            "{}",
-            calls[1]
-        );
-        assert_eq!(w.bin_listing(), vec!["ffmpeg".to_string()]);
-        assert_eq!(
-            std::fs::read(format!("{}/ffmpeg", w.bin_dir)).unwrap(),
-            b"the ffmpeg build"
-        );
-        // posix hosts: the installed binary carries the exec bit
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let m = std::fs::metadata(format!("{}/ffmpeg", w.bin_dir))
-                .unwrap()
-                .permissions()
-                .mode();
-            assert_eq!(m & 0o777, 0o755);
-        }
-        std::fs::remove_dir_all(&w.dir).unwrap();
-    }
-
-    #[test]
-    fn a_macos_api_digest_mismatch_installs_nothing() {
-        let mut w = InstallWorld::new("ffmpeg-macos-digest", "macos");
-        let source = w.source();
-        let asset = source.url.rsplit('/').next().unwrap();
-        let body = format!(
-            "{{\"assets\": [{{\"name\": \"{asset}\", \"digest\": \"sha256:{}\"}}]}}",
-            "0".repeat(64)
-        );
-        w.http.set_text(source.sha_url, &body);
-        assert_eq!(w.install("macos", false), None);
-        assert_eq!(
-            w.printed(),
-            vec!["  checksum mismatch - nothing was changed"]
-        );
-        assert!(w.probed.is_empty(), "a mismatch is never probed");
-        assert_eq!(w.bin_listing(), Vec::<String>::new());
-        std::fs::remove_dir_all(&w.dir).unwrap();
-    }
-
-    #[test]
-    fn offer_ffmpeg_installs_behind_a_yes() {
-        let host = resolve::host_platform();
-        if ffmpeg_source(&host).is_none() {
-            // an exotic host with no published build: the offer prints
-            // the platform refusal, which the sourceless crate test
-            // above covers
-            return;
-        }
-        let mut w = InstallWorld::new("offer-yes", &host);
-        w.reader = ScriptedReader::new(vec![ScriptItem::Line("y".to_string())]);
-        let got = w.offer("video", true);
-        let binname = w.source().binname;
-        assert_eq!(got, Some(w.bin_dir.clone()));
-        assert_eq!(w.bin_listing(), vec![binname.to_string()]);
-        let printed = w.printed();
-        assert_eq!(printed[0], "");
-        assert_eq!(printed[1], "  ffmpeg is not installed");
-        assert_eq!(
-            printed[2],
-            "  without it you get one single best file - no separate audio track, no merge, no mp3, no srt subtitles"
-        );
-        let label = match w.source().how {
-            "zip" => "zip",
-            "tar.xz" => "tar.xz",
-            // the macos source publishes the binary itself
-            _ => "single binary",
-        };
-        assert_eq!(
-            printed[3],
-            format!("  download the official {host} build? ({label})")
-        );
-        assert_eq!(printed[4], format!("  {}", w.source().url));
-        assert_eq!(w.reader.prompts, vec!["  y/n (enter = no): ".to_string()]);
-        // the install's own stage verdict, then the re-find
-        assert!(
-            printed
-                .iter()
-                .any(|l| l == &format!("  ffmpeg ready: {}", w.bin_dir)),
-            "{printed:?}"
-        );
-        std::fs::remove_dir_all(&w.dir).unwrap();
-    }
-
-    #[test]
-    fn offer_ffmpeg_declines_without_a_word() {
-        let host = resolve::host_platform();
-        let mut w = InstallWorld::new("offer-no", &host);
-        w.reader = ScriptedReader::new(vec![ScriptItem::Line(String::new())]);
-        assert_eq!(w.offer("audio only", true), None);
-        assert!(w.http.calls().is_empty(), "declined: no contact at all");
-        let printed = w.printed();
-        if ffmpeg_source(&host).is_none() {
-            // an exotic host: the offer never reaches a question
-            assert_eq!(
-                printed,
-                vec![
-                    "".to_string(),
-                    "  ffmpeg is not installed".to_string(),
-                    "  without it the audio is saved as-is, no mp3/opus/wav conversion".to_string(),
-                    format!(
-                        "  no published download for {host} - install it with your package manager instead"
-                    ),
-                ],
-                "{printed:?}"
-            );
-            std::fs::remove_dir_all(&w.dir).unwrap();
-            return;
-        }
-        assert_eq!(
-            printed[2],
-            "  without it the audio is saved as-is, no mp3/opus/wav conversion"
-        );
-        assert_eq!(printed.last().unwrap(), "  continuing without ffmpeg");
-        std::fs::remove_dir_all(&w.dir).unwrap();
-    }
-
-    #[test]
-    fn offer_ffmpeg_is_silent_without_a_console() {
-        let mut w = InstallWorld::new("offer-piped", "linux");
-        assert_eq!(w.offer("video", false), None);
-        assert_eq!(w.printed(), Vec::<String>::new());
-        std::fs::remove_dir_all(&w.dir).unwrap();
-    }
-
-    #[test]
-    fn offer_ffmpeg_returns_an_existing_binary_without_asking() {
-        let mut w = InstallWorld::new("offer-have", "linux");
-        std::fs::write(format!("{}/ffmpeg", w.bin_dir), b"already here").unwrap();
-        assert_eq!(w.offer("video", true), Some(w.bin_dir.clone()));
-        assert_eq!(w.printed(), Vec::<String>::new());
-        assert!(w.reader.prompts.is_empty(), "no prompt when it is found");
-        std::fs::remove_dir_all(&w.dir).unwrap();
     }
 
     #[test]

@@ -928,94 +928,17 @@ pub(super) fn section_menu(
         &py_value(Some(&Value::Bool(false))),
     );
 
-    // ffmpeg sources: windows BtbN zip (FR-14 amendment 2026-10-16c),
-    // linux BtbN tar.xz, macos shaka-project raw binary (FR-14
-    // amendment 2026-10-17g)
-    let windows_source = exec::ffmpeg_source("windows");
-    let linux_source = exec::ffmpeg_source("linux");
-    let macos_source = exec::ffmpeg_source("macos");
-    let covered = windows_source.is_some() && linux_source.is_some() && macos_source.is_some();
-    c.check(
-        "ffmpeg sources cover windows, linux and macos",
-        covered,
-        &got_strs(&["windows", "linux", "macos"]),
-    );
-    // the native macos source is the shaka-project static build: a
-    // public repo with contributors, CI-built, sha256 per asset in the
-    // API, and the binary published raw - owner call 2026-10-17g
-    let macos_well = macos_source
-        .as_ref()
-        .map(|src| {
-            src.url.contains("shaka-project/static-ffmpeg-binaries")
-                && src.sha_url.contains("api.github.com")
-                && src.binname == "ffmpeg"
-                && src.how == "raw"
-                && src.sha_kind == "gh-api"
-        })
-        .unwrap_or(false);
-    c.check(
-        "macos ffmpeg source is shaka-project",
-        macos_well,
-        &macos_source
-            .as_ref()
-            .map(|src| got_strs(&[src.url]))
-            .unwrap_or_default(),
-    );
-    for (platform, source) in [("linux", &linux_source), ("windows", &windows_source)] {
-        let well = match source {
-            Some(src) => {
-                src.url.starts_with("https://")
-                    && src.sha_url.starts_with("https://")
-                    && (src.binname == "ffmpeg" || src.binname == "ffmpeg.exe")
-                    && (src.how == "zip" || src.how == "tar.xz")
-            }
-            None => false,
-        };
-        c.check(
-            &format!("ffmpeg source {platform} is well formed"),
-            well,
-            &bare_got(),
-        );
-    }
-    // owner-decided 2026-10-16c (FR-14 amendment): python asserted
-    // gyan.dev; the native offer fetches the BtbN win64 build, and the
-    // compare tools map this name back to python's (conformance map)
-    let windows_well = windows_source
-        .as_ref()
-        .map(|src| src.url.contains("BtbN/FFmpeg-Builds"))
-        .unwrap_or(false);
-    c.check(
-        "windows ffmpeg source is BtbN",
-        windows_well,
-        &windows_source
-            .as_ref()
-            .map(|src| got_strs(&[src.url]))
-            .unwrap_or_default(),
-    );
-    let linux_well = linux_source
-        .as_ref()
-        .map(|src| src.url.contains("BtbN/FFmpeg-Builds"))
-        .unwrap_or(false);
-    c.check(
-        "linux ffmpeg source is BtbN",
-        linux_well,
-        &linux_source
-            .as_ref()
-            .map(|src| got_strs(&[src.url]))
-            .unwrap_or_default(),
-    );
-
     // python pinned the raw-main script url; the native contract (FR-13)
-    // is the releases api, so this check names the api pin instead. The
-    // self-update asset is the platform lean bundle named for the tag.
+    // is the releases api, so this check names the api pin instead. One
+    // bundle per platform carries the cli image, named for the tag.
     let api_ok = update::RELEASES_API.ends_with("/releases/latest")
         && update::RELEASES_API.contains("api.github.com")
         && update::RELEASES_API.contains("ytdlp-cli-youtube-downloader");
     let win = update::release_asset("windows", "x86_64", "2.6.1", false);
     let lin = update::release_asset("linux", "x86_64", "2.6.1", false);
     let musl = update::release_asset("linux", "x86_64", "2.6.1", true);
-    let bundles_ok = win.as_deref() == Some("ytdlp-cli-v2.6.1-windows-lean.zip")
-        && lin.as_deref() == Some("ytdlp-cli-v2.6.1-linux-lean.tar.gz")
+    let bundles_ok = win.as_deref() == Some("ytdlp-cli-v2.6.1-windows.zip")
+        && lin.as_deref() == Some("ytdlp-cli-v2.6.1-linux.tar.gz")
         && musl.as_deref() == Some("ytdlp-cli-v2.6.1-linux-musl.tar.gz")
         && update::release_asset("macos", "aarch64", "2.6.1", false).is_none();
     c.check(
@@ -1055,48 +978,6 @@ pub(super) fn section_parsers(c: &mut Checker<'_>, root: &str, image_path: &str,
         "version_tuple counts junk pieces as 0",
         junk_pieces,
         &format!("{v13b:?}"),
-    );
-
-    // parse_sha256
-    let digest = "60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba";
-    let bare = update::parse_sha256(digest);
-    c.check(
-        "parse_sha256 reads a bare 64 char digest",
-        bare == Some(digest.to_string()),
-        &bare_got(),
-    );
-    let with_name = update::parse_sha256(&format!("{digest}  ffmpeg-9.0.2.zip"));
-    c.check(
-        "parse_sha256 reads digest then filename",
-        with_name == Some(digest.to_string()),
-        &bare_got(),
-    );
-    let refusals = update::parse_sha256("no digest here").is_none()
-        && update::parse_sha256("").is_none()
-        && update::parse_sha256("tooshort").is_none()
-        && update::parse_sha256(&"g".repeat(64)).is_none();
-    c.check(
-        "parse_sha256 refuses anything without a digest",
-        refusals,
-        &bare_got(),
-    );
-
-    // pick_checksum
-    let asset = "ffmpeg-n9.0-latest-linux64-gpl-9.0.tar.xz";
-    let digest_again = "afa2b69c9965919e0b519a633520321f838d74690f8fb28c76393c54a9448d60";
-    let checksum = format!("aaa  x.zip\n{digest_again}  {asset}\nbbb  y.zip\n");
-    let picked = update::pick_checksum(&checksum, asset);
-    c.check(
-        "pick_checksum picks the line naming the asset",
-        picked == Some(digest_again.to_string()),
-        &bare_got(),
-    );
-    let missed = update::pick_checksum("aaa  x.zip\nbbb  y.zip\n", "z.zip").is_none()
-        && update::pick_checksum("", "z.zip").is_none();
-    c.check(
-        "pick_checksum misses an asset it was not given",
-        missed,
-        &bare_got(),
     );
 
     // the installer dance on a scratch side-name pair: python's checks

@@ -1,7 +1,7 @@
 ; ytdlp-cli windows installer (Inno Setup 6).
 ;
-; Built by bundles.yml from the staged portable tree (the same bytes the
-; portable zip carries), so the installed product needs nothing else on the
+; Built by bundles.yml from the staged bundle tree (the same bytes the
+; windows zip carries), so the installed product needs nothing else on the
 ; machine: no runtime, no redistributable. Per-user install (no admin
 ; prompt): {localappdata}\Programs\ytdlp-cli, the user's PATH gets the
 ; directory, and a real uninstaller is registered in Windows Settings.
@@ -62,8 +62,8 @@ Name: "{autodesktop}\ytdlp"; Filename: "{app}\ytdlp.exe"; WorkingDir: "{app}"; T
 Filename: "{app}\ytdlp.exe"; Description: "Start ytdlp now"; Flags: nowait postinstall skipifsilent unchecked
 
 [UninstallDelete]
-; the tree is the app's own data folder too (settings.json, updated yt-dlp,
-; an offered ffmpeg); removing the directory removes what the app wrote
+; the tree is the app's own data folder too (settings.json, updated yt-dlp);
+; removing the directory removes what the app wrote
 Type: filesandordirs; Name: "{app}"
 
 [Code]
