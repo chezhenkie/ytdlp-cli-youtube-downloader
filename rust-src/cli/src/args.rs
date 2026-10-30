@@ -82,8 +82,13 @@ pub const KNOWN_LANG_CODES: &[&str] = &[
     "ty", "ug", "uk", "ur", "uz", "ve", "vi", "vo", "wa", "wo", "xh", "yi", "yo", "za", "zh", "zu",
 ];
 
-/// `'en,nl'` -> `'en(-.*)?,nl(-.*)?'` so en, en-GB, en-US and en-orig all
-/// match; entries that already are patterns (`* ? ( [`) pass through.
+/// `'en,nl'` -> `'(?-i:en(?:-[A-Z]{2})?)$,(?-i:nl(?:-[A-Z]{2})?)$'`.
+/// yt-dlp compiles each entry with `re.I` and `fullmatch`, so a case-blind
+/// regional class would also select translated keys (`en-de`, `en-de-DE`),
+/// and those requests answer 429; the scoped case-sensitive group selects
+/// the native code and its regional variants (`en-GB`, `en-US`) only.
+/// Entries that already are patterns (`* ? ( [`) and the `all` alias pass
+/// through untouched.
 pub fn sub_lang_patterns(langs: Option<&str>) -> String {
     let mut out: Vec<String> = Vec::new();
     for part in langs.unwrap_or("").split(',') {
@@ -91,14 +96,14 @@ pub fn sub_lang_patterns(langs: Option<&str>) -> String {
         if code.is_empty() {
             continue;
         }
-        if code.contains(['*', '?', '(', '[']) {
+        if code == "all" || code.contains(['*', '?', '(', '[']) {
             out.push(code.to_string());
         } else {
-            out.push(format!("{code}(-.*)?"));
+            out.push(format!("(?-i:{code}(?:-[A-Z]{{2}})?)$"));
         }
     }
     if out.is_empty() {
-        "en(-.*)?".to_string()
+        "(?-i:en(?:-[A-Z]{2})?)$".to_string()
     } else {
         out.join(",")
     }
@@ -441,6 +446,22 @@ mod tests {
     }
 
     #[test]
+    fn sub_lang_patterns_select_native_codes_only() {
+        // a bare code becomes a case-sensitive native matcher: en, en-GB,
+        // en-US match; en-de (translated) does not
+        assert_eq!(
+            sub_lang_patterns(Some("en,nl")),
+            "(?-i:en(?:-[A-Z]{2})?)$,(?-i:nl(?:-[A-Z]{2})?)$"
+        );
+        // explicit patterns and the all alias pass through
+        assert_eq!(sub_lang_patterns(Some("en.*")), "en.*");
+        assert_eq!(sub_lang_patterns(Some("all")), "all");
+        // empty and missing settings fall back to native english
+        assert_eq!(sub_lang_patterns(Some("")), "(?-i:en(?:-[A-Z]{2})?)$");
+        assert_eq!(sub_lang_patterns(None), "(?-i:en(?:-[A-Z]{2})?)$");
+    }
+
+    #[test]
     fn with_ext_matrix() {
         // the plain shipped template gains the placeholder
         assert_eq!(with_ext("%(title)s"), "%(title)s.%(ext)s");
@@ -645,7 +666,7 @@ mod tests {
             "--write-subs",
             "--write-auto-subs",
             "--sub-langs",
-            "en(-.*)?",
+            "(?-i:en(?:-[A-Z]{2})?)$",
             "--no-playlist",
             "--newline",
             "--convert-subs",
@@ -671,7 +692,7 @@ mod tests {
         let mut s = base.clone();
         config::set(&mut s, "subtitle_langs", Value::Int(5));
         let argv = build_sub_args(&s, "u", None, "root", None, &mut || false).unwrap();
-        assert!(argv.contains(&"5(-.*)?".to_string()));
+        assert!(argv.contains(&"(?-i:5(?:-[A-Z]{2})?)$".to_string()));
         config::set(
             &mut s,
             "subtitle_langs",
@@ -684,6 +705,6 @@ mod tests {
         // empty list is falsy: the default pattern returns
         config::set(&mut s, "subtitle_langs", Value::Arr(vec![]));
         let argv = build_sub_args(&s, "u", None, "root", None, &mut || false).unwrap();
-        assert!(argv.contains(&"en(-.*)?".to_string()));
+        assert!(argv.contains(&"(?-i:en(?:-[A-Z]{2})?)$".to_string()));
     }
 }

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.8.6
+
+### Fixes
+
+#### All platforms
+
+* Subtitle language matching selects native tracks only. A plain code like `en` matches `en`, `en-GB` and `en-US`, and no longer matches translated keys (`en-de`, `en-de-DE`) whose requests answer HTTP 429 and fail the whole subtitle pass.
+* A subtitle pass that exits nonzero after writing files keeps and strips those files. The verdict lists the languages that landed and adds the classified error line, instead of reporting `subtitles - not fetched` and dropping usable subtitles.
+
 ## 2.8.5
 
 ### Fixes

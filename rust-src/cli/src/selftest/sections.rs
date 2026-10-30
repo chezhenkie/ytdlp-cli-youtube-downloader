@@ -290,7 +290,7 @@ pub(super) fn section_args(c: &mut Checker<'_>, root: &str, config_path: &str, a
     );
     c.check(
         "sub args lang pattern",
-        a_index(&sa, "--sub-langs").map(String::as_str) == Some("en(-.*)?"),
+        a_index(&sa, "--sub-langs").map(String::as_str) == Some("(?-i:en(?:-[A-Z]{2})?)$"),
         &got_list(&sa),
     );
     c.check(
@@ -323,7 +323,7 @@ pub(super) fn section_args(c: &mut Checker<'_>, root: &str, config_path: &str, a
     }
     c.check(
         "lang pattern multi",
-        args::sub_lang_patterns(Some("en,nl")) == "en(-.*)?,nl(-.*)?",
+        args::sub_lang_patterns(Some("en,nl")) == "(?-i:en(?:-[A-Z]{2})?)$,(?-i:nl(?:-[A-Z]{2})?)$",
         &py_opt_str(Some("en,nl")),
     );
     c.check(

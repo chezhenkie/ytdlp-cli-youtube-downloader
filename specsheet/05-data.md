@@ -19,7 +19,7 @@ only - playlist_max_items int-parsed with fallback 0 (= all), the three vocabula
 | output_dir | str | "" | "" = resolve per FR-6 | resolve_outdir (resolve.rs) |
 | filename_template | str | "%(title)s" | yt-dlp -o template; `.%(ext)s` is appended when the template names no extension (a literal suffix is kept) | output_args (args.rs) |
 | subtitles | bool | true | on/off | do_download (exec.rs) |
-| subtitle_langs | str | "en" | comma list, wildcards pass | build_sub_args (args.rs) |
+| subtitle_langs | str | "en" | comma list; wildcards pass through; plain codes match the native track and its regional variants only | build_sub_args (args.rs) |
 | srt_stripper | bool | false | on/off | strip_subtitles (exec.rs) |
 | srt_stripper_mode | str | "text" | text timecode numbered | strip_subtitles (exec.rs) |
 | info_field | bool | false | on/off | build_args (args.rs) |

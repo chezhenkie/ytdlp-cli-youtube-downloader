@@ -96,6 +96,22 @@ pub fn sub_fail_lines(err: Option<&str>) -> Vec<String> {
     lines
 }
 
+/// Verdict lines for a subtitle pass that exited nonzero after writing
+/// files: yt-dlp fails the whole pass when one requested track fails, but
+/// the tracks it did write are on disk and are kept. Empty when nothing
+/// was written, so the caller falls back to the hard failure lines.
+pub fn sub_partial_lines(codes: &[String], err: Option<&str>) -> Vec<String> {
+    if codes.is_empty() {
+        return Vec::new();
+    }
+    let (verdict, _) = sub_success_lines(codes);
+    let mut lines = vec![verdict];
+    if let Some(reason) = sub_fail_reason(err) {
+        lines.push(format!("subtitle error - {reason}"));
+    }
+    lines
+}
+
 // ------------------------------------------------- download support
 
 /// `temp_dir(s)`: the work folder for yt-dlp intermediates, inside the
@@ -595,9 +611,17 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
             }
             strip_subtitles(s, ctx, &outdir, sub_started, rt);
         } else {
-            let lines = sub_fail_lines(Some(&err2));
-            st2.done(Some(&lines[0]));
-            st2.done(Some(&lines[1]));
+            let kept = sub_partial_lines(&codes, Some(&err2));
+            if kept.is_empty() {
+                let lines = sub_fail_lines(Some(&err2));
+                st2.done(Some(&lines[0]));
+                st2.done(Some(&lines[1]));
+            } else {
+                for line in &kept {
+                    st2.done(Some(line.as_str()));
+                }
+                strip_subtitles(s, ctx, &outdir, sub_started, rt);
+            }
         }
     }
 
@@ -1593,6 +1617,24 @@ mod tests {
         assert_eq!(sub_code("/out/video.en.vtt"), "en");
         assert_eq!(sub_code("a.b.c"), "b");
         assert_eq!(sub_code(".vtt"), ".vtt");
+    }
+
+    #[test]
+    fn partial_subtitle_pass_keeps_the_files_it_wrote() {
+        let codes = vec!["en".to_string()];
+        let lines = sub_partial_lines(&codes, Some("HTTP Error 429: Too Many Requests"));
+        assert_eq!(lines[0], "subtitles - en");
+        assert_eq!(
+            lines[1],
+            "subtitle error - the subtitle api answered 429 too many requests"
+        );
+        // no file written: the hard failure lines own the verdict
+        assert!(sub_partial_lines(&[], Some("HTTP Error 429")).is_empty());
+        // an unclassified error keeps the file verdict and drops the reason
+        assert_eq!(
+            sub_partial_lines(&codes, Some("SOMETHING ODD")),
+            vec!["subtitles - en".to_string()]
+        );
     }
 
     struct ScriptedHandle {
