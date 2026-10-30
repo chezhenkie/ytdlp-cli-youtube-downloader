@@ -15,13 +15,11 @@ One-shot URL runs, scripts, CI and piped runs never trigger it: no network conta
 
 | file | size | contains |
 |---|---|---|
-| `ytdlp-cli-v2.8.6-windows-lean.zip` | 20.1 MB | yt-dlp and the srtstripper. Install ffmpeg yourself for merge and audio conversion. |
-| `ytdlp-cli-v2.8.6-windows-portable.zip` | 60.1 MB | yt-dlp, the srtstripper **and** ffmpeg. Nothing else to install. |
-| `ytdlp-cli-v2.8.6-windows-setup.exe` | 46.2 MB | Windows installer, same content as the portable zip: per-user install, no admin prompt, `ytdlp` on your PATH, with an uninstaller. |
-| `ytdlp-cli-v2.8.6-linux-lean.tar.gz` | 42.5 MB | yt-dlp and the srtstripper. Install ffmpeg yourself for merge and audio conversion. |
-| `ytdlp-cli-v2.8.6-linux-portable.tar.gz` | 110.9 MB | yt-dlp, the srtstripper **and** ffmpeg. Nothing else to install. |
-| `ytdlp-cli-v2.8.6-linux-musl.tar.gz` | 2.1 MB | Alpine and other musl systems: the cli and the srtstripper. Get the runtime with `apk add yt-dlp`; that package pulls ffmpeg and the JS runtime with it. |
-| `ytdlp-cli-v2.8.6-macos-arm64.pkg` | 70.3 MB | macOS installer for Apple silicon (yt-dlp, ffmpeg and the srtstripper). Nothing else to install. |
+| `ytdlp-cli-v2.9.0-windows.zip` | 42.1 MB | yt-dlp, ffmpeg and the srtstripper. Nothing else to install. |
+| `ytdlp-cli-v2.9.0-windows-setup.exe` | 34.3 MB | Windows installer, same content as the zip: per-user install, no admin prompt, `ytdlp` on your PATH, with an uninstaller. |
+| `ytdlp-cli-v2.9.0-linux.tar.gz` | 62.1 MB | yt-dlp, ffmpeg and the srtstripper. Nothing else to install. |
+| `ytdlp-cli-v2.9.0-linux-musl.tar.gz` | 2.1 MB | Alpine and other musl systems: the cli and the srtstripper. Get the runtime with `apk add yt-dlp`; that package pulls ffmpeg and the JS runtime with it. |
+| `ytdlp-cli-v2.9.0-macos-arm64.pkg` | 70.3 MB | macOS installer for Apple silicon (yt-dlp, ffmpeg and the srtstripper). Nothing else to install. |
 Every glibc bundle and the macOS pkg carries the full runtime: yt-dlp, ffmpeg and the srtstripper. The musl bundle carries the cli and the srtstripper, and takes yt-dlp and ffmpeg from apk.
 
 ![ytdlp-cli process flow](resources/archify%20flow%20ytdlp-cli.png)
@@ -39,11 +37,11 @@ None beyond the bundle, the Windows binary is statically linked. The musl bundle
 
 ### Installing on Windows
 
-Download `ytdlp-cli-v2.8.6-windows-setup.exe` and double-click it. It needs no administrator rights and installs for your user only. The file is unsigned, so Windows SmartScreen may caution you: click More info, then Run anyway. The installer puts the program in `%LOCALAPPDATA%\Programs\ytdlp-cli`, adds that folder to your PATH and adds a Start Menu entry. Open a new terminal window and type `ytdlp` to start. To remove it later: Windows Settings > Apps, or the Start Menu uninstaller.
+Download `ytdlp-cli-v2.9.0-windows-setup.exe` and double-click it. It needs no administrator rights and installs for your user only. The file is unsigned, so Windows SmartScreen may caution you: click More info, then Run anyway. The installer puts the program in `%LOCALAPPDATA%\Programs\ytdlp-cli`, adds that folder to your PATH and adds a Start Menu entry. Open a new terminal window and type `ytdlp` to start. To remove it later: Windows Settings > Apps, or the Start Menu uninstaller.
 
 ### Installing on macOS
 
-Download `ytdlp-cli-v2.8.6-macos-arm64.pkg` and double-click it. The package is not signed, so macOS refuses the first open: open System Settings, then Privacy & Security, click Open Anyway next to the blocked ytdlp-cli message and confirm with your password or Touch ID. That is all the install needs - no terminal. The package puts the program in `/usr/local/ytdlp-cli`, with the portable layout (settings and downloads of extras live inside that folder), and links it onto your PATH as `/usr/local/bin/ytdlp`, so a new Terminal window can just run `ytdlp`. To remove it later: `sudo /usr/local/ytdlp-cli/uninstall-macos.sh` removes the program, the PATH link and the package receipt.
+Download `ytdlp-cli-v2.9.0-macos-arm64.pkg` and double-click it. The package is not signed, so macOS refuses the first open: open System Settings, then Privacy & Security, click Open Anyway next to the blocked ytdlp-cli message and confirm with your password or Touch ID. That is all the install needs - no terminal. The package puts the program in `/usr/local/ytdlp-cli`, with the portable layout (settings and downloads of extras live inside that folder), and links it onto your PATH as `/usr/local/bin/ytdlp`, so a new Terminal window can just run `ytdlp`. To remove it later: `sudo /usr/local/ytdlp-cli/uninstall-macos.sh` removes the program, the PATH link and the package receipt.
 
 ### Installing on Linux
 
@@ -53,7 +51,7 @@ Download a tar.gz from the table and unpack it, or let the script do it: it fetc
 curl -fsSL https://raw.githubusercontent.com/chezhenkie/ytdlp-cli-youtube-downloader/main/install.sh | sh
 ```
 
-`sh -s -- --version v2.8.6` pins a release, and `sh -s -- --uninstall` removes the install and the link. `--portable` and `--lean` are accepted as ignored: one bundle per platform now, ffmpeg included.
+`sh -s -- --version v2.9.0` pins a release, and `sh -s -- --uninstall` removes the install and the link. `--portable` and `--lean` are accepted as ignored: one bundle per platform now, ffmpeg included.
 
 On Alpine and other musl systems the script installs the musl bundle automatically - the cli and the srtstripper; get the download runtime with `apk add yt-dlp`, which pulls ffmpeg and the JS runtime with it.
 
@@ -78,13 +76,11 @@ Output goes to a `ytdlp-cli-downloads` folder on your desktop by default, fallin
 ## Checksums
 
 ```
-4bef94ac82e62215b6e4c111648cf5aa5add6ebb404bebb480b074f622b26175  ytdlp-cli-v2.8.6-linux-lean.tar.gz
-9baeae54d531e43d8f6e251791eb69aaa155cd60f6eed7be26a1725c23742a83  ytdlp-cli-v2.8.6-linux-portable.tar.gz
-46ae1c29da1868e8267b33c3a35b527b97f74e1fa73c4db6fb58cc461d6c8bd3  ytdlp-cli-v2.8.6-linux-musl.tar.gz
-e0bae914743eff94abd3538d4110339e372dd3aa840849f151240b0162792cc3  ytdlp-cli-v2.8.6-macos-arm64.pkg
-cf1e17b497273d1646166f957fbdbbcf62db1edc9a177ae2711d6d52a51ffe63  ytdlp-cli-v2.8.6-windows-lean.zip
-71fbefee1a228668dde6590187f035d82c881bfe4c299f5f29de4518990dd462  ytdlp-cli-v2.8.6-windows-portable.zip
-ff1ae4c6ecc201af92e73579615f3b6cd60e0a06dd719677d1c6496a4e25939a  ytdlp-cli-v2.8.6-windows-setup.exe
+1499516e7fb4c2d90792a6ada6603cc16d6260016fb81bb3829f13aa0a2f9e5f  ytdlp-cli-v2.9.0-linux.tar.gz
+3ac5a8bcac2b3b265b7b50b8ea4bb716c80dec5d764f2f38bc46522ed64d5073  ytdlp-cli-v2.9.0-linux-musl.tar.gz
+08e9cc2b24c3da84d0d9ea6866d9e923ca5e1804b738189d0ac63910ae6af505  ytdlp-cli-v2.9.0-macos-arm64.pkg
+c4cc6beaf133e3413cc88e1826aaf628735df7ae55b6bfbba69f47b25a283139  ytdlp-cli-v2.9.0-windows.zip
+bc6c3af9015e16dc1945c1ef58229f846fc06c82d3ccd1e411981513a8c09b39  ytdlp-cli-v2.9.0-windows-setup.exe
 ```
 
 No release publishes a bare cli image: menu item 13 updates the cli from the platform bundle.
