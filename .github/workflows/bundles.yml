@@ -40,8 +40,8 @@ name: bundles
 #           139 files / 23,815,375 bytes into %TEMP%\_MEIxxxxx on every
 #           launch (measured 5,698 writes per launch; the app launches it
 #           2x with subs off, 3x with subs on).
-#   ffmpeg: gyan.dev 9.0.2 essentials (windows), BtbN n9.0.2-27-g7e93014c5b
-#           autobuild-2026-10-13 (linux; the dated tag, so the pin cannot move
+#   ffmpeg: gyan.dev 9.0.2 essentials (windows), BtbN n9.0.2-39-g7adfbe40dc
+#           autobuild-2026-10-30 (linux; the dated tag, so the pin cannot move
 #           under CI the way the moving "latest" tag did),
 #           shaka-project/static-ffmpeg-binaries n8.1.2-1 ffmpeg-osx-arm64
 #           (macos; owner call 2026-10-17g: a public repo with contributors,
@@ -65,8 +65,8 @@ env:
   YTDLP_MACOS_ZIP_SHA256: 07e54b0865303c864006925913bce2604f8ee8cc6f18699bac9c309f9328a6d8
   FFMPEG_WINDOWS_URL: https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.2-essentials_build.zip
   FFMPEG_WINDOWS_SHA256: 60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba
-  FFMPEG_LINUX_URL: https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-13-13-05/ffmpeg-n9.0.2-27-g7e93014c5b-linux64-gpl-9.0.tar.xz
-  FFMPEG_LINUX_SHA256: 50e0ede136e3545758a8dfb2e6cd12ec865643cd138af9ce6cd36a9015f395c2
+  FFMPEG_LINUX_URL: https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-30-13-01/ffmpeg-n9.0.2-39-g7adfbe40dc-linux64-gpl-9.0.tar.xz
+  FFMPEG_LINUX_SHA256: 2f787799c77ac8eda96f74fee82e7b18ef8f7c8c57ff99da68cb45046937092c
   FFMPEG_MACOS_URL: https://github.com/shaka-project/static-ffmpeg-binaries/releases/download/n8.1.2-1/ffmpeg-osx-arm64
   FFMPEG_MACOS_SHA256: e7b9fcd97f95f333512d6e8b8ac24d9dbc08f189f36047695499bd7b57214b22
   SRTSTRIPPER_URL_BASE: https://github.com/chezhenkie/srt-subtitle-stripper/releases/download/v1.6.4

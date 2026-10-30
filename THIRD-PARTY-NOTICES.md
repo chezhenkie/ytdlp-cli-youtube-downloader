@@ -44,10 +44,10 @@ system package manager (on Alpine, apk add yt-dlp pulls ffmpeg with it).
      marked "source code @ github". gyan.dev publishes Windows binaries only,
      so the Linux build cannot come from there.
 
-   - Linux build, ffmpeg n9.0.2-27-g7e93014c5b-20261013, provided by
+   - Linux build, ffmpeg n9.0.2-39-g7adfbe40dc-20261030, provided by
      BtbN/FFmpeg-Builds.
-     Archive: ffmpeg-n9.0.2-27-g7e93014c5b-linux64-gpl-9.0.tar.xz (autobuild tag)
-     sha256: 50e0ede136e3545758a8dfb2e6cd12ec865643cd138af9ce6cd36a9015f395c2
+     Archive: ffmpeg-n9.0.2-39-g7adfbe40dc-linux64-gpl-9.0.tar.xz (autobuild-2026-10-30-13-01)
+     sha256: 2f787799c77ac8eda96f74fee82e7b18ef8f7c8c57ff99da68cb45046937092c
      Release page: https://github.com/BtbN/FFmpeg-Builds/releases
      The scripts used to build these binaries live in that same repository.
 
