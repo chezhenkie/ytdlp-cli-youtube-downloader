@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.9.1
+
+### Fixes
+
+#### All platforms
+
+* Subtitle language fallback. A configured language that writes no subtitle file is retried once in the video's own language (`%(language)s`, primary subtag), so a video whose requested track is a refused YouTube translation still gets the track the service actually serves. The report prints `subtitle fallback - video language <code>`, and the verdict names the codes that landed. The fallback is skipped when the video language was already requested by name.
+* Subtitle verdicts follow the files on disk. A pass that printed `Writing video subtitles to:` and then failed with HTTP 429 no longer reports the code as landed; the empty file is gone, so the pass reports `not fetched` and can fall back. A pass that keeps files after a nonzero exit still reports and strips them.
+
 ## 2.9.0
 
 ### Changes

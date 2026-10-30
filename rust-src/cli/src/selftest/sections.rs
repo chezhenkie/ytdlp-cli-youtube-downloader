@@ -331,6 +331,23 @@ pub(super) fn section_args(c: &mut Checker<'_>, root: &str, config_path: &str, a
         args::sub_lang_patterns(Some("en.*")) == "en.*",
         &py_opt_str(Some("en.*")),
     );
+    c.check(
+        "lang fallback primary subtag",
+        exec::primary_subtag("nl-NL").as_deref() == Some("nl")
+            && exec::primary_subtag("NA").is_none()
+            && exec::primary_subtag("english").is_none(),
+        &py_opt_str(exec::primary_subtag("nl-NL").as_deref()),
+    );
+    c.check(
+        "lang fallback skips requested code",
+        exec::requested_codes("en,nl")
+            .iter()
+            .any(|code| code == "nl")
+            && !exec::requested_codes("en.*")
+                .iter()
+                .any(|code| code == "nl"),
+        &py_opt_str(Some("en,nl")),
+    );
     // python's `_ = a; _ = settings;` equivalents
     let _ = a;
 }

@@ -107,6 +107,33 @@ pub fn sub_partial_lines(codes: &[String], err: Option<&str>) -> Vec<String> {
     lines
 }
 
+/// The primary subtag of a yt-dlp `%(language)s` answer: `nl-NL` ->
+/// `nl`, `zh-Hans` -> `zh`. The missing answer (`NA`) and placeholder
+/// words are not languages.
+pub(crate) fn primary_subtag(raw: &str) -> Option<String> {
+    let head = raw.trim().split(['-', '_']).next().unwrap_or("");
+    let code = head.to_ascii_lowercase();
+    if !(2..=3).contains(&code.len()) || !code.chars().all(|c| c.is_ascii_alphabetic()) {
+        return None;
+    }
+    if matches!(code.as_str(), "na" | "none" | "null" | "unknown" | "und") {
+        return None;
+    }
+    Some(code)
+}
+
+/// The plain codes in the subtitle setting. Patterns and wildcards are
+/// left out because they are not comparable with one language; the
+/// fallback only skips a retry when the video language was asked for by
+/// name already.
+pub(crate) fn requested_codes(langs: &str) -> Vec<String> {
+    langs
+        .split(',')
+        .map(|t| t.trim().to_ascii_lowercase())
+        .filter(|t| !t.is_empty() && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'))
+        .collect()
+}
+
 // ------------------------------------------------- download support
 
 /// `temp_dir(s)`: the work folder for yt-dlp intermediates, inside the
@@ -411,6 +438,80 @@ pub fn run_download(
     }
 }
 
+/// One quiet `--print "%(language)s"` extraction, used only after a
+/// subtitle pass wrote nothing. The escape watch stays live, so a stop
+/// during the probe keeps the FR-11 shape instead of hanging the run.
+enum LangProbe {
+    Lang(String),
+    Missing,
+    Stopped,
+}
+
+fn probe_video_language(binary: &str, url: &str, rt: &mut RunRt) -> LangProbe {
+    let opts = vec![
+        "--skip-download".to_string(),
+        "--print".to_string(),
+        "%(language)s".to_string(),
+        url.to_string(),
+    ];
+    let Ok(spawned) = (rt.spawn)(binary, &opts) else {
+        return LangProbe::Missing;
+    };
+    let Spawned {
+        stdout,
+        stderr,
+        mut child,
+    } = spawned;
+    let (tx, rx) = mpsc::channel::<Vec<String>>();
+    std::thread::spawn(move || {
+        let mut lines: Vec<String> = Vec::new();
+        let mut reader = stdout;
+        let mut buf: Vec<u8> = Vec::with_capacity(256);
+        loop {
+            buf.clear();
+            match reader.read_until(b'\n', &mut buf) {
+                Ok(0) | Err(_) => break,
+                Ok(_) => {}
+            }
+            lines.push(py_rstrip(&String::from_utf8_lossy(&buf)).to_string());
+        }
+        let _ = tx.send(lines);
+    });
+    std::thread::spawn(move || {
+        let mut reader = stderr;
+        let mut sink: Vec<u8> = Vec::new();
+        let _ = std::io::Read::read_to_end(&mut reader, &mut sink);
+    });
+    let mut watch = (rt.watch)();
+    let finished = loop {
+        if child.poll().is_some() {
+            break true;
+        }
+        if watch.escape_hit() || (rt.interrupted)() {
+            (rt.kill)(&mut *child);
+            break false;
+        }
+        (rt.sleep_frame)();
+    };
+    drop(watch);
+    if !finished {
+        return LangProbe::Stopped;
+    }
+    let lines = rx
+        .recv_timeout(Duration::from_millis(2000))
+        .unwrap_or_default();
+    let answer = lines
+        .iter()
+        .rev()
+        .find(|line| !py_strip(line).is_empty())
+        .cloned()
+        .unwrap_or_default();
+    match primary_subtag(&answer) {
+        Some(code) => LangProbe::Lang(code),
+        None => LangProbe::Missing,
+    }
+}
+
 // --------------------------------------------------- download context
 
 /// Everything `do_download` reads from its world (python reads module
@@ -582,31 +683,85 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
                 }
             };
         let sub_started = now_secs();
-        let (rc2, stopped2, err2, codes) =
+        let (mut rc2, stopped2, mut err2, mut codes) =
             run_download(&binary, &sub_opts, Some(&st2), ctx.use_color, rt);
         if stopped2 {
             let tail = stop_cleanup(s, ctx.auto, ctx.root, sub_started);
             st2.done(Some(&format!("subtitles - stopped by escape{tail}")));
             return 130;
         }
-        if rc2 == 0 {
+        let mut files = srtstripper::subs_since(&outdir, sub_started, 2.0).len();
+        // FR-9 fallback: a pass that wrote no file leaves the requested
+        // language unserved, which is what YouTube does for generated
+        // translations (429). The video's own language is the track the
+        // service actually serves, so retry once in it.
+        if files == 0 {
+            match probe_video_language(&binary, url, rt) {
+                LangProbe::Stopped => {
+                    let tail = stop_cleanup(s, ctx.auto, ctx.root, sub_started);
+                    st2.done(Some(&format!("subtitles - stopped by escape{tail}")));
+                    return 130;
+                }
+                LangProbe::Missing => {}
+                LangProbe::Lang(code) => {
+                    if !requested_codes(&langs_text).iter().any(|c| c == &code) {
+                        st2.done(Some(&format!("subtitle fallback - video language {code}")));
+                        let mut s2 = s.clone();
+                        config::set(&mut s2, "subtitle_langs", Value::Str(code));
+                        let which = &mut *ctx.which;
+                        let mut has_node = || which("node").is_some();
+                        let opts2 = match args::build_sub_args(
+                            &s2,
+                            url,
+                            ffdir.as_deref(),
+                            ctx.root,
+                            ctx.auto,
+                            &mut has_node,
+                        ) {
+                            Ok(opts) => opts,
+                            Err(shape) => {
+                                st2.done(None);
+                                return shape_abort(shape);
+                            }
+                        };
+                        let (rc3, stopped3, err3, codes3) =
+                            run_download(&binary, &opts2, Some(&st2), ctx.use_color, rt);
+                        if stopped3 {
+                            let tail = stop_cleanup(s, ctx.auto, ctx.root, sub_started);
+                            st2.done(Some(&format!("subtitles - stopped by escape{tail}")));
+                            return 130;
+                        }
+                        rc2 = rc3;
+                        err2 = err3;
+                        codes = codes3;
+                        files = srtstripper::subs_since(&outdir, sub_started, 2.0).len();
+                    }
+                }
+            }
+        }
+        if files > 0 {
+            let kept = sub_partial_lines(&codes, Some(&err2));
+            if kept.is_empty() {
+                let (verdict, miss) = sub_success_lines(&codes);
+                st2.done(Some(&verdict));
+                if !miss.is_empty() {
+                    st2.done(Some(&miss));
+                }
+            } else {
+                for line in &kept {
+                    st2.done(Some(line.as_str()));
+                }
+            }
+            strip_subtitles(s, ctx, &outdir, sub_started, rt);
+        } else if rc2 == 0 {
             let (verdict, miss) = sub_success_lines(&codes);
             st2.done(Some(&verdict));
             if !miss.is_empty() {
                 st2.done(Some(&miss));
             }
-            strip_subtitles(s, ctx, &outdir, sub_started, rt);
         } else {
-            let kept = sub_partial_lines(&codes, Some(&err2));
-            if kept.is_empty() {
-                let lines = sub_fail_lines(Some(&err2));
-                st2.done(Some(&lines[0]));
-                st2.done(Some(&lines[1]));
-            } else {
-                for line in &kept {
-                    st2.done(Some(line.as_str()));
-                }
-                strip_subtitles(s, ctx, &outdir, sub_started, rt);
+            for line in sub_fail_lines(Some(&err2)) {
+                st2.done(Some(line.as_str()));
             }
         }
     }
@@ -743,15 +898,65 @@ pub fn do_summary(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) -> 
             }
         };
     let sub_started = now_secs();
-    let (rc, stopped, err, _codes) = run_download(&binary, &sub_opts, Some(&st), ctx.use_color, rt);
+    let (mut rc, stopped, err, _codes) =
+        run_download(&binary, &sub_opts, Some(&st), ctx.use_color, rt);
     if stopped {
         let tail = stop_cleanup(s, ctx.auto, ctx.root, sub_started);
         st.done(Some(&format!("summary - stopped by escape{tail}")));
         return 130;
     }
+    let mut err = err;
+    let mut paths = srtstripper::subs_since(&outdir, sub_started, 2.0);
+    // Same FR-9 fallback as a download: no subtitle file after the
+    // configured pass means the track is not served; retry once in the
+    // video's own language before giving up on text.
+    if paths.is_empty() {
+        match probe_video_language(&binary, url, rt) {
+            LangProbe::Stopped => {
+                let tail = stop_cleanup(s, ctx.auto, ctx.root, sub_started);
+                st.done(Some(&format!("summary - stopped by escape{tail}")));
+                return 130;
+            }
+            LangProbe::Missing => {}
+            LangProbe::Lang(code) => {
+                if !requested_codes(&langs_text).iter().any(|c| c == &code) {
+                    st.done(Some(&format!(
+                        "summary - subtitle fallback - video language {code}"
+                    )));
+                    let mut s2 = s.clone();
+                    config::set(&mut s2, "subtitle_langs", Value::Str(code));
+                    let which = &mut *ctx.which;
+                    let mut has_node = || which("node").is_some();
+                    let opts2 = match args::build_sub_args(
+                        &s2,
+                        url,
+                        ffdir.as_deref(),
+                        ctx.root,
+                        ctx.auto,
+                        &mut has_node,
+                    ) {
+                        Ok(opts) => opts,
+                        Err(shape) => {
+                            st.done(None);
+                            return shape_abort(shape);
+                        }
+                    };
+                    let (rc2, stopped2, err2, _codes2) =
+                        run_download(&binary, &opts2, Some(&st), ctx.use_color, rt);
+                    if stopped2 {
+                        let tail = stop_cleanup(s, ctx.auto, ctx.root, sub_started);
+                        st.done(Some(&format!("summary - stopped by escape{tail}")));
+                        return 130;
+                    }
+                    rc = rc2;
+                    err = err2;
+                    paths = srtstripper::subs_since(&outdir, sub_started, 2.0);
+                }
+            }
+        }
+    }
     let mut text_saved = false;
     if rc == 0 {
-        let paths = srtstripper::subs_since(&outdir, sub_started, 2.0);
         if paths.is_empty() {
             st.done(Some("summary - no subtitles available"));
         } else {
@@ -942,6 +1147,18 @@ mod tests {
              The process cannot access the file because it is being used by another process"
         );
         assert!(fail_sentence(1, long_err).len() as i64 > WIDTH);
+    }
+
+    #[test]
+    fn subtitle_fallback_uses_the_primary_subtag() {
+        assert_eq!(primary_subtag("nl-NL").as_deref(), Some("nl"));
+        assert_eq!(primary_subtag("zh-Hans").as_deref(), Some("zh"));
+        assert_eq!(primary_subtag("DE").as_deref(), Some("de"));
+        assert_eq!(primary_subtag("NA"), None);
+        assert_eq!(primary_subtag(""), None);
+        assert_eq!(primary_subtag("english"), None);
+        assert_eq!(requested_codes("en,nl"), vec!["en", "nl"]);
+        assert!(requested_codes("en.*").is_empty());
     }
 
     #[test]
@@ -1427,6 +1644,85 @@ mod tests {
     /// FR-22: the summary grab runs the subtitle pass, strips the fresh
     /// files in text mode whatever the strip settings say, and never
     /// starts a sound download.
+    /// FR-9 fallback: a configured language that writes no file (the
+    /// generated translation 429) is retried once in the video language.
+    #[test]
+    fn do_download_retries_in_the_video_language_when_no_file_lands() {
+        let mut world = InstallWorld::new("sub-fallback", "linux");
+        let outdir = resolve::py_path_join(&world.dir, resolve::DOWNLOADS_DIR_NAME);
+        std::fs::create_dir_all(&outdir).unwrap();
+        let host = resolve::host_platform();
+        let yt = resolve::platform_bin_name(&host);
+        std::fs::write(resolve::py_path_join(&world.bin_dir, yt), b"x").unwrap();
+        std::fs::write(resolve::py_path_join(&world.bin_dir, "ffmpeg"), b"x").unwrap();
+        let lines = Arc::clone(&world.lines);
+        let sub_path = resolve::py_path_join(&outdir, "video.de.srt");
+        let calls: SpawnCalls = Arc::new(Mutex::new(Vec::new()));
+        let seen = Arc::clone(&calls);
+        let written = sub_path.clone();
+        let mut rt = RunRt {
+            spawn: Box::new(move |binary: &str, args: &[String]| {
+                seen.lock()
+                    .unwrap()
+                    .push((binary.to_string(), args.to_vec()));
+                let has = |needle: &str| args.iter().any(|a| a == needle);
+                let (stdout, stderr, rc) = if has("--print") {
+                    ("de\n".to_string(), String::new(), 0)
+                } else if args.iter().any(|a| a.contains("de(?:-[A-Z]{2})")) {
+                    std::fs::write(&written, b"1\n").unwrap();
+                    (
+                        format!("Writing video subtitles to: {written}\n"),
+                        String::new(),
+                        0,
+                    )
+                } else if has("--write-subs") {
+                    (
+                        String::new(),
+                        "ERROR: Unable to download video subtitles for 'en': \
+                         HTTP Error 429: Too Many Requests\n"
+                            .to_string(),
+                        1,
+                    )
+                } else {
+                    (String::new(), String::new(), 0)
+                };
+                Ok(Spawned {
+                    stdout: Box::new(std::io::Cursor::new(stdout.into_bytes())),
+                    stderr: Box::new(std::io::Cursor::new(stderr.into_bytes())),
+                    child: Box::new(ScriptedHandle {
+                        polls: vec![Some(rc)].into(),
+                    }),
+                })
+            }),
+            watch: Box::new(|| {
+                Box::new(ScriptedWatch {
+                    hits: Vec::new().into(),
+                })
+            }),
+            kill: Box::new(|_| {}),
+            interrupted: Box::new(|| false),
+            sleep_frame: Box::new(|| {}),
+            interrupt_scope: None,
+        };
+        let s = config::defaults();
+        let sink = world.sink();
+        let rc = with_ctx!(&mut world, sink, |ctx| {
+            do_download(&s, "https://x/y", &mut ctx, &mut rt)
+        });
+        assert_eq!(rc, 0);
+        let calls = calls.lock().unwrap().clone();
+        assert_eq!(calls.len(), 4, "en pass, probe, de pass, media: {calls:?}");
+        assert!(calls[0].1.iter().any(|a| a.contains("en(?:")));
+        assert!(calls[1].1.iter().any(|a| a == "--print"));
+        assert!(calls[2].1.iter().any(|a| a.contains("de(?:")));
+        let printed = lines.lock().unwrap().join("\n");
+        assert!(
+            printed.contains("subtitle fallback - video language de"),
+            "{printed}"
+        );
+        assert!(printed.contains("subtitles - de"), "{printed}");
+    }
+
     #[test]
     fn do_summary_strips_text_before_any_sound() {
         let mut world = InstallWorld::new("summary-text", "linux");
@@ -1516,14 +1812,21 @@ mod tests {
             spawn: Box::new(move |_binary: &str, args: &[String]| {
                 let mut seen = seen.lock().unwrap();
                 seen.push(args.to_vec());
-                let (stderr, rc) = if seen.len() == 1 {
-                    (b"ERROR: no subtitles for that video\n".to_vec(), 1)
+                let has = |needle: &str| args.iter().any(|a| a == needle);
+                let (stdout, stderr, rc) = if has("--print") {
+                    ("NA\n".to_string(), Vec::new(), 0)
+                } else if has("--write-subs") {
+                    (
+                        String::new(),
+                        b"ERROR: no subtitles for that video\n".to_vec(),
+                        1,
+                    )
                 } else {
                     std::fs::write(&written, b"audio").unwrap();
-                    (Vec::new(), 0)
+                    (String::new(), Vec::new(), 0)
                 };
                 Ok(Spawned {
-                    stdout: Box::new(std::io::Cursor::new(Vec::new())),
+                    stdout: Box::new(std::io::Cursor::new(stdout.into_bytes())),
                     stderr: Box::new(std::io::Cursor::new(stderr)),
                     child: Box::new(ScriptedHandle {
                         polls: vec![Some(rc)].into(),
@@ -1547,8 +1850,12 @@ mod tests {
         });
         assert_eq!(rc, 0);
         let calls = calls.lock().unwrap().clone();
-        assert_eq!(calls.len(), 2, "subtitle pass then sound only: {calls:?}");
-        let sound = &calls[1];
+        assert_eq!(
+            calls.len(),
+            3,
+            "subtitle pass, language probe, sound only: {calls:?}"
+        );
+        let sound = &calls[2];
         assert!(sound.contains(&"-x".to_string()), "{sound:?}");
         assert!(sound.contains(&"--audio-format".to_string()), "{sound:?}");
         assert!(sound.contains(&"--no-playlist".to_string()), "{sound:?}");

@@ -16,7 +16,7 @@ name: bundles
 #
 # The installers are built here and proven here, not just assembled: the
 # windows job silently installs the setup.exe, runs the installed binary's
-# selftest (181 checks, 0 failed), checks the PATH entry and uninstalls again;
+# selftest (183 checks, 0 failed), checks the PATH entry and uninstalls again;
 # the macos job installs the pkg with `installer -pkg` on the runner, runs the
 # installed binary, checks writability, the installed tree and the shipped
 # uninstall script. Both installers carry the same payload the zip/tar bundles
@@ -135,7 +135,7 @@ jobs:
           & $iscc "/DAppVer=$ver" "/DStage=$stage" "/O$PWD/dist" "rust-src/packaging/windows-installer.iss"
           if ($LASTEXITCODE -ne 0) { throw "ISCC failed with $LASTEXITCODE" }
           if (-not (Test-Path "dist/ytdlp-cli-v$ver-windows-setup.exe")) { throw "setup.exe not produced" }
-      - name: installer proof - silent install twice, selftest 181/0, one PATH entry, uninstall
+      - name: installer proof - silent install twice, selftest 183/0, one PATH entry, uninstall
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -163,7 +163,7 @@ jobs:
           $report = & "$tdir/ytdlp.exe" --selftest | Out-String
           $rc = $LASTEXITCODE
           if ($rc -ne 0) { throw "installed selftest rc $rc" }
-          if ($report -notmatch "selftest: 181 checks, 0 failed") { throw "selftest report mismatch: $report" }
+          if ($report -notmatch "selftest: 183 checks, 0 failed") { throw "selftest report mismatch: $report" }
           $pe = (Get-Item "$tdir/ytdlp.exe").VersionInfo
           if ($pe.FileDescription -ne "ytdlp") { throw "FileDescription: $($pe.FileDescription)" }
           if ($pe.ProductName -ne "yt-dlp cli") { throw "ProductName: $($pe.ProductName)" }
@@ -189,7 +189,7 @@ jobs:
           $pathAfter = (Get-Item "HKCU:\Environment").GetValue("Path", $null, "DoNotExpandEnvironmentNames")
           if ((Count-PathEntry $pathAfter $tdirN) -ne 0) { Write-Host "HKCU Path after uninstall: $pathAfter"; throw "PATH entry survived uninstall" }
           Remove-Item -Recurse -Force "$PWD/inst-test" -ErrorAction SilentlyContinue
-          Write-Host "installer proof passed: two silent installs, selftest 181/0, PE fields, one PATH entry, clean uninstall"
+          Write-Host "installer proof passed: two silent installs, selftest 183/0, PE fields, one PATH entry, clean uninstall"
       - name: checksums and sizes
         shell: pwsh
         run: |
@@ -303,9 +303,9 @@ jobs:
           "$root/bin/yt-dlp" --version
           "$root/bin/ffmpeg" -version | head -n 1
           report=$("$root/ytdlp" --selftest)
-          echo "$report" | grep -q "selftest: 181 checks, 0 failed"
+          echo "$report" | grep -q "selftest: 183 checks, 0 failed"
           echo "$report" | tail -n 3
-          echo "linux run proof passed: onedir payload and ffmpeg run, selftest 181/0"
+          echo "linux run proof passed: onedir payload and ffmpeg run, selftest 183/0"
       - uses: actions/upload-artifact@v4
         with:
           name: linux-bundle
@@ -368,9 +368,9 @@ jobs:
           fi
           echo "$SRTSTRIPPER_MUSL_SHA256  dist/run/ytdlp-cli-v$ver/bin/srtstripper" | sha256sum -c -
           report=$("$bin" --selftest)
-          echo "$report" | grep -q "selftest: 181 checks, 0 failed"
+          echo "$report" | grep -q "selftest: 183 checks, 0 failed"
           echo "$report" | tail -n 3
-          echo "musl run proof passed: static, selftest 181/0, no bundled yt-dlp, srtstripper pinned"
+          echo "musl run proof passed: static, selftest 183/0, no bundled yt-dlp, srtstripper pinned"
       - uses: actions/upload-artifact@v4
         with:
           name: linux-musl-bundle
@@ -447,7 +447,7 @@ jobs:
           test -L /usr/local/bin/ytdlp
           report=$(/usr/local/bin/ytdlp --selftest)
           echo "$report" | tail -3
-          echo "$report" | grep -q "selftest: 181 checks, 0 failed"
+          echo "$report" | grep -q "selftest: 183 checks, 0 failed"
           # the tree must be writable by the user running it (settings.json
           # and yt-dlp -U both write into the tree)
           touch /usr/local/ytdlp-cli/.wtest && rm /usr/local/ytdlp-cli/.wtest
@@ -470,7 +470,7 @@ jobs:
             echo "pkg receipt survived the uninstall" >&2
             exit 1
           fi
-          echo "pkg proof passed: install, selftest 181/0, pins, writability, installed tree, uninstall"
+          echo "pkg proof passed: install, selftest 183/0, pins, writability, installed tree, uninstall"
       - name: checksums and sizes
         run: |
           set -euo pipefail
