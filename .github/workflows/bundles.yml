@@ -457,10 +457,12 @@ jobs:
           /usr/local/ytdlp-cli/bin/yt-dlp --version
           echo "$FFMPEG_MACOS_SHA256  /usr/local/ytdlp-cli/bin/ffmpeg" | shasum -a 256 -c -
           echo "$SRTSTRIPPER_MACOS_SHA256  /usr/local/ytdlp-cli/bin/srtstripper" | shasum -a 256 -c -
-          # the product claims macOS 11.0+ on arm64; pkgbuild emits no
+          # the product claims macOS 15.0+ on arm64; pkgbuild emits no
           # Distribution XML, so the claim lives in the Mach-O load commands.
-          # every shipped binary must run on the stated floor.
-          floor=11.0
+          # every shipped binary must run on the stated floor. the shaka
+          # ffmpeg payload is built for 15.0 and sets the bundle floor;
+          # the cli (11.0) and the yt-dlp launcher (10.13) sit below it.
+          floor=15.0
           for f in /usr/local/ytdlp-cli/ytdlp /usr/local/ytdlp-cli/bin/yt-dlp /usr/local/ytdlp-cli/bin/ffmpeg /usr/local/ytdlp-cli/bin/srtstripper; do
             m=$(otool -l "$f" | awk '$1 == "minos" {print $2} $1 == "version" {print $2}' | head -n1)
             test -n "$m" || { echo "no minos load command: $f" >&2; exit 1; }
