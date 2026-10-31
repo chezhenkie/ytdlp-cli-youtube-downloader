@@ -33,7 +33,7 @@ None beyond the bundle, the Windows binary is statically linked. The musl bundle
 - Windows: `ytdlp.exe` (or the setup.exe below, which installs it for your user and puts it on your PATH)
 - Linux: `./ytdlp`
 - Alpine and other musl Linux: `./ytdlp` plus the system runtime - `apk add yt-dlp` (that package pulls ffmpeg and the JS runtime with it); no musl yt-dlp or ffmpeg builds are published, so the musl bundle ships the cli and the srtstripper only
-- macOS (Apple silicon): `ytdlp` (the .pkg below installs it and puts it on your PATH)
+- macOS 15+ (Apple silicon): `ytdlp` (the .pkg below installs it and puts it on your PATH; the bundled ffmpeg sets the floor)
 
 ### Installing on Windows
 
