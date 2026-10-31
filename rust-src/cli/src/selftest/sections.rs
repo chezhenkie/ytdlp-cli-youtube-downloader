@@ -339,13 +339,15 @@ pub(super) fn section_args(c: &mut Checker<'_>, root: &str, config_path: &str, a
         &py_opt_str(exec::primary_subtag("nl-NL").as_deref()),
     );
     c.check(
-        "lang fallback skips requested code",
-        exec::requested_codes("en,nl")
-            .iter()
-            .any(|code| code == "nl")
-            && !exec::requested_codes("en.*")
-                .iter()
-                .any(|code| code == "nl"),
+        "lang fallback walks offered tracks",
+        exec::fallback_candidates(
+            &exec::OfferedTracks {
+                lang: Some("en".to_string()),
+                native: vec!["es".to_string()],
+                auto: vec!["en".to_string()],
+            },
+            &["en".to_string()],
+        ) == vec!["es".to_string(), "en".to_string()],
         &py_opt_str(Some("en,nl")),
     );
     // python's `_ = a; _ = settings;` equivalents

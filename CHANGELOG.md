@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.9.2
+
+### Fixes
+
+#### All platforms
+
+* Subtitle fallback walks the offered tracks. A selected language that YouTube refuses no longer ends with no subtitles while the video offers a servable track: after a pass writes nothing, one extraction reads the video language and the native and automatic track keys, and the cli retries the native track in the video language, the video language itself, the native tracks in the requested language, the other native tracks, and finally the code the pass already tried, at most four tries. Generated translations are not tried (they answer 429 by design).
+* The walk is automatic and prints one notice per try: `subtitle fallback - video language <code>` or `subtitle fallback - offered track <code>`. No question is asked, and escape during a try still ends the run with rc 130.
+
 ## 2.9.1
 
 ### Fixes

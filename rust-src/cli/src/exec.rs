@@ -438,24 +438,153 @@ pub fn run_download(
     }
 }
 
-/// One quiet `--print "%(language)s"` extraction, used only after a
-/// subtitle pass wrote nothing. The escape watch stays live, so a stop
-/// during the probe keeps the FR-11 shape instead of hanging the run.
-enum LangProbe {
-    Lang(String),
+/// What the offered-track probe read: the video's own language plus the
+/// native (uploaded) and automatic caption tracks youtube lists for it.
+/// The `l` conversion joins a dict's keys, so the whole offer costs well
+/// under a kilobyte per video.
+#[derive(Debug, Default, Clone)]
+pub(crate) struct OfferedTracks {
+    pub lang: Option<String>,
+    pub native: Vec<String>,
+    pub auto: Vec<String>,
+}
+
+/// One quiet three-field extraction, used only after a subtitle pass
+/// wrote nothing. The escape watch stays live, so a stop during the probe
+/// keeps the FR-11 shape instead of hanging the run.
+enum OfferProbe {
+    Offer(OfferedTracks),
     Missing,
     Stopped,
 }
 
-fn probe_video_language(binary: &str, url: &str, rt: &mut RunRt) -> LangProbe {
+/// A track key yt-dlp can request: a 2-3 letter primary subtag plus
+/// optional regional subtags (`de-DE`, `zh-Hans`, `de-orig`). Anything
+/// else in the joined list (the `NA` placeholder, `live_chat`) is not a
+/// subtitle track.
+fn is_track_key(key: &str) -> bool {
+    let mut parts = key.split('-');
+    let Some(first) = parts.next() else {
+        return false;
+    };
+    if !(2..=3).contains(&first.chars().count())
+        || !first.chars().all(|ch| ch.is_ascii_alphabetic())
+        || primary_subtag(first).is_none()
+    {
+        return false;
+    }
+    parts.all(|p| {
+        (2..=8).contains(&p.chars().count()) && p.chars().all(|ch| ch.is_ascii_alphanumeric())
+    })
+}
+
+/// The track keys in one `%(...)l` line, or none for the `NA` placeholder.
+fn track_keys(raw: &str) -> Vec<String> {
+    raw.split(',')
+        .map(str::trim)
+        .filter(|key| is_track_key(key))
+        .map(str::to_string)
+        .collect()
+}
+
+/// Whether the configured pattern would have selected this track key: a
+/// plain code matches the key itself and its regional variants (`en`,
+/// `en-US`), never a longer suffix (`en-nP7-2PuUl7o`, a native track
+/// youtube exposes under a generated suffix). Regional codes in the
+/// setting match the key exactly.
+fn requested_pattern_hit(key: &str, requested: &[String]) -> bool {
+    let (primary, rest) = match key.split_once('-') {
+        Some((head, tail)) => (head, Some(tail)),
+        None => (key, None),
+    };
+    requested.iter().any(|code| {
+        if code.contains('-') {
+            return key.eq_ignore_ascii_case(code);
+        }
+        primary.eq_ignore_ascii_case(code)
+            && match rest {
+                None => true,
+                Some(region) => {
+                    region.len() == 2 && region.chars().all(|ch| ch.is_ascii_uppercase())
+                }
+            }
+    })
+}
+
+/// Whether the track's primary subtag is one the user asked for, whatever
+/// suffix youtube gave the key.
+fn requested_primary_hit(key: &str, requested: &[String]) -> bool {
+    primary_subtag(key).is_some_and(|p| {
+        requested
+            .iter()
+            .any(|code| code.split('-').next() == Some(p.as_str()))
+    })
+}
+
+/// The retry order after a pass wrote nothing. Uploaded native tracks and
+/// the video's own language are the tracks youtube serves; generated
+/// translations are left out because they answer 429 by design (v2.8.6).
+/// The keys the configured pass already selected come last, so a
+/// transient failure still ends with a repeat of the request. One pass per
+/// entry.
+pub(crate) fn fallback_candidates(offer: &OfferedTracks, requested: &[String]) -> Vec<String> {
+    let lang = offer.lang.as_deref();
+    let mut ranked: Vec<(u8, String)> = Vec::new();
+    let push = |rank: u8, key: &str, ranked: &mut Vec<(u8, String)>| {
+        if !ranked.iter().any(|(_, held)| held == key) {
+            ranked.push((rank, key.to_string()));
+        }
+    };
+    for key in &offer.native {
+        let tried = requested_pattern_hit(key, requested);
+        let rank = if tried {
+            5
+        } else if primary_subtag(key).as_deref() == lang {
+            0
+        } else if requested_primary_hit(key, requested) {
+            2
+        } else {
+            3
+        };
+        push(rank, key, &mut ranked);
+    }
+    if let Some(code) = lang
+        && !requested_pattern_hit(code, requested)
+    {
+        push(1, code, &mut ranked);
+    }
+    for key in &offer.auto {
+        let tried = requested_pattern_hit(key, requested);
+        let rank = if primary_subtag(key).as_deref() == lang {
+            if tried { 6 } else { 4 }
+        } else if lang.is_none() {
+            if tried { 6 } else { 7 }
+        } else {
+            continue;
+        };
+        push(rank, key, &mut ranked);
+    }
+    ranked.sort_by_key(|(rank, _)| *rank);
+    ranked.into_iter().map(|(_, key)| key).collect()
+}
+
+/// How many offered tracks one failed pass may try before the run reports
+/// the failure; each try is one extractor call plus one caption fetch.
+pub(crate) const SUB_FALLBACK_TRIES: usize = 4;
+
+fn probe_offered_tracks(binary: &str, url: &str, rt: &mut RunRt) -> OfferProbe {
     let opts = vec![
         "--skip-download".to_string(),
         "--print".to_string(),
         "%(language)s".to_string(),
+        "--print".to_string(),
+        "%(subtitles)l".to_string(),
+        "--print".to_string(),
+        "%(automatic_captions)l".to_string(),
         url.to_string(),
     ];
     let Ok(spawned) = (rt.spawn)(binary, &opts) else {
-        return LangProbe::Missing;
+        return OfferProbe::Missing;
     };
     let Spawned {
         stdout,
@@ -495,20 +624,106 @@ fn probe_video_language(binary: &str, url: &str, rt: &mut RunRt) -> LangProbe {
     };
     drop(watch);
     if !finished {
-        return LangProbe::Stopped;
+        return OfferProbe::Stopped;
     }
     let lines = rx
         .recv_timeout(Duration::from_millis(2000))
         .unwrap_or_default();
-    let answer = lines
-        .iter()
-        .rev()
-        .find(|line| !py_strip(line).is_empty())
-        .cloned()
-        .unwrap_or_default();
-    match primary_subtag(&answer) {
-        Some(code) => LangProbe::Lang(code),
-        None => LangProbe::Missing,
+    let Some(first) = lines.first() else {
+        return OfferProbe::Missing;
+    };
+    OfferProbe::Offer(OfferedTracks {
+        lang: primary_subtag(first),
+        native: track_keys(lines.get(1).map(String::as_str).unwrap_or("")),
+        auto: track_keys(lines.get(2).map(String::as_str).unwrap_or("")),
+    })
+}
+
+// ------------------------------------------------ subtitle fallback
+
+/// The outcome of the offered-track retry walk.
+enum FallbackEnd {
+    Stopped,
+    Abort(ShapeKind),
+    Done {
+        rc: i64,
+        err: String,
+        codes: Vec<String>,
+        files: usize,
+    },
+}
+
+/// FR-9 fallback walk (v2.9.2): a pass that wrote nothing is retried track
+/// by track from the video's own offer until a subtitle file lands. Runs
+/// automatically, prints one notice line per track, never asks anything.
+/// Escape during any try ends the run like the configured pass did.
+#[allow(clippy::too_many_arguments)]
+fn retry_offered_tracks(
+    s: &Obj,
+    url: &str,
+    binary: &str,
+    ffdir: Option<&str>,
+    ctx: &mut DownloadCtx<'_>,
+    st: &mut Stage,
+    label: &str,
+    langs_text: &str,
+    outdir: &str,
+    since: f64,
+    rc_in: i64,
+    err_in: String,
+    codes_in: Vec<String>,
+    rt: &mut RunRt,
+) -> FallbackEnd {
+    let (mut rc, mut err, mut codes, mut files) = (rc_in, err_in, codes_in, 0usize);
+    let offer = match probe_offered_tracks(binary, url, rt) {
+        OfferProbe::Stopped => return FallbackEnd::Stopped,
+        OfferProbe::Missing => {
+            return FallbackEnd::Done {
+                rc,
+                err,
+                codes,
+                files,
+            };
+        }
+        OfferProbe::Offer(offer) => offer,
+    };
+    let requested = requested_codes(langs_text);
+    for code in fallback_candidates(&offer, &requested)
+        .into_iter()
+        .take(SUB_FALLBACK_TRIES)
+    {
+        let line = match offer.lang.as_deref() {
+            Some(lang) if primary_subtag(&code).as_deref() == Some(lang) => {
+                format!("{label}subtitle fallback - video language {code}")
+            }
+            _ => format!("{label}subtitle fallback - offered track {code}"),
+        };
+        st.done(Some(&line));
+        let mut s2 = s.clone();
+        config::set(&mut s2, "subtitle_langs", Value::Str(code));
+        let which = &mut *ctx.which;
+        let mut has_node = || which("node").is_some();
+        let opts = match args::build_sub_args(&s2, url, ffdir, ctx.root, ctx.auto, &mut has_node) {
+            Ok(opts) => opts,
+            Err(shape) => return FallbackEnd::Abort(shape),
+        };
+        let (rc2, stopped, err2, codes2) = run_download(binary, &opts, Some(st), ctx.use_color, rt);
+        if stopped {
+            return FallbackEnd::Stopped;
+        }
+        rc = rc2;
+        err = err2;
+        codes = codes2;
+        files = srtstripper::subs_since(outdir, since, 2.0).len();
+        if files > 0 {
+            break;
+        }
+    }
+    FallbackEnd::Done {
+        rc,
+        err,
+        codes,
+        files,
     }
 }
 
@@ -693,49 +908,44 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
         let mut files = srtstripper::subs_since(&outdir, sub_started, 2.0).len();
         // FR-9 fallback: a pass that wrote no file leaves the requested
         // language unserved, which is what YouTube does for generated
-        // translations (429). The video's own language is the track the
-        // service actually serves, so retry once in it.
+        // translations (429). Walk the offered tracks in order and stop at
+        // the first pass that lands a file; the notice names each try.
         if files == 0 {
-            match probe_video_language(&binary, url, rt) {
-                LangProbe::Stopped => {
+            match retry_offered_tracks(
+                s,
+                url,
+                &binary,
+                ffdir.as_deref(),
+                ctx,
+                &mut st2,
+                "",
+                &langs_text,
+                &outdir,
+                sub_started,
+                rc2,
+                err2,
+                codes,
+                rt,
+            ) {
+                FallbackEnd::Stopped => {
                     let tail = stop_cleanup(s, ctx.auto, ctx.root, sub_started);
                     st2.done(Some(&format!("subtitles - stopped by escape{tail}")));
                     return 130;
                 }
-                LangProbe::Missing => {}
-                LangProbe::Lang(code) => {
-                    if !requested_codes(&langs_text).iter().any(|c| c == &code) {
-                        st2.done(Some(&format!("subtitle fallback - video language {code}")));
-                        let mut s2 = s.clone();
-                        config::set(&mut s2, "subtitle_langs", Value::Str(code));
-                        let which = &mut *ctx.which;
-                        let mut has_node = || which("node").is_some();
-                        let opts2 = match args::build_sub_args(
-                            &s2,
-                            url,
-                            ffdir.as_deref(),
-                            ctx.root,
-                            ctx.auto,
-                            &mut has_node,
-                        ) {
-                            Ok(opts) => opts,
-                            Err(shape) => {
-                                st2.done(None);
-                                return shape_abort(shape);
-                            }
-                        };
-                        let (rc3, stopped3, err3, codes3) =
-                            run_download(&binary, &opts2, Some(&st2), ctx.use_color, rt);
-                        if stopped3 {
-                            let tail = stop_cleanup(s, ctx.auto, ctx.root, sub_started);
-                            st2.done(Some(&format!("subtitles - stopped by escape{tail}")));
-                            return 130;
-                        }
-                        rc2 = rc3;
-                        err2 = err3;
-                        codes = codes3;
-                        files = srtstripper::subs_since(&outdir, sub_started, 2.0).len();
-                    }
+                FallbackEnd::Abort(shape) => {
+                    st2.done(None);
+                    return shape_abort(shape);
+                }
+                FallbackEnd::Done {
+                    rc,
+                    err,
+                    codes: landed,
+                    files: fresh,
+                } => {
+                    rc2 = rc;
+                    err2 = err;
+                    codes = landed;
+                    files = fresh;
                 }
             }
         }
@@ -898,7 +1108,7 @@ pub fn do_summary(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) -> 
             }
         };
     let sub_started = now_secs();
-    let (mut rc, stopped, err, _codes) =
+    let (mut rc, stopped, err, codes) =
         run_download(&binary, &sub_opts, Some(&st), ctx.use_color, rt);
     if stopped {
         let tail = stop_cleanup(s, ctx.auto, ctx.root, sub_started);
@@ -907,51 +1117,39 @@ pub fn do_summary(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) -> 
     }
     let mut err = err;
     let mut paths = srtstripper::subs_since(&outdir, sub_started, 2.0);
-    // Same FR-9 fallback as a download: no subtitle file after the
-    // configured pass means the track is not served; retry once in the
-    // video's own language before giving up on text.
+    // Same FR-9 walk as a download: no subtitle file after the configured
+    // pass means the track is not served; offered tracks are tried in
+    // order before the run gives up on text.
     if paths.is_empty() {
-        match probe_video_language(&binary, url, rt) {
-            LangProbe::Stopped => {
+        match retry_offered_tracks(
+            s,
+            url,
+            &binary,
+            ffdir.as_deref(),
+            ctx,
+            &mut st,
+            "summary - ",
+            &langs_text,
+            &outdir,
+            sub_started,
+            rc,
+            err,
+            codes,
+            rt,
+        ) {
+            FallbackEnd::Stopped => {
                 let tail = stop_cleanup(s, ctx.auto, ctx.root, sub_started);
                 st.done(Some(&format!("summary - stopped by escape{tail}")));
                 return 130;
             }
-            LangProbe::Missing => {}
-            LangProbe::Lang(code) => {
-                if !requested_codes(&langs_text).iter().any(|c| c == &code) {
-                    st.done(Some(&format!(
-                        "summary - subtitle fallback - video language {code}"
-                    )));
-                    let mut s2 = s.clone();
-                    config::set(&mut s2, "subtitle_langs", Value::Str(code));
-                    let which = &mut *ctx.which;
-                    let mut has_node = || which("node").is_some();
-                    let opts2 = match args::build_sub_args(
-                        &s2,
-                        url,
-                        ffdir.as_deref(),
-                        ctx.root,
-                        ctx.auto,
-                        &mut has_node,
-                    ) {
-                        Ok(opts) => opts,
-                        Err(shape) => {
-                            st.done(None);
-                            return shape_abort(shape);
-                        }
-                    };
-                    let (rc2, stopped2, err2, _codes2) =
-                        run_download(&binary, &opts2, Some(&st), ctx.use_color, rt);
-                    if stopped2 {
-                        let tail = stop_cleanup(s, ctx.auto, ctx.root, sub_started);
-                        st.done(Some(&format!("summary - stopped by escape{tail}")));
-                        return 130;
-                    }
-                    rc = rc2;
-                    err = err2;
-                    paths = srtstripper::subs_since(&outdir, sub_started, 2.0);
-                }
+            FallbackEnd::Abort(shape) => {
+                st.done(None);
+                return shape_abort(shape);
+            }
+            FallbackEnd::Done { rc: r, err: e, .. } => {
+                rc = r;
+                err = e;
+                paths = srtstripper::subs_since(&outdir, sub_started, 2.0);
             }
         }
     }
@@ -1159,6 +1357,59 @@ mod tests {
         assert_eq!(primary_subtag("english"), None);
         assert_eq!(requested_codes("en,nl"), vec!["en", "nl"]);
         assert!(requested_codes("en.*").is_empty());
+    }
+
+    /// FR-9 walk order: the video's native tracks and its own language come
+    /// first, generated translations are never tried (429 by design), and
+    /// the code that already failed ends the list so a transient failure
+    /// still gets its repeat. `live_chat` and the `NA` placeholder are not
+    /// tracks.
+    #[test]
+    fn fallback_candidates_prefer_served_tracks_and_skip_translations() {
+        assert_eq!(track_keys("NA"), Vec::<String>::new());
+        assert_eq!(track_keys("de, live_chat, en-US"), vec!["de", "en-US"]);
+        let offer = OfferedTracks {
+            lang: Some("de".to_string()),
+            native: vec!["de".to_string(), "es".to_string()],
+            auto: vec!["de".to_string(), "en".to_string(), "fr".to_string()],
+        };
+        assert_eq!(
+            fallback_candidates(&offer, &["en".to_string()]),
+            vec!["de", "es"]
+        );
+        // the requested code that just failed is only reached last
+        assert_eq!(
+            fallback_candidates(&offer, &["de".to_string()]),
+            vec!["es", "de"]
+        );
+        // without a language answer the offered auto tracks are all that is
+        // left, retries behind fresh codes
+        let blind = OfferedTracks {
+            lang: None,
+            native: Vec::new(),
+            auto: vec!["de".to_string(), "en".to_string()],
+        };
+        assert_eq!(
+            fallback_candidates(&blind, &["en".to_string()]),
+            vec!["en", "de"]
+        );
+        // a native key with a generated suffix was never selected by the
+        // plain pattern, so it is fresh and serves the requested language
+        // before an unrelated track
+        assert!(!requested_pattern_hit(
+            "en-nP7-2PuUl7o",
+            &["en".to_string()]
+        ));
+        assert!(requested_pattern_hit("en-US", &["en".to_string()]));
+        let suffixed = OfferedTracks {
+            lang: None,
+            native: vec!["en-nP7-2PuUl7o".to_string(), "ja".to_string()],
+            auto: vec!["en".to_string(), "en-US".to_string()],
+        };
+        assert_eq!(
+            fallback_candidates(&suffixed, &["en".to_string()]),
+            vec!["en-nP7-2PuUl7o", "ja", "en", "en-US"]
+        );
     }
 
     #[test]
@@ -1667,7 +1918,7 @@ mod tests {
                     .push((binary.to_string(), args.to_vec()));
                 let has = |needle: &str| args.iter().any(|a| a == needle);
                 let (stdout, stderr, rc) = if has("--print") {
-                    ("de\n".to_string(), String::new(), 0)
+                    ("de\nNA\nNA\n".to_string(), String::new(), 0)
                 } else if args.iter().any(|a| a.contains("de(?:-[A-Z]{2})")) {
                     std::fs::write(&written, b"1\n").unwrap();
                     (
@@ -1721,6 +1972,86 @@ mod tests {
             "{printed}"
         );
         assert!(printed.contains("subtitles - de"), "{printed}");
+    }
+
+    /// FR-9 fallback walk: when the requested language fails and the video
+    /// language is the same track, the next offered native track is tried
+    /// automatically - no prompt, one notice line per try.
+    #[test]
+    fn do_download_walks_offered_tracks_when_the_requested_language_fails() {
+        let mut world = InstallWorld::new("sub-offer", "linux");
+        let outdir = resolve::py_path_join(&world.dir, resolve::DOWNLOADS_DIR_NAME);
+        std::fs::create_dir_all(&outdir).unwrap();
+        let host = resolve::host_platform();
+        let yt = resolve::platform_bin_name(&host);
+        std::fs::write(resolve::py_path_join(&world.bin_dir, yt), b"x").unwrap();
+        std::fs::write(resolve::py_path_join(&world.bin_dir, "ffmpeg"), b"x").unwrap();
+        let lines = Arc::clone(&world.lines);
+        let sub_path = resolve::py_path_join(&outdir, "video.es.srt");
+        let calls: SpawnCalls = Arc::new(Mutex::new(Vec::new()));
+        let seen = Arc::clone(&calls);
+        let written = sub_path.clone();
+        let mut rt = RunRt {
+            spawn: Box::new(move |binary: &str, args: &[String]| {
+                seen.lock()
+                    .unwrap()
+                    .push((binary.to_string(), args.to_vec()));
+                let has = |needle: &str| args.iter().any(|a| a == needle);
+                let (stdout, stderr, rc) = if has("--print") {
+                    ("en\nes\nen\n".to_string(), String::new(), 0)
+                } else if args.iter().any(|a| a.contains("es(?:-[A-Z]{2})")) {
+                    std::fs::write(&written, b"1\n").unwrap();
+                    (
+                        format!("Writing video subtitles to: {written}\n"),
+                        String::new(),
+                        0,
+                    )
+                } else if has("--write-subs") {
+                    (
+                        String::new(),
+                        "ERROR: Unable to download video subtitles for 'en': \
+                         HTTP Error 429: Too Many Requests\n"
+                            .to_string(),
+                        1,
+                    )
+                } else {
+                    (String::new(), String::new(), 0)
+                };
+                Ok(Spawned {
+                    stdout: Box::new(std::io::Cursor::new(stdout.into_bytes())),
+                    stderr: Box::new(std::io::Cursor::new(stderr.into_bytes())),
+                    child: Box::new(ScriptedHandle {
+                        polls: vec![Some(rc)].into(),
+                    }),
+                })
+            }),
+            watch: Box::new(|| {
+                Box::new(ScriptedWatch {
+                    hits: Vec::new().into(),
+                })
+            }),
+            kill: Box::new(|_| {}),
+            interrupted: Box::new(|| false),
+            sleep_frame: Box::new(|| {}),
+            interrupt_scope: None,
+        };
+        let s = config::defaults();
+        let sink = world.sink();
+        let rc = with_ctx!(&mut world, sink, |ctx| {
+            do_download(&s, "https://x/y", &mut ctx, &mut rt)
+        });
+        assert_eq!(rc, 0);
+        let calls = calls.lock().unwrap().clone();
+        assert_eq!(calls.len(), 4, "en pass, probe, es pass, media: {calls:?}");
+        assert!(calls[0].1.iter().any(|a| a.contains("en(?:")));
+        assert!(calls[1].1.iter().any(|a| a == "--print"));
+        assert!(calls[2].1.iter().any(|a| a.contains("es(?:")));
+        let printed = lines.lock().unwrap().join("\n");
+        assert!(
+            printed.contains("subtitle fallback - offered track es"),
+            "{printed}"
+        );
+        assert!(printed.contains("subtitles - es"), "{printed}");
     }
 
     #[test]
