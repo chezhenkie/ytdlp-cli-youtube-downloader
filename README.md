@@ -22,6 +22,8 @@ One-shot URL runs, scripts, CI and piped runs never trigger it: no network conta
 | `ytdlp-cli-v2.9.2-macos-arm64.pkg` | 70.3 MB | macOS installer for Apple silicon (yt-dlp, ffmpeg and the srtstripper). Nothing else to install. |
 Every glibc bundle and the macOS pkg carries the full runtime: yt-dlp, ffmpeg and the srtstripper. The musl bundle carries the cli and the srtstripper, and takes yt-dlp and ffmpeg from apk.
 
+**The folder after install.** `ytdlp.exe` is the program; `config/settings.json` holds the menu defaults. `bin/` holds what it starts: `yt-dlp.exe` with its `_internal` folder, `ffmpeg.exe` and `srtstripper.exe`. `_internal` is yt-dlp's own Python runtime (interpreter, libraries, modules) and must stay next to the launcher; the bundled copy is the official onedir build, unpacked from the yt-dlp release zip unchanged.
+
 ![ytdlp-cli process flow](resources/archify%20flow%20ytdlp-cli.png)
 
 The live, interactive flow is published at [chezhenkie.github.io/ytdlp-cli-youtube-downloader](https://chezhenkie.github.io/ytdlp-cli-youtube-downloader/); the diagram source is in the [ytdlp process flow archify](https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/tree/main/ytdlp%20process%20flow%20archify) folder.

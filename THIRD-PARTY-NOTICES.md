@@ -17,9 +17,11 @@ srtstripper only - there yt-dlp and ffmpeg come from the system package manager
 2. yt-dlp - performs every download
    The Unlicense, a public domain dedication.
    https://github.com/yt-dlp/yt-dlp
-   The bundled yt-dlp ships its own THIRD_PARTY_LICENSES.txt listing every
-   library inside it. That file is part of yt-dlp's own distribution and is not
-   reproduced here. In the linux-musl bundle yt-dlp is not bundled at all; the
+   The bundled copy is the official onedir build - `bin/yt-dlp[.exe]` plus its
+   `_internal` runtime folder - unpacked from the yt-dlp release zip unchanged;
+   menu item 13 replaces the pair as a tree. It ships its own
+   THIRD_PARTY_LICENSES.txt listing every library inside it. That file is part
+   of yt-dlp's own distribution and is not reproduced here. In the linux-musl bundle yt-dlp is not bundled at all; the
    system's own copy and its license file apply.
 
 3. ffmpeg - merging, audio extraction and subtitle conversion
