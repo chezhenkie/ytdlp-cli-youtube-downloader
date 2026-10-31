@@ -4,10 +4,10 @@
   "meta": {
     "title": "yt-dlp cli - process flow",
     "quality_profile": "showcase",
-    "output": "ytdlp-process-flow.html",
+    "output": "ytdlp process flow archify/ytdlp-process-flow.html",
     "repository": {
       "url": "https://github.com/chezhenkie/ytdlp-cli-youtube-downloader.git",
-      "revision": "5fd5748963138ec6f1da67dd37c2bcf5ecec0641"
+      "revision": "80df82e32390ff519c98189f972aba6311cb2187"
     }
   },
   "lanes": [
@@ -26,90 +26,91 @@
       "sources": [
         { "path": "rust-src/cli/src/menu.rs", "line": 793, "end_line": 812, "label": "paint when dirty, quiet check, save" },
         { "path": "rust-src/cli/src/ui.rs", "line": 391, "end_line": 420, "label": "summary and 0 rows, then 15 items" },
-        { "path": "rust-src/cli/src/ui.rs", "line": 193, "end_line": 342, "label": "menu_items: rows 1-15" }
+        { "path": "rust-src/cli/src/ui.rs", "line": 193, "end_line": 344, "label": "menu_items: rows 1-15" }
       ]
     },
     { "id": "m_route", "lane": "menu", "col": 3, "type": "frontend", "icon": "decision", "label": "route the input", "sublabel": "first http(s) link wins",
       "sources": [
         { "path": "rust-src/cli/src/menu.rs", "line": 827, "end_line": 849, "label": "url in prompt: download run" },
-        { "path": "rust-src/cli/src/args.rs", "line": 23, "end_line": 53, "label": "clean_url: first http(s) link" }
+        { "path": "rust-src/cli/src/args.rs", "line": 23, "end_line": 56, "label": "clean_url: first http(s) link" }
       ]
     },
     { "id": "m_act", "lane": "menu", "col": 4, "type": "frontend", "label": "menu actions", "sublabel": "items 1-15, 0 and s; saved each time",
       "sources": [
-        { "path": "rust-src/cli/src/menu.rs", "line": 456, "end_line": 771, "label": "act(): items 0-15" },
+        { "path": "rust-src/cli/src/menu.rs", "line": 459, "end_line": 778, "label": "act(): items 0-15" },
         { "path": "rust-src/cli/src/menu.rs", "line": 856, "end_line": 860, "label": "save after each action" },
-        { "path": "rust-src/cli/src/update.rs", "line": 895, "end_line": 903, "label": "update_all: yt-dlp, then cli" }
+        { "path": "rust-src/cli/src/update.rs", "line": 784, "end_line": 793, "label": "update_all: yt-dlp, then cli" }
       ]
     },
     { "id": "u_cli", "lane": "updates", "col": 5, "yOffset": -40, "type": "cloud", "label": "releases API fetch", "sublabel": "one GET: tag, asset, digest", "tag": "macOS: page only",
       "sources": [
-        { "path": "rust-src/cli/src/update.rs", "line": 267, "end_line": 279, "label": "fetch_cli: one GET" },
-        { "path": "rust-src/cli/src/update.rs", "line": 233, "end_line": 241, "label": "release_asset: lean bundle per platform" },
-        { "path": "rust-src/cli/src/update.rs", "line": 840, "end_line": 879, "label": "notice, refusal, install prompt" }
+        { "path": "rust-src/cli/src/update.rs", "line": 154, "end_line": 172, "label": "fetch_cli: one GET" },
+        { "path": "rust-src/cli/src/update.rs", "line": 120, "end_line": 130, "label": "release_asset: windows zip, linux tar, musl tar" },
+        { "path": "rust-src/cli/src/update.rs", "line": 727, "end_line": 779, "label": "notice, refusal, install prompt" }
       ]
     },
     { "id": "u_gate", "lane": "updates", "col": 5, "yOffset": 40, "type": "security", "label": "selftest gate + rename", "sublabel": "must pass its own checks",
       "sources": [
-        { "path": "rust-src/cli/src/update.rs", "line": 365, "end_line": 406, "label": "install_cli: selftest, then place" },
-        { "path": "rust-src/cli/src/update.rs", "line": 466, "end_line": 527, "label": "fetch_and_install: stage, digest, extract" }
+        { "path": "rust-src/cli/src/update.rs", "line": 257, "end_line": 299, "label": "install_cli: selftest, then place" },
+        { "path": "rust-src/cli/src/update.rs", "line": 358, "end_line": 422, "label": "fetch_and_install: stage, digest, extract" }
       ]
     },
     { "id": "c_main", "lane": "cli", "col": 1, "type": "backend", "label": "main() dispatch", "sublabel": "load settings once", "tag": "check, selftest, update, url, menu",
       "sources": [
-        { "path": "rust-src/cli/src/main.rs", "line": 36, "end_line": 95, "label": "run(): load settings once, dispatch order" },
-        { "path": "rust-src/cli/src/main.rs", "line": 196, "end_line": 244, "label": "run_quick: url argv, one run, exit" }
+        { "path": "rust-src/cli/src/main.rs", "line": 36, "end_line": 97, "label": "run(): load settings once, dispatch order" },
+        { "path": "rust-src/cli/src/main.rs", "line": 197, "end_line": 245, "label": "run_quick: url argv, one run, exit" }
       ]
     },
     { "id": "r_do", "lane": "cli", "col": 3, "type": "backend", "label": "do_download", "sublabel": "url check, preflight, argv", "tag": "subs first, then media",
       "sources": [
-        { "path": "rust-src/cli/src/exec.rs", "line": 523, "end_line": 636, "label": "do_download: subtitle pass first" },
-        { "path": "rust-src/cli/src/exec.rs", "line": 443, "end_line": 497, "label": "preflight: yt-dlp, ffmpeg, offer" },
-        { "path": "rust-src/cli/src/args.rs", "line": 279, "end_line": 358, "label": "build_args: yt-dlp argv" }
+        { "path": "rust-src/cli/src/exec.rs", "line": 628, "end_line": 801, "label": "do_download: subtitle pass first" },
+        { "path": "rust-src/cli/src/exec.rs", "line": 554, "end_line": 602, "label": "preflight: yt-dlp gate, ffmpeg lookup" },
+        { "path": "rust-src/cli/src/args.rs", "line": 284, "end_line": 368, "label": "build_args: yt-dlp argv" }
       ]
     },
     { "id": "r_sum", "lane": "cli", "col": 4, "type": "backend", "label": "do_summary", "sublabel": "subs to text first; sound fallback", "tag": "stored settings kept",
       "sources": [
-        { "path": "rust-src/cli/src/exec.rs", "line": 693, "end_line": 778, "label": "subtitle pass, text strip, text ready" },
-        { "path": "rust-src/cli/src/exec.rs", "line": 780, "end_line": 804, "label": "sound fallback from a settings copy" }
+        { "path": "rust-src/cli/src/exec.rs", "line": 865, "end_line": 984, "label": "subtitle grab, fallback retry, text strip" },
+        { "path": "rust-src/cli/src/exec.rs", "line": 986, "end_line": 1044, "label": "text ready, else sound from a settings copy" }
       ]
     },
     { "id": "r_verdict", "lane": "cli", "col": 5, "type": "backend", "label": "run verdict", "sublabel": "done | failed rc | stopped 130",
       "sources": [
-        { "path": "rust-src/cli/src/exec.rs", "line": 37, "end_line": 43, "label": "fail_sentence: failed rc text" },
-        { "path": "rust-src/cli/src/exec.rs", "line": 613, "end_line": 618, "label": "stopped: rc 130 and cleanup" },
-        { "path": "rust-src/cli/src/exec.rs", "line": 126, "end_line": 130, "label": "drop_temp_dir_force: removes work folder" }
+        { "path": "rust-src/cli/src/exec.rs", "line": 32, "end_line": 41, "label": "fail_sentence: failed rc text" },
+        { "path": "rust-src/cli/src/exec.rs", "line": 779, "end_line": 782, "label": "stopped: rc 130 and cleanup" },
+        { "path": "rust-src/cli/src/exec.rs", "line": 164, "end_line": 175, "label": "drop_temp_dir_force: removes work folder" }
       ]
     },
-    { "id": "r_subs", "lane": "child", "col": 3, "yOffset": -40, "type": "messagebus", "label": "subtitle pass", "sublabel": "runs first, --skip-download", "tag": "escape stops the run",
+    { "id": "r_subs", "lane": "child", "col": 3, "yOffset": -40, "type": "messagebus", "label": "subtitle pass", "sublabel": "runs first; one retry in video language", "tag": "escape stops the run",
       "sources": [
-        { "path": "rust-src/cli/src/args.rs", "line": 365, "end_line": 402, "label": "build_sub_args: --skip-download" },
-        { "path": "rust-src/cli/src/exec.rs", "line": 556, "end_line": 602, "label": "subtitle pass before the media pass" }
+        { "path": "rust-src/cli/src/args.rs", "line": 370, "end_line": 411, "label": "build_sub_args: --skip-download" },
+        { "path": "rust-src/cli/src/exec.rs", "line": 659, "end_line": 767, "label": "subtitle pass, language fallback, retry" },
+        { "path": "rust-src/cli/src/exec.rs", "line": 450, "end_line": 536, "label": "probe_video_language: primary subtag" }
       ]
     },
     { "id": "r_ytdlp", "lane": "child", "col": 3, "yOffset": 40, "type": "messagebus", "label": "yt-dlp media pass", "sublabel": "stdout piped; escape kills tree",
       "sources": [
-        { "path": "rust-src/cli/src/exec.rs", "line": 274, "end_line": 401, "label": "run_download: spawn, pumps, poll" },
-        { "path": "rust-src/cli/src/exec/run.rs", "line": 139, "end_line": 164, "label": "kill_tree_real: tree kill on escape" }
+        { "path": "rust-src/cli/src/exec.rs", "line": 318, "end_line": 448, "label": "run_download: spawn, pumps, poll" },
+        { "path": "rust-src/cli/src/exec/run.rs", "line": 141, "end_line": 170, "label": "kill_tree_real: tree kill on escape" }
       ]
     },
     { "id": "r_strip", "lane": "child", "col": 4, "yOffset": -40, "type": "messagebus", "label": "srt timecode stripper", "sublabel": "one spawn per file", "tag": "text, timecode, numbered",
       "sources": [
-        { "path": "rust-src/cli/src/exec.rs", "line": 638, "end_line": 663, "label": "strip_subtitles: fresh subs only" },
-        { "path": "rust-src/cli/src/exec/srtstripper.rs", "line": 97, "end_line": 137, "label": "run_one: one spawn per file" },
+        { "path": "rust-src/cli/src/exec.rs", "line": 803, "end_line": 831, "label": "strip_subtitles: fresh subs only" },
+        { "path": "rust-src/cli/src/exec/srtstripper.rs", "line": 100, "end_line": 155, "label": "run_one: one spawn per file" },
         { "path": "rust-src/cli/src/exec/srtstripper.rs", "line": 16, "end_line": 23, "label": "mode_flag: text, timecode, numbered" }
       ]
     },
     { "id": "f_settings", "lane": "files", "col": 1, "type": "database", "label": "config/settings.json", "sublabel": "read at start, saved on change",
       "sources": [
-        { "path": "rust-src/cli/src/config.rs", "line": 443, "end_line": 542, "label": "load_settings: read once" },
-        { "path": "rust-src/cli/src/config.rs", "line": 548, "end_line": 570, "label": "save_settings: skipped when unchanged" }
+        { "path": "rust-src/cli/src/config.rs", "line": 443, "end_line": 546, "label": "load_settings: read once" },
+        { "path": "rust-src/cli/src/config.rs", "line": 548, "end_line": 575, "label": "save_settings: skipped when unchanged" }
       ]
     },
     { "id": "f_out", "lane": "files", "col": 5, "type": "database", "label": "output folder", "sublabel": "ytdlp-cli-downloads, .ytdlp-tmp",
       "sources": [
-        { "path": "rust-src/cli/src/args.rs", "line": 201, "end_line": 225, "label": "output_args: -P home and temp" },
-        { "path": "rust-src/cli/src/resolve.rs", "line": 306, "end_line": 310, "label": "DOWNLOADS_DIR_NAME leaf" },
+        { "path": "rust-src/cli/src/args.rs", "line": 206, "end_line": 235, "label": "output_args: -P home and temp" },
+        { "path": "rust-src/cli/src/resolve.rs", "line": 310, "end_line": 310, "label": "DOWNLOADS_DIR_NAME leaf" },
         { "path": "rust-src/cli/src/resolve.rs", "line": 1022, "end_line": 1047, "label": "resolve_outdir: saved wins, else base" }
       ]
     }
@@ -136,10 +137,12 @@
   "cards": [
     {
       "dot": "cyan",
-      "title": "Download order (FR-9, FR-6)",
+      "title": "Download order and payload (FR-9, FR-6)",
       "items": [
         "The subtitle pass runs first; the media pass runs whatever it answered, so a failed or rate-limited subtitle api never costs the video.",
+        "A pass that writes no subtitle file probes the video language once and retries in its primary subtag; the report prints 'subtitle fallback - video language <code>'.",
         "Escape during the subtitle pass cleans fresh partials, removes the work folder and returns 130.",
+        "ffmpeg ships inside every glibc bundle and the macOS pkg; the preflight only locates it in bin/, then PATH, then the single-file fallback, with no offer and no run-time download.",
         "Item 9 adds --write-description to the video pass; a zero exit renames every *.description next to the media to .txt.",
         "Default and fallback downloads land in <base>/ytdlp-cli-downloads; the base is Desktop, then Downloads, then the project root; a saved output_dir wins verbatim."
       ]
@@ -149,6 +152,7 @@
       "title": "Summary key (FR-22)",
       "items": [
         "s and S on the main prompt take the clipboard link; no link prints one amber line and holds.",
+        "The same one-shot language fallback runs before any sound pass, so a generated-track 429 still yields the video-language text.",
         "Fresh subtitle files go through the stripper in text mode regardless of the stored stripper settings.",
         "Only a missing text result falls back to sound: a settings copy with audio only and playlist off drives that pass, so stored settings are never rewritten.",
         "The s row paints directly above the 0 row; the hint block under the box names the resolved DL location."
