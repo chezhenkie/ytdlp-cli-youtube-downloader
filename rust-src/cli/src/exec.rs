@@ -847,7 +847,7 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
         return 2;
     }
 
-    let kind = match config::get(s, "type") {
+    let kind = match config::get(s, "run_mode") {
         Some(Value::Str(t)) => t.clone(),
         _ => "video".to_string(),
     };
@@ -1070,7 +1070,7 @@ fn strip_files(
 /// stripper in its text mode, whatever the strip settings say. Only when
 /// that path leaves no text does the sound-only pass run: a single
 /// video, the configured audio format, built from a copy of the settings
-/// so the stored type and playlist stay untouched. Returns the same rc
+/// so the stored playlist stays untouched. Returns the same rc
 /// shape as do_download; 130 stops the run.
 pub fn do_summary(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) -> i32 {
     let low = url.to_lowercase();
@@ -1200,7 +1200,7 @@ pub fn do_summary(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) -> 
         ),
     );
     let mut audio = s.clone();
-    config::set(&mut audio, "type", Value::Str("audio only".to_string()));
+    config::set(&mut audio, "run_mode", Value::Str("audio only".to_string()));
     config::set(&mut audio, "playlist", Value::Bool(false));
     let which = &mut *ctx.which;
     let mut has_node = || which("node").is_some();
@@ -2123,7 +2123,7 @@ mod tests {
 
     /// FR-22: a failed subtitle pass falls back to one sound-only run:
     /// the configured audio format from a copy of the settings, so the
-    /// stored type and playlist stay as they were.
+    /// stored playlist stays as it was.
     #[test]
     fn do_summary_falls_back_to_sound_only() {
         let mut world = InstallWorld::new("summary-sound", "linux");
@@ -2191,9 +2191,9 @@ mod tests {
         assert!(sound.contains(&"--audio-format".to_string()), "{sound:?}");
         assert!(sound.contains(&"--no-playlist".to_string()), "{sound:?}");
         assert_eq!(
-            config::get(&s, "type"),
-            Some(&Value::Str("video".to_string())),
-            "the stored type is untouched"
+            config::get(&s, "run_mode"),
+            None,
+            "the stored settings carry no mode"
         );
         assert_eq!(config::get(&s, "playlist"), Some(&Value::Bool(false)));
         let printed = lines.lock().unwrap().join("\n");

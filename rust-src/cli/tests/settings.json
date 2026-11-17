@@ -14,7 +14,6 @@
   "srt_stripper_mode": "text",
   "subtitle_langs": "en",
   "subtitles": true,
-  "type": "video",
   "video_container": "mp4",
   "video_resolution": "1080",
   "yt_dlp_path": ""

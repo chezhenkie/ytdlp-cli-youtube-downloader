@@ -49,8 +49,9 @@ fn str_value(text: &str) -> Value {
     Value::Str(text.to_string())
 }
 
-/// The shipped defaults, in the python dict's order (TYPES et al. below
-/// are pinned by the specsheet FR-2/FR-8).
+/// The shipped defaults, in the python dict's order (the vocabularies
+/// below are pinned by the specsheet FR-2/FR-8). The media type is no
+/// longer a setting: the menu keys pick the mode for each run.
 pub fn defaults() -> Obj {
     [
         ("settings_version", Value::Int(1)),
@@ -58,7 +59,6 @@ pub fn defaults() -> Obj {
         ("ffmpeg_path", str_value("")),
         ("auto_update", Value::Bool(true)),
         ("auto_update_last_check", Value::Int(0)),
-        ("type", str_value("video")),
         ("video_container", str_value("mp4")),
         ("video_resolution", str_value("1080")),
         ("audio_format", str_value("mp3")),
@@ -81,7 +81,6 @@ pub fn defaults() -> Obj {
 pub const RESOLUTIONS: [&str; 7] = ["2160", "1440", "1080", "720", "480", "360", "best"];
 pub const CONTAINERS: [&str; 4] = ["mp4", "mkv", "webm", "best"];
 pub const AUDIO_FORMATS: [&str; 5] = ["mp3", "m4a", "opus", "wav", "best"];
-pub const TYPES: [&str; 3] = ["video", "video no audio", "audio only"];
 pub const SRT_MODES: [&str; 3] = ["text", "timecode", "numbered"];
 
 /// Canonical stripper mode for a stored settings value: the three modes
@@ -317,7 +316,6 @@ pub fn coerce_settings(s: &mut Obj) -> Vec<String> {
     }
 
     for (key, vocab) in [
-        ("type", TYPES.as_slice()),
         ("video_container", CONTAINERS.as_slice()),
         ("video_resolution", RESOLUTIONS.as_slice()),
         ("audio_format", AUDIO_FORMATS.as_slice()),
@@ -386,8 +384,8 @@ impl fmt::Display for SaveError {
     }
 }
 
-/// Python `bool(value)` over the settings shapes; the legacy audio_only
-/// line is the only caller today.
+/// Python `bool(value)` over the settings shapes; the boolean settings
+/// and the playlist max read use it.
 pub fn py_truthy(v: &Value) -> bool {
     match v {
         Value::Null => false,
@@ -438,8 +436,8 @@ fn unreadable_message(payload: &str) -> String {
     format!("settings unreadable ({payload}), using defaults")
 }
 
-/// Python `load_settings`: defaults, merge of known keys, the legacy
-/// audio_only line, then the boundary coercion. The file is never written.
+/// Python `load_settings`: defaults, merge of known keys, then the
+/// boundary coercion. The file is never written.
 pub fn load_settings(path: &Path) -> Result<LoadOutcome, ShapeError> {
     let mut s = defaults();
     if !path.exists() {
@@ -466,17 +464,10 @@ pub fn load_settings(path: &Path) -> Result<LoadOutcome, ShapeError> {
     };
     match data {
         Value::Obj(fields) => {
-            let raw_has_type = get(&fields, "type").is_some();
-            let raw_audio_only = matches!(get(&fields, "audio_only"), Some(v) if py_truthy(v));
             for (k, v) in fields {
                 if get(&s, &k).is_some() {
                     set(&mut s, &k, v);
                 }
-            }
-            // The legacy check reads the raw file data, not the merged
-            // object (the defaults always carry "type").
-            if !raw_has_type && raw_audio_only {
-                set(&mut s, "type", Value::Str("audio only".to_string()));
             }
         }
         // Every other shape is where python walks off the object protocol.
@@ -614,7 +605,6 @@ mod tests {
             ("video_resolution", Value::Str("not-a-number".to_string())),
             ("audio_quality", Value::Str("banana".to_string())),
             ("video_container", Value::Str("avi".to_string())),
-            ("type", Value::Str("tunnel".to_string())),
         ]);
         let notes = coerce_settings(&mut junk);
         let m = to_map(&junk);
@@ -622,13 +612,10 @@ mod tests {
         assert_eq!(m["video_resolution"], Value::Str("1080".to_string()));
         assert_eq!(m["video_container"], Value::Str("mp4".to_string()));
         assert_eq!(m["audio_format"], Value::Str("mp3".to_string()));
-        assert_eq!(m["type"], Value::Str("video".to_string()));
         assert_eq!(
             notes,
             vec![
                 "setting playlist_max_items is not a number - keeping default 0".to_string(),
-                "setting type is not one of video|video no audio|audio only - keeping default 'video'"
-                    .to_string(),
                 "setting video_container is not one of mp4|mkv|webm|best - keeping default 'mp4'"
                     .to_string(),
                 "setting video_resolution is not one of 2160|1440|1080|720|480|360|best - keeping default '1080'"
@@ -858,82 +845,8 @@ mod tests {
             &Value::Str("720".into())
         );
         assert_eq!(get(&settings, "zz"), None);
-        assert_eq!(to_map(&settings).len(), 19);
-        assert_eq!(
-            get(&settings, "type").unwrap(),
-            &Value::Str("audio only".into())
-        );
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn load_legacy_audio_only_truthiness() {
-        for (literal, expect) in [
-            ("true", "audio only"),
-            ("1", "audio only"),
-            ("-2", "audio only"),
-            ("1.5", "audio only"),
-            ("\"x\"", "audio only"),
-            ("[0]", "audio only"),
-            ("{\"a\": 0}", "audio only"),
-            ("false", "video"),
-            ("0", "video"),
-            ("\"\"", "video"),
-            ("[]", "video"),
-            ("{}", "video"),
-            ("null", "video"),
-        ] {
-            let dir = temp_case("legacy");
-            let path = write_file(
-                &dir,
-                "settings.json",
-                format!("{{\"audio_only\": {literal}}}").as_bytes(),
-            );
-            let LoadOutcome::Loaded { settings, .. } = load_settings(&path).unwrap() else {
-                panic!("loaded expected for {literal}");
-            };
-            assert_eq!(
-                get(&settings, "type").unwrap(),
-                &Value::Str(expect.to_string()),
-                "literal {literal}"
-            );
-            let _ = std::fs::remove_dir_all(&dir);
-        }
-    }
-
-    #[test]
-    fn load_type_present_blocks_legacy_line() {
-        let dir = temp_case("typeline");
-        let path = write_file(
-            &dir,
-            "settings.json",
-            br#"{"type": "audio only", "audio_only": true}"#,
-        );
-        let LoadOutcome::Loaded { settings, notes } = load_settings(&path).unwrap() else {
-            panic!("loaded expected");
-        };
-        assert!(notes.is_empty());
-        assert_eq!(
-            get(&settings, "type").unwrap(),
-            &Value::Str("audio only".into())
-        );
-
-        let path2 = write_file(
-            &dir,
-            "settings2.json",
-            br#"{"type": "x", "audio_only": true}"#,
-        );
-        let LoadOutcome::Loaded { settings, notes } = load_settings(&path2).unwrap() else {
-            panic!("loaded expected");
-        };
-        assert_eq!(get(&settings, "type").unwrap(), &Value::Str("video".into()));
-        assert_eq!(
-            notes,
-            vec![
-                "setting type is not one of video|video no audio|audio only - keeping default 'video'"
-                    .to_string()
-            ]
-        );
+        assert_eq!(to_map(&settings).len(), 18);
+        assert_eq!(get(&settings, "type"), None);
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -943,7 +856,7 @@ mod tests {
         let path = write_file(
             &dir,
             "settings.json",
-            br#"{"playlist_max_items": "abc", "video_resolution": "not-a-number", "audio_quality": "banana", "video_container": "avi", "type": "tunnel"}"#,
+            br#"{"playlist_max_items": "abc", "video_resolution": "not-a-number", "audio_quality": "banana", "video_container": "avi"}"#,
         );
         let LoadOutcome::Loaded { settings, notes } = load_settings(&path).unwrap() else {
             panic!("loaded expected");
@@ -952,7 +865,6 @@ mod tests {
             notes,
             vec![
                 "setting playlist_max_items is not a number - keeping default 0".to_string(),
-                "setting type is not one of video|video no audio|audio only - keeping default 'video'".to_string(),
                 "setting video_container is not one of mp4|mkv|webm|best - keeping default 'mp4'".to_string(),
                 "setting video_resolution is not one of 2160|1440|1080|720|480|360|best - keeping default '1080'".to_string(),
                 "setting audio_quality is not a quality value - keeping default '0'".to_string(),

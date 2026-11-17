@@ -1,6 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
-  <rect x="0" y="0" width="256" height="256" rx="56" fill="#141414"/>
-  <rect x="1.5" y="1.5" width="253" height="253" rx="54.5" fill="none" stroke="#2a2a2a" stroke-width="3"/>
+  <defs>
+    <clipPath id="body">
+      <rect x="0" y="0" width="256" height="256" rx="56"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#body)">
+    <rect x="0" y="0" width="256" height="42.6667" fill="#071a30"/>
+    <rect x="0" y="42.6667" width="256" height="42.6666" fill="#0c2b53"/>
+    <rect x="0" y="85.3333" width="256" height="42.6667" fill="#123f7b"/>
+    <rect x="0" y="128" width="256" height="42.6667" fill="#1d5aa4"/>
+    <rect x="0" y="170.6667" width="256" height="42.6666" fill="#3c7cbe"/>
+    <rect x="0" y="213.3333" width="256" height="42.6667" fill="#82c5ea"/>
+  </g>
   <polyline points="32,72 60,100 32,128" fill="none" stroke="#ff8700" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
   <line x1="128" y1="56" x2="128" y2="148" stroke="#ffaf5f" stroke-width="18" stroke-linecap="round"/>
   <polyline points="98,118 128,148 158,118" fill="none" stroke="#ffaf5f" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>

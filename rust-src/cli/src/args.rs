@@ -294,7 +294,7 @@ pub fn build_args(
     opts.push("5".to_string());
     opts.extend(js_runtime_args(has_node()));
 
-    let kind = config::get(s, "type");
+    let kind = config::get(s, "run_mode");
     let audio_only = matches!(kind, Some(Value::Str(t)) if t == "audio only");
     let video_no_audio = matches!(kind, Some(Value::Str(t)) if t == "video no audio");
     if audio_only {
@@ -580,14 +580,14 @@ mod tests {
 
         // video no audio keeps its selector with and without ffmpeg
         let mut s = base.clone();
-        config::set(&mut s, "type", Value::Str("video no audio".into()));
+        config::set(&mut s, "run_mode", Value::Str("video no audio".into()));
         let argv = build_args(&s, "u", None, "root", None, &mut || false).unwrap();
         assert!(argv.contains(&"bv*[height<=1080]".to_string()));
         assert!(!argv.contains(&"--merge-output-format".to_string()));
 
         // audio only + ffmpeg converts; audio only without is a single stream
         let mut s = base.clone();
-        config::set(&mut s, "type", Value::Str("audio only".into()));
+        config::set(&mut s, "run_mode", Value::Str("audio only".into()));
         config::set(&mut s, "audio_quality", Value::Int(7));
         let argv = build_args(&s, "u", Some("/ff"), "root", None, &mut || false).unwrap();
         assert!(argv.contains(&"bestaudio/best".to_string()));

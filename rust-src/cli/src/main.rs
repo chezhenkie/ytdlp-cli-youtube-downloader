@@ -125,7 +125,7 @@ fn load_and_announce(
 /// only (FR-3); quick runs never persist them.
 fn apply_overrides(s: &mut Obj, inv: &cli_args::Invocation) {
     if inv.audio {
-        config::set(s, "type", Value::Str("audio only".to_string()));
+        config::set(s, "run_mode", Value::Str("audio only".to_string()));
     }
     if let Some(format) = &inv.format {
         config::set(s, "video_container", Value::Str(format.clone()));
@@ -510,6 +510,18 @@ fn run_menu(
             match mode {
                 menu::DownloadMode::Full => exec::do_download(s, url, &mut ctx, &mut rt),
                 menu::DownloadMode::Summary => exec::do_summary(s, url, &mut ctx, &mut rt),
+                menu::DownloadMode::AudioOnly | menu::DownloadMode::VideoOnly => {
+                    // the one-off modes: the run gets a copy with its type
+                    // set, the stored settings are left untouched
+                    let kind = if mode == menu::DownloadMode::AudioOnly {
+                        "audio only"
+                    } else {
+                        "video no audio"
+                    };
+                    let mut one = (*s).clone();
+                    config::set(&mut one, "run_mode", Value::Str(kind.to_string()));
+                    exec::do_download(&one, url, &mut ctx, &mut rt)
+                }
             }
         };
     // FR-13's trigger rule: the check lives at exactly one call site, the

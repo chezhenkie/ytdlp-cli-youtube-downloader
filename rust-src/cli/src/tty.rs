@@ -938,9 +938,10 @@ fn csi_final(fd: i32) -> Option<char> {
     }
 }
 
-/// FR-17 and FR-22: the key rows trigger on only the main prompt's read
-/// (`quick0`), only on a bare keypress, only on an empty line. The key
-/// typed later inside a line stays an ordinary character.
+/// FR-17, FR-22 and the one-off mode keys: the key rows trigger on only
+/// the main prompt's read (`quick0`), only on a bare keypress, only on an
+/// empty line. The key typed later inside a line stays an ordinary
+/// character.
 fn quick_key(quick0: bool, ch: char, ed: &LineEdit) -> Option<char> {
     if !quick0 || !ed.is_empty() {
         return None;
@@ -948,6 +949,8 @@ fn quick_key(quick0: bool, ch: char, ed: &LineEdit) -> Option<char> {
     match ch {
         '0' => Some('0'),
         's' | 'S' => Some('s'),
+        'a' | 'A' => Some('a'),
+        'v' | 'V' => Some('v'),
         _ => None,
     }
 }
@@ -1662,9 +1665,9 @@ mod tests {
         assert_eq!(h.entries.last().unwrap(), "newest");
     }
 
-    /// FR-17 and FR-22: the bare keys fire only for the main prompt's
-    /// read, only on an empty line; a key inside a typed line (or any
-    /// other read) stays an ordinary character.
+    /// FR-17, FR-22 and the one-off mode keys: the bare keys fire only for
+    /// the main prompt's read, only on an empty line; a key inside a typed
+    /// line (or any other read) stays an ordinary character.
     #[test]
     fn quick_keys_fire_only_on_the_bare_keypress() {
         let h = History::new();
@@ -1672,13 +1675,21 @@ mod tests {
         assert_eq!(quick_key(true, '0', &ed), Some('0'));
         assert_eq!(quick_key(true, 's', &ed), Some('s'));
         assert_eq!(quick_key(true, 'S', &ed), Some('s'));
+        assert_eq!(quick_key(true, 'a', &ed), Some('a'));
+        assert_eq!(quick_key(true, 'A', &ed), Some('a'));
+        assert_eq!(quick_key(true, 'v', &ed), Some('v'));
+        assert_eq!(quick_key(true, 'V', &ed), Some('v'));
         assert_eq!(quick_key(false, '0', &ed), None);
         assert_eq!(quick_key(false, 's', &ed), None);
+        assert_eq!(quick_key(false, 'a', &ed), None);
+        assert_eq!(quick_key(false, 'v', &ed), None);
         assert_eq!(quick_key(true, '1', &ed), None);
         let mut out = RecordingOut::default();
         ed.add('1', &mut out);
         assert_eq!(quick_key(true, '0', &ed), None);
         assert_eq!(quick_key(true, 's', &ed), None);
+        assert_eq!(quick_key(true, 'a', &ed), None);
+        assert_eq!(quick_key(true, 'v', &ed), None);
     }
 
     /// Scripted and piped reads keep the line contract: the keys act when

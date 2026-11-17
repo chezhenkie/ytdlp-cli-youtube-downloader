@@ -13,7 +13,7 @@
 
 ## Short description
 
-A desktop CLI that wraps standalone yt-dlp: open it, paste a url, press enter, and the download runs with saved defaults. The menu changes those defaults and every change persists immediately to config/settings.json beside the executable; menu item 11 collects several urls and downloads them in sequence. Windows and Linux are fully supported, with no hardcoded paths anywhere.
+A desktop CLI that wraps standalone yt-dlp: open it, paste a url, press enter, and the download runs with saved defaults. The menu changes those defaults and every change persists immediately to config/settings.json beside the executable; menu item 1 collects several urls and downloads them in sequence. Windows and Linux are fully supported, with no hardcoded paths anywhere.
 
 ## Table of contents
 

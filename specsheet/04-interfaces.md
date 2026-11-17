@@ -23,7 +23,7 @@ IF-7 CI and selftest (IF to developers): offline; every push and pull request ru
 
 ## 6. Functionality
 
-Startup journey: enable ANSI/VT where needed (tty.rs), paint the menu box (header "yt-dlp cli v<version>" centered, the FR-17 quick-paste row, 15 rows, "press escape to exit submenu", rules), print the hint block above the input line - verbatim, grey then divider:
+Startup journey: enable ANSI/VT where needed (tty.rs), paint the menu box (header "yt-dlp cli v<version>" centered, the FR-22 summary row, the two FR-23 mode rows, the FR-17 quick-paste row, 14 rows, "press escape to exit submenu", rules), print the hint block above the input line - verbatim, grey then divider:
 
  change download location by choosing menu item: 5
  DL location: <resolved folder>
@@ -33,11 +33,11 @@ then auto-update check (FR-13) and first save. The menu never disappears: everyt
 Primary flow (single url): prompt accepts text; first http(s) substring is the url (before any number is consulted) - when no url is present, text goes to `act()`; on a real tty a bare 0 goes there at the keypress with no enter (FR-17's quick-key read; piped and scripted reads keep the 0-then-enter line path); do_download per FR-7: preflight freeze, then the spinner stage with live progress, then exactly one of three justified verdicts: finished (plus "... <name> (<MB>)" file line via `newest_since`, 2 s slack), failed (full error line), or stopped-by-escape (partial cleanup count). States covered: not a url (message),
 yt-dlp missing (guidance), yt-dlp fails its check (frozen rc), no ffmpeg (single-file fallback per FR-14), success, failure (always ends in a readable frozen line), escape (kill + clean). Stage lines persist until the next url, menu pick, repaint or escape (the results/dirty management in `main_menu`).
 
-Batch flow (item 11): FR-12 above; states: empty entry closes and starts, escape returns without downloads, bad line marked and skipped, per-url header line, batch aborted by escape only.
+Batch flow (item 1): FR-12 above; states: empty entry closes and starts, escape returns without downloads, bad line marked and skipped, per-url header line, batch aborted by escape only.
 
 Updaters (items 13/14): FR-13; states: current version ("already current"), newer version offered with enter = no, network down (silent or, when forced, one explanatory line), older published file (no version found message when forced).
 
-Settings flows (items) each end in: new value shown, a hold read, menu repaint; item 12 restores DEFAULTS and answers "defaults restored"; item 15 saves and prints the settings path (the quit path).
+Settings flows (items) each end in: new value shown, a hold read, menu repaint; item 11 restores DEFAULTS and answers "defaults restored"; item 14 saves and prints the settings path (the quit path).
 
 Failure handling pattern: every detectable failure (missing binary, failed probe, refused install, checksum mismatch, unreadable archive, network loss) ends in a specific user-visible line describing the fix or the kept state; nothing fails silently except non-forced network contact (IF-6, FR-13).
 

@@ -55,9 +55,9 @@ pub fn menu_line(idx: i64, label: &str, value: &str, grey: bool, use_color: bool
     format!("{m}{left}{}{value}{m}", " ".repeat(pad as usize))
 }
 
-/// A fixed key row above the numbered rows: one string, no value column,
-/// dark amber like the quick-paste row. The padding math is menu_line's.
-fn key_row(text: &str, use_color: bool) -> String {
+/// A fixed key row above the numbered rows: one string, no value column.
+/// The padding math is menu_line's; `color` is the row's amber.
+fn key_row(text: &str, color: &str, use_color: bool) -> String {
     let m = c(use_color, A_DARKGREY, "|");
     let mut pad = WIDTH - dwidth(text);
     if pad < 1 {
@@ -65,7 +65,7 @@ fn key_row(text: &str, use_color: bool) -> String {
     }
     format!(
         "{m}{}{}{m}",
-        c(use_color, A_AMBER_DARK, text),
+        c(use_color, color, text),
         " ".repeat(pad as usize)
     )
 }
@@ -75,16 +75,31 @@ fn key_row(text: &str, use_color: bool) -> String {
 pub const QUICK_ROW_TEXT: &str = "  0  press zero '0' to paste link and start direct download";
 
 pub fn quick_row(use_color: bool) -> String {
-    key_row(QUICK_ROW_TEXT, use_color)
+    key_row(QUICK_ROW_TEXT, A_AMBER_DARK, use_color)
 }
 
-/// The FR-22 summary row: it sits directly above the quick-paste row in
+/// The FR-22 summary row: it sits directly above the one-off mode rows in
 /// the same dark amber. One keypress takes the clipboard link, asks for
 /// subtitles first and returns stripped text; sound only is the fallback.
-pub const SUMMARY_ROW_TEXT: &str = "  s  press 's' to download subs/sound only for summary";
+pub const SUMMARY_ROW_TEXT: &str = "  s  press 's' for stripped summary/agent subtitle";
 
 pub fn summary_row(use_color: bool) -> String {
-    key_row(SUMMARY_ROW_TEXT, use_color)
+    key_row(SUMMARY_ROW_TEXT, A_AMBER_DARK, use_color)
+}
+
+/// The one-off audio row: it runs the clipboard link as audio only and
+/// leaves the settings alone, so the row sits in the brighter amber.
+pub const AUDIO_ROW_TEXT: &str = "  a  press 'a' to download audio only";
+
+pub fn audio_row(use_color: bool) -> String {
+    key_row(AUDIO_ROW_TEXT, A_AMBER, use_color)
+}
+
+/// The one-off video row: video without sound, settings untouched.
+pub const VIDEO_ROW_TEXT: &str = "  v  press 'v' for video only";
+
+pub fn video_row(use_color: bool) -> String {
+    key_row(VIDEO_ROW_TEXT, A_AMBER, use_color)
 }
 
 /// Path for menu item 5: always `...<sep><folder name>`.
@@ -157,12 +172,6 @@ pub fn onoff(flag: Option<&Value>) -> String {
 
 /// `menu_summary(s)`: the one-line download summary (phase 7 shows it).
 pub fn menu_summary(s: &Obj) -> Result<String, ShapeKind> {
-    let kind = config::get(s, "type");
-    let audio_only = matches!(kind, Some(Value::Str(t)) if t == "audio only");
-    if audio_only {
-        let fmt = required(s, "audio_format")?;
-        return Ok(format!("audio-only {}", config::py_str(fmt)));
-    }
     let container = required(s, "video_container")?;
     let res = required(s, "video_resolution")?;
     Ok(format!(
@@ -186,46 +195,21 @@ pub struct MenuRow {
     pub grey: bool,
 }
 
-/// `menu_items(s)`: the menu rows, numbered 1 to 15. `outdir` is the
+/// `menu_items(s)`: the menu rows, numbered 1 to 14. `outdir` is the
 /// resolved output folder (python calls resolve_outdir here; the port
 /// takes the phase-4 answer as a parameter). Values render through
 /// py_str so a hand-edited raw value cannot diverge.
 pub fn menu_items(s: &Obj, outdir: &str, is_windows: bool) -> Result<Vec<MenuRow>, ShapeKind> {
-    let kind = config::get(s, "type");
     let res = required(s, "video_resolution")?;
-    let audio_only = matches!(kind, Some(Value::Str(t)) if t == "audio only");
-    let video_no_audio = matches!(kind, Some(Value::Str(t)) if t == "video no audio");
     let res_text = config::py_str(res);
-    let (shown, container, media) = if audio_only {
-        (
-            format!(
-                "audio only ({})",
-                config::py_str(required(s, "audio_format")?)
-            ),
-            "-".to_string(),
-            "-".to_string(),
-        )
-    } else if video_no_audio {
-        (
-            "video no audio".to_string(),
-            "-".to_string(),
-            if res_text == "best" {
-                "best".to_string()
-            } else {
-                format!("{res_text}p")
-            },
-        )
-    } else {
-        (
-            "video".to_string(),
-            config::py_str(required(s, "video_container")?),
-            if res_text == "best" {
-                "best".to_string()
-            } else {
-                format!("{res_text}p")
-            },
-        )
-    };
+    let (container, media) = (
+        config::py_str(required(s, "video_container")?),
+        if res_text == "best" {
+            "best".to_string()
+        } else {
+            format!("{res_text}p")
+        },
+    );
     let playlist = config::get(s, "playlist").is_some_and(config::py_truthy);
     let pl = if playlist {
         let n = playlist_max_items(s)?;
@@ -241,9 +225,9 @@ pub fn menu_items(s: &Obj, outdir: &str, is_windows: bool) -> Result<Vec<MenuRow
     let rows = vec![
         MenuRow {
             idx: 1,
-            label: "video/audio".to_string(),
-            value: shown,
-            grey: true,
+            label: "add multiple youtube urls".to_string(),
+            value: String::new(),
+            grey: false,
         },
         MenuRow {
             idx: 2,
@@ -309,30 +293,24 @@ pub fn menu_items(s: &Obj, outdir: &str, is_windows: bool) -> Result<Vec<MenuRow
         },
         MenuRow {
             idx: 11,
-            label: "add multiple youtube urls".to_string(),
-            value: String::new(),
-            grey: true,
-        },
-        MenuRow {
-            idx: 12,
             label: "reset defaults".to_string(),
             value: "config/settings.json".to_string(),
             grey: true,
         },
         MenuRow {
-            idx: 13,
+            idx: 12,
             label: "update yt-dlp + cli".to_string(),
             value: String::new(),
             grey: true,
         },
         MenuRow {
-            idx: 14,
+            idx: 13,
             label: "auto update".to_string(),
             value: onoff(config::get(s, "auto_update")),
             grey: true,
         },
         MenuRow {
-            idx: 15,
+            idx: 14,
             label: "quit".to_string(),
             value: String::new(),
             grey: false,
@@ -385,9 +363,9 @@ pub fn hint_lines(outdir: &str, use_color: bool) -> Vec<String> {
     ]
 }
 
-/// `render(s)`: header, the summary row, the FR-17 quick-paste row, the
-/// 15 numbered rows, the escape hint, box bottom. Returns the lines; the
-/// caller prints them.
+/// `render(s)`: header, the FR-22 summary row, the two one-off mode rows,
+/// the FR-17 quick-paste row, the 14 numbered rows, the escape hint, box
+/// bottom. Returns the lines; the caller prints them.
 pub fn render_lines(
     version: &str,
     s: &Obj,
@@ -397,8 +375,11 @@ pub fn render_lines(
 ) -> Result<Vec<String>, ShapeKind> {
     let mut lines = header_lines(version, use_color);
     let m = c(use_color, A_DARKGREY, "|");
-    // FR-22 and FR-17: two key rows take the blank top row's place
+    // FR-22, the one-off modes and FR-17: the key rows take the blank top
+    // row's place
     lines.push(summary_row(use_color));
+    lines.push(audio_row(use_color));
+    lines.push(video_row(use_color));
     lines.push(quick_row(use_color));
     for row in menu_items(s, outdir, is_windows)? {
         lines.push(menu_line(
@@ -563,18 +544,18 @@ mod tests {
     }
 
     /// FR-22: the summary row uses the same dark amber and the same box
-    /// width; its text names the key and the fallback order.
+    /// width; its text names the key and the stripped-agent summary.
     #[test]
     fn summary_row_matches_the_pins() {
         assert_eq!(
             summary_row(false),
-            format!("|{SUMMARY_ROW_TEXT}{}|", " ".repeat(10))
+            format!("|{SUMMARY_ROW_TEXT}{}|", " ".repeat(14))
         );
         assert_eq!(
             summary_row(true),
             format!(
                 "\x1b[38;5;244m|\x1b[0m\x1b[38;5;208m{SUMMARY_ROW_TEXT}\x1b[0m{}\x1b[38;5;244m|\x1b[0m",
-                " ".repeat(10)
+                " ".repeat(14)
             )
         );
         for row in [summary_row(false), summary_row(true)] {
@@ -583,20 +564,62 @@ mod tests {
         assert!(SUMMARY_ROW_TEXT.starts_with("  s  press 's'"));
     }
 
-    /// FR-17 and FR-22: the two key rows sit directly after the 3 header
-    /// lines, in that order, before row 1.
+    /// The one-off mode rows: box width, and the brighter box amber that
+    /// sets them apart from the summary and quick-paste rows.
+    #[test]
+    fn audio_and_video_rows_match_the_pins() {
+        assert_eq!(
+            audio_row(false),
+            format!("|{AUDIO_ROW_TEXT}{}|", " ".repeat(27))
+        );
+        assert_eq!(
+            audio_row(true),
+            format!(
+                "\x1b[38;5;244m|\x1b[0m\x1b[38;5;214m{AUDIO_ROW_TEXT}\x1b[0m{}\x1b[38;5;244m|\x1b[0m",
+                " ".repeat(27)
+            )
+        );
+        assert_eq!(
+            video_row(false),
+            format!("|{VIDEO_ROW_TEXT}{}|", " ".repeat(35))
+        );
+        assert_eq!(
+            video_row(true),
+            format!(
+                "\x1b[38;5;244m|\x1b[0m\x1b[38;5;214m{VIDEO_ROW_TEXT}\x1b[0m{}\x1b[38;5;244m|\x1b[0m",
+                " ".repeat(35)
+            )
+        );
+        for row in [
+            audio_row(false),
+            audio_row(true),
+            video_row(false),
+            video_row(true),
+        ] {
+            assert_eq!(dwidth(&strip_ansi(&row)), WIDTH + 2, "row: {row:?}");
+        }
+    }
+
+    /// FR-22, the one-off modes and FR-17: the key rows sit directly after
+    /// the 3 header lines, in that order, before row 1.
     #[test]
     fn render_paints_the_key_rows_in_the_blank_rows_place() {
         let s = config::defaults();
         for use_color in [false, true] {
             let lines = render_lines("2.0.2", &s, "/x/Downloads", false, use_color).unwrap();
             assert_eq!(lines[3], summary_row(use_color));
-            assert_eq!(lines[4], quick_row(use_color));
-            assert!(lines[5].contains("  1  video/audio"), "{:?}", lines[5]);
+            assert_eq!(lines[4], audio_row(use_color));
+            assert_eq!(lines[5], video_row(use_color));
+            assert_eq!(lines[6], quick_row(use_color));
+            assert!(
+                lines[7].contains("  1  add multiple youtube urls"),
+                "{:?}",
+                lines[7]
+            );
             assert_eq!(
                 lines.len(),
-                22,
-                "header 3 + two key rows + 15 rows + hint + rule"
+                23,
+                "header 3 + four key rows + 14 rows + hint + rule"
             );
             let blank = format!("|{}|", " ".repeat(WIDTH as usize));
             assert!(
