@@ -3,7 +3,8 @@
 //! folder resolution, binary discovery, version probing and the --check
 //! content.
 //!
-//! Ported one to one from `deprecated-py-src/src/ytdlp.py` (the reference). Every
+//! Ported one to one from the pre-rust python line (the reference, since
+//! removed from the tree). Every
 //! process-state read (which answers, PATH/PATHEXT, registry values,
 //! home, env map, mtimes, subprocess outcomes) is a parameter so the
 //! differential can inject identical state on both sides; the real

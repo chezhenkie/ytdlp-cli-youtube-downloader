@@ -34,7 +34,7 @@ Header lists related docs. README.md is published text (usage, assets, checksums
 
 ## 10. Validation
 
-Every requirement's acceptance criterion is an executable, offline check; the packaged `--selftest` runs the 192-check set (NFR-4). The former python-oracle differential layer (harness vectors, --check byte-parity, session transcripts) is retired: the frozen reference in `deprecated-py-src/` predates the srt stripper feature, so the comparison could not express it, and the native check set is the contract now. Status: FR-5's real-console clause is verified (OQ-N2); FR-13's live install dance ran against the published v2.0.0 image (OQ-N4, closed ); nothing else is pending.
+Every requirement's acceptance criterion is an executable, offline check; the packaged `--selftest` runs the 192-check set (NFR-4). The former python-oracle differential layer (harness vectors, --check byte-parity, session transcripts) is retired: the python reference it compared against predates the srt stripper feature, so the comparison could not express it, and the native check set is the contract now; that reference has since left the tree and git history keeps it. Status: FR-5's real-console clause is verified (OQ-N2); FR-13's live install dance ran against the published v2.0.0 image (OQ-N4, closed ); nothing else is pending.
 
 | requirement | verification |
 |---|---|

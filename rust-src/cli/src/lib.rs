@@ -1,9 +1,10 @@
 //! ytdlp cli - native implementation of the ytdlp-cli specification.
 //!
-//! Ported layer by layer from `deprecated-py-src/src/ytdlp.py`: every
-//! ported function was byte-compared against it while the oracle layer
-//! lived (specsheet NFR-4; the oracle layer is retired). Layer names
-//! follow specsheet section 4: term, config, resolve, args, exec, update, ui.
+//! Ported layer by layer from the pre-rust python line (v1.5.0, since
+//! removed from the tree): every ported function was byte-compared
+//! against it while the oracle layer lived (specsheet NFR-4; the oracle
+//! layer is retired). Layer names follow specsheet section 4: term,
+//! config, resolve, args, exec, update, ui.
 
 pub mod archive;
 pub mod args;
