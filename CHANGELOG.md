@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.9.3
+
+### Changes
+
+#### All platforms
+
+* The media mode is picked per run by a key, not stored. `0` downloads video with sound, `a` audio only, `v` video with no sound, and `s` the stripped summary; all four take the link on the clipboard. `settings.json` no longer carries `type`; a `type` left by an older build is ignored on load and dropped on the next save. One-shot `-a` still selects audio only for that run.
+* The menu is 14 rows. Row 1 opens the multiple-url list and is plain white, the `video/audio` row is gone, and reset, update, auto update and quit are 11 to 14. Above row 1 sit four key rows: `s` summary in the dark amber, `a` audio only and `v` video only in the brighter amber, and `0` quick paste.
+* New icon: six horizontal bands of sky, dark blue at the top to light blue at the bottom, behind the orange download mark.
+
 ## 2.9.2
 
 ### Fixes
