@@ -100,12 +100,6 @@ resources/
 
 `bin/_internal` is the Python runtime yt-dlp runs on: the interpreter, its standard library, certificates and the modules it imports. yt-dlp is a Python program, so its official build ships that runtime beside the launcher; the installer or archive installs it once, and yt-dlp starts from it directly. It is private to this folder and must stay beside the launcher: nothing is installed system-wide, no background process runs, and removing the folder removes all of it.
 
-## Updates
-
-Menu row 12, or `ytdlp --update`, updates both halves. The bundled yt-dlp is refreshed from the official yt-dlp release, or by yt-dlp's own updater when `yt_dlp_path` names a yt-dlp you installed. The cli comes from this project's newest release: the platform bundle is digest-checked, the cli is lifted out of it, and the new build must pass its own checks before it replaces the old one. macOS has no cli self-update; row 12 points at the release page.
-
-Row 13 toggles the daily check. The menu fetches the published cli release once a day, prints the version and asks before installing; it does not touch yt-dlp. The check runs only at the start of the interactive menu, in a console window. A one-shot run, a script, CI or a piped run makes no network contact and writes nothing; there is no background process.
-
 ## Flow
 
 The interactive process flow is published at [chezhenkie.github.io/ytdlp-cli-youtube-downloader](https://chezhenkie.github.io/ytdlp-cli-youtube-downloader/). The diagram source is in the [ytdlp process flow archify](https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/tree/main/ytdlp%20process%20flow%20archify) folder.
