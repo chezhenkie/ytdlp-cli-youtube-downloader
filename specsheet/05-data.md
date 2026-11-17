@@ -30,7 +30,7 @@ only - playlist_max_items int-parsed with fallback 0 (= all), the three vocabula
 
 ## 9. Documentation
 
-Header lists related docs. README.md is published text (usage, assets, checksums, licensing); CHANGELOG.md is the user-facing change list, one chapter per version; THIRD-PARTY-NOTICES.md travels in every bundle. The spec changes when behavior, decisions, interfaces or dependencies change (manual rule), plus recorded deviations.
+Header lists related docs. README.md is published text (usage, asset patterns, licensing) and ships unchanged in every bundle; sizes and sha256 digests live in the release's RELEASE-NOTES.md, which is published as a release asset, so the README never carries one release's numbers; CHANGELOG.md is the user-facing change list, one chapter per version; THIRD-PARTY-NOTICES.md travels in every bundle. The spec changes when behavior, decisions, interfaces or dependencies change (manual rule), plus recorded deviations.
 
 ## 10. Validation
 

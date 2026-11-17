@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.11.0
+
+### Changes
+
+#### All platforms
+
+* The README inside every bundle describes the release it belongs to. The download table names the files by pattern (`ytdlp-cli-<ver>-windows.zip`) and points at the release notes for sizes and digests, so the same text is correct in every bundle instead of listing the previous release's files.
+* The menu capture and the process-flow image now ship inside every bundle under `resources/`, so both images resolve when the README is read from the installed folder.
+
 ## 2.10.1
 
 ### Fixes
