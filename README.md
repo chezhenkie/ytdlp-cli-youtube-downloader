@@ -10,43 +10,6 @@ The cli is a native Rust binary for Windows x64 and arm64, Linux x64 and arm64 o
 
 The four key rows sit above the numbered menu. `s` takes a stripped summary, `a` audio only, `v` video only, `0` video with sound; each one works on the links on the clipboard.
 
-## Bundles
-
-| Platform | File | Contents |
-|---|---|---|
-| Windows x64 | `ytdlp-cli-<ver>-windows.zip` | cli, yt-dlp with its runtime, ffmpeg, srt stripper |
-| Windows x64 installer | `ytdlp-cli-<ver>-windows-setup.exe` | the same payload, per-user install and PATH entry |
-| Windows arm64 | `ytdlp-cli-<ver>-windows-arm64.zip` | arm64 cli, yt-dlp and srt stripper, x64 ffmpeg |
-| Linux x64 | `ytdlp-cli-<ver>-linux.tar.gz` | cli, yt-dlp with its runtime, ffmpeg, srt stripper |
-| Linux arm64 | `ytdlp-cli-<ver>-linux-arm64.tar.gz` | the same payload, arm64 builds |
-| Linux x64, musl | `ytdlp-cli-<ver>-linux-musl.tar.gz` | cli and srt stripper; yt-dlp and ffmpeg from apk |
-| Linux arm64, musl | `ytdlp-cli-<ver>-linux-arm64-musl.tar.gz` | the same, arm64 builds |
-| macOS arm64 | `ytdlp-cli-<ver>-macos-arm64.pkg` | cli, yt-dlp with its runtime, ffmpeg, srt stripper |
-
-`<ver>` is the release tag. The release notes for each tag carry the sizes and sha256 digests, and `install.sh` checks the digest before it unpacks.
-
-## Install
-
-### Windows
-
-Download the setup and run it. It installs for the current user without an administrator prompt, puts the program in `%LOCALAPPDATA%\Programs\ytdlp-cli`, adds that folder to PATH and creates a Start Menu entry. The file is unsigned, so SmartScreen may warn: More info, then Run anyway. Remove it from Windows Settings > Apps, or with the Start Menu uninstaller. The zip needs no install: unpack it and run `ytdlp.exe` from any folder.
-
-On arm64, unpack the arm64 zip and run `ytdlp.exe`; there is no arm64 installer.
-
-### macOS
-
-Download the pkg and open it. It installs to `/usr/local/ytdlp-cli`, links `/usr/local/bin/ytdlp` and needs macOS 15 or newer on Apple silicon. The package is unsigned, so macOS blocks the first open: System Settings > Privacy & Security, Open Anyway, then confirm. Remove it with `sudo /usr/local/ytdlp-cli/uninstall-macos.sh`.
-
-### Linux
-
-Unpack a tar.gz and run `./ytdlp`, or use the installer:
-
-```
-curl -fsSL https://raw.githubusercontent.com/chezhenkie/ytdlp-cli-youtube-downloader/main/install.sh | sh
-```
-
-It fetches the newest release, checks the digest, unpacks to `~/.local/share/ytdlp-cli` and links `~/.local/bin/ytdlp`. Nothing runs as root. `sh -s -- --version <tag>` pins a release and `sh -s -- --uninstall` removes the tree and the link. On musl systems the script takes the musl bundle; `apk add yt-dlp` provides yt-dlp, ffmpeg and the JS runtime.
-
 ## Use
 
 The four direct keys work on the clipboard: `0` video with sound, `s` the stripped summary, `a` audio only, `v` video only. The last three leave the stored settings untouched.
@@ -83,6 +46,43 @@ Output goes to `ytdlp-cli-downloads` on the desktop when a desktop folder is kno
 | 12 | update yt-dlp and the cli | |
 | 13 | auto update | on, daily check |
 | 14 | quit | |
+
+## Install
+
+### Windows
+
+Download the setup and run it. It installs for the current user without an administrator prompt, puts the program in `%LOCALAPPDATA%\Programs\ytdlp-cli`, adds that folder to PATH and creates a Start Menu entry. The file is unsigned, so SmartScreen may warn: More info, then Run anyway. Remove it from Windows Settings > Apps, or with the Start Menu uninstaller. The zip needs no install: unpack it and run `ytdlp.exe` from any folder.
+
+On arm64, unpack the arm64 zip and run `ytdlp.exe`; there is no arm64 installer.
+
+### macOS
+
+Download the pkg and open it. It installs to `/usr/local/ytdlp-cli`, links `/usr/local/bin/ytdlp` and needs macOS 15 or newer on Apple silicon. The package is unsigned, so macOS blocks the first open: System Settings > Privacy & Security, Open Anyway, then confirm. Remove it with `sudo /usr/local/ytdlp-cli/uninstall-macos.sh`.
+
+### Linux
+
+Unpack a tar.gz and run `./ytdlp`, or use the installer:
+
+```
+curl -fsSL https://raw.githubusercontent.com/chezhenkie/ytdlp-cli-youtube-downloader/main/install.sh | sh
+```
+
+It fetches the newest release, checks the digest, unpacks to `~/.local/share/ytdlp-cli` and links `~/.local/bin/ytdlp`. Nothing runs as root. `sh -s -- --version <tag>` pins a release and `sh -s -- --uninstall` removes the tree and the link. On musl systems the script takes the musl bundle; `apk add yt-dlp` provides yt-dlp, ffmpeg and the JS runtime.
+
+## Bundles
+
+| Platform | File | Contents |
+|---|---|---|
+| Windows x64 | `ytdlp-cli-<ver>-windows.zip` | cli, yt-dlp with its runtime, ffmpeg, srt stripper |
+| Windows x64 installer | `ytdlp-cli-<ver>-windows-setup.exe` | the same payload, per-user install and PATH entry |
+| Windows arm64 | `ytdlp-cli-<ver>-windows-arm64.zip` | arm64 cli, yt-dlp and srt stripper, x64 ffmpeg |
+| Linux x64 | `ytdlp-cli-<ver>-linux.tar.gz` | cli, yt-dlp with its runtime, ffmpeg, srt stripper |
+| Linux arm64 | `ytdlp-cli-<ver>-linux-arm64.tar.gz` | the same payload, arm64 builds |
+| Linux x64, musl | `ytdlp-cli-<ver>-linux-musl.tar.gz` | cli and srt stripper; yt-dlp and ffmpeg from apk |
+| Linux arm64, musl | `ytdlp-cli-<ver>-linux-arm64-musl.tar.gz` | the same, arm64 builds |
+| macOS arm64 | `ytdlp-cli-<ver>-macos-arm64.pkg` | cli, yt-dlp with its runtime, ffmpeg, srt stripper |
+
+`<ver>` is the release tag. The release notes for each tag carry the sizes and sha256 digests, and `install.sh` checks the digest before it unpacks.
 
 ## The folder after install
 
