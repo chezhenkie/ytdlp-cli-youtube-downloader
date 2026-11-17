@@ -906,15 +906,16 @@ pub(super) fn section_menu(
     );
 
     // the static notice under the box: two lines, the four keys named on
-    // the first, the rule tail on the second
+    // the first, the rule tail on the second, both inside the box width
     let notice = ui::direct_notice_lines(false);
     let notice_ok = notice.len() == 2
         && notice[0].starts_with("  direct downloads")
         && ["'s'", "'a'", "'v'", "'0'"]
             .iter()
             .all(|key| notice[0].contains(key))
-        && notice[0].ends_with("from clipboard,")
-        && notice[1] == "  separated by commas or zeroes.";
+        && notice[0].ends_with("several urls")
+        && notice[1] == "  from the clipboard, separated by commas or zeroes."
+        && notice.iter().all(|l| l.chars().count() as i64 <= ui::WIDTH);
     c.check(
         "notice names the four direct keys",
         notice_ok,
@@ -1710,7 +1711,10 @@ pub(super) fn section_batch(
         &mut no_update,
     );
     let text1 = capture4.text();
-    let multi_screen = text1.contains("multiple urls");
+    // the batch screen, not the notice text: the mode line and the input
+    // rules are painted only by paint_batch
+    let multi_screen =
+        text1.contains("empty line starts the downloads") && text1.contains("url 1:");
     // python drove a fake `multi_url`; the real spread with zero entries
     // answers multi_url's own repaint(value True), so the screen content
     // and the non-repaint falseness carry the same pin natively

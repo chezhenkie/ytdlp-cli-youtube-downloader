@@ -104,7 +104,7 @@ pub fn video_row(use_color: bool) -> String {
 
 /// The static notice under the box: the four direct-download keys keep
 /// the colours of their menu rows, the sentence around them is light
-/// blue, and the part after the comma starts the second line.
+/// blue, and the clipboard clause opens the second line.
 pub fn direct_notice_lines(use_color: bool) -> Vec<String> {
     let blue = |text: &str| c(use_color, A_LBLUE, text);
     let key = |text: &str, color: &str| c(use_color, color, text);
@@ -117,8 +117,11 @@ pub fn direct_notice_lines(use_color: bool) -> Vec<String> {
     first.push_str(&key("'v'", A_AMBER));
     first.push_str(&blue(" "));
     first.push_str(&key("'0'", A_AMBER_DARK));
-    first.push_str(&blue(" can process multiple urls from clipboard,"));
-    vec![first, blue("  separated by commas or zeroes.")]
+    first.push_str(&blue(" take several urls"));
+    vec![
+        first,
+        blue("  from the clipboard, separated by commas or zeroes."),
+    ]
 }
 
 /// Path for menu item 5: always `...<sep><folder name>`.
@@ -622,28 +625,31 @@ mod tests {
     }
 
     /// The static notice: two lines, the four keys in their row colours,
-    /// the rest light blue, the tail after the comma on its own line.
+    /// the rest light blue, the clipboard clause on its own line. Both
+    /// lines stay inside the box width, or a terminal wraps the sentence.
     #[test]
     fn direct_notice_matches_the_pins() {
         assert_eq!(
             direct_notice_lines(false),
             vec![
-                "  direct downloads 's' 'a' 'v' '0' can process multiple urls from clipboard,"
-                    .to_string(),
-                "  separated by commas or zeroes.".to_string(),
+                "  direct downloads 's' 'a' 'v' '0' take several urls".to_string(),
+                "  from the clipboard, separated by commas or zeroes.".to_string(),
             ]
         );
+        for line in direct_notice_lines(false) {
+            assert!(dwidth(&line) <= WIDTH, "notice line over the box: {line:?}");
+        }
         let colored = direct_notice_lines(true);
         assert_eq!(colored.len(), 2);
         assert_eq!(
             colored[0],
-            "\x1b[38;5;117m  direct downloads \x1b[0m\x1b[38;5;208m's'\x1b[0m\x1b[38;5;117m \x1b[0m\x1b[38;5;214m'a'\x1b[0m\x1b[38;5;117m \x1b[0m\x1b[38;5;214m'v'\x1b[0m\x1b[38;5;117m \x1b[0m\x1b[38;5;208m'0'\x1b[0m\x1b[38;5;117m can process multiple urls from clipboard,\x1b[0m"
+            "\x1b[38;5;117m  direct downloads \x1b[0m\x1b[38;5;208m's'\x1b[0m\x1b[38;5;117m \x1b[0m\x1b[38;5;214m'a'\x1b[0m\x1b[38;5;117m \x1b[0m\x1b[38;5;214m'v'\x1b[0m\x1b[38;5;117m \x1b[0m\x1b[38;5;208m'0'\x1b[0m\x1b[38;5;117m take several urls\x1b[0m"
         );
         assert_eq!(
             colored[1],
-            "\x1b[38;5;117m  separated by commas or zeroes.\x1b[0m"
+            "\x1b[38;5;117m  from the clipboard, separated by commas or zeroes.\x1b[0m"
         );
-        assert!(strip_ansi(&colored[0]).ends_with("clipboard,"));
+        assert!(strip_ansi(&colored[0]).ends_with("several urls"));
     }
 
     /// FR-22, the one-off modes and FR-17: the key rows sit directly after
