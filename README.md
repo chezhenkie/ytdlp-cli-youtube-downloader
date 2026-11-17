@@ -102,6 +102,8 @@ resources/
 
 ## Flow
 
+[![The download and subtitle path in the process flow](resources/archify%20flow%20ytdlp-cli.png)](https://chezhenkie.github.io/ytdlp-cli-youtube-downloader/)
+
 The interactive process flow is published at [chezhenkie.github.io/ytdlp-cli-youtube-downloader](https://chezhenkie.github.io/ytdlp-cli-youtube-downloader/). The diagram source is in the [ytdlp process flow archify](https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/tree/main/ytdlp%20process%20flow%20archify) folder.
 
 ## Limits
