@@ -1,7 +1,9 @@
-//! G2 addition (phase 2): the README-pinned bundle
-//! digests are checked with the hand-rolled sha256 whenever the release
-//! artifacts exist locally. `releases/` is gitignored, so this test
-//! skips silently in CI and on fresh clones.
+//! G2 addition (phase 2): the bundle digests pinned in
+//! `RELEASE-NOTES.md` are checked with the hand-rolled sha256 whenever
+//! the release artifacts exist locally. `releases/` is gitignored, so
+//! the hashing part skips in CI and on fresh clones. The README carries
+//! no digest rows: the same file ships inside every bundle, so a
+//! release's numbers live in that release's notes only.
 
 use std::fs::File;
 use std::io::Read;
@@ -37,9 +39,9 @@ fn hex(digest: &[u8; 32]) -> String {
     out
 }
 
-/// Digest rows in the README look like
-/// `<64 hex>  <artifact file name>`; the name embeds the release tag.
-fn readme_digest_rows(text: &str) -> Vec<(String, String)> {
+/// Digest rows in the notes look like `<64 hex>  <artifact file name>`;
+/// the name embeds the release tag.
+fn digest_rows(text: &str) -> Vec<(String, String)> {
     let mut rows = Vec::new();
     for line in text.lines() {
         let mut parts = line.split_whitespace();
@@ -55,11 +57,18 @@ fn readme_digest_rows(text: &str) -> Vec<(String, String)> {
 }
 
 #[test]
-fn readme_pinned_digests_match_when_releases_exist() {
+fn notes_pinned_digests_match_when_releases_exist() {
     let root = repo_root();
     let readme = std::fs::read_to_string(root.join("README.md")).expect("README.md readable");
-    let rows = readme_digest_rows(&readme);
-    assert!(!rows.is_empty(), "README carries no digest rows");
+    assert!(
+        digest_rows(&readme).is_empty(),
+        "README.md ships in every bundle and must not pin release digests"
+    );
+
+    let notes =
+        std::fs::read_to_string(root.join("RELEASE-NOTES.md")).expect("RELEASE-NOTES.md readable");
+    let rows = digest_rows(&notes);
+    assert!(!rows.is_empty(), "RELEASE-NOTES.md carries no digest rows");
 
     let mut present = 0;
     for (digest, name) in &rows {
@@ -79,7 +88,7 @@ fn readme_pinned_digests_match_when_releases_exist() {
         assert_eq!(&got, digest, "digest mismatch for {name}");
     }
     if present == 0 {
-        println!("releases/ absent: README digest check skipped (dev-only, per the plan)");
+        println!("releases/ absent: RELEASE-NOTES digest check skipped (dev-only, per the plan)");
     } else {
         assert_eq!(
             present,
