@@ -281,7 +281,7 @@ jobs:
           foreach ($f in @("yt-dlp_arm64.exe", "_internal")) {
             if (-not (Test-Path "payload/yt-dlp-win-arm64/$f")) { throw "yt-dlp arm64 onedir part missing: $f" }
           }
-          $stage = "dist/ytdlp-cli-v$ver-windows-arm64"
+          $stage = "dist/ytdlp-cli-v$ver"
           New-Item -ItemType Directory -Force "$stage/bin" | Out-Null
           Copy-Item rust-src/target/release/ytdlp.exe "$stage/ytdlp.exe"
           Copy-Item README.md, CHANGELOG.md, LICENSE, THIRD-PARTY-NOTICES.md "$stage/"
