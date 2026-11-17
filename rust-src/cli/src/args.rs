@@ -53,6 +53,26 @@ pub fn clean_url(text: Option<&str>) -> Option<String> {
     )
 }
 
+/// Every http(s) url in a pasted list, cleaned and in paste order.
+/// Commas, newlines and a standalone `0` token separate entries, so
+/// `url1,url2 0 url3` and one url per line both answer three urls. A `0`
+/// inside a token belongs to the url: a bare `0` between urls can never
+/// be told apart from a video id, so only the whole-token form separates.
+pub fn split_urls(text: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    for chunk in text.split([',', '\n', '\r']) {
+        for token in chunk.split_whitespace() {
+            if token == "0" {
+                continue;
+            }
+            if let Some(url) = clean_url(Some(token)).filter(|u| !u.is_empty()) {
+                out.push(url);
+            }
+        }
+    }
+    out
+}
+
 /// `--js-runtimes node` when a node is on PATH, empty otherwise. The
 /// python original calls `shutil.which`; the lookup belongs to the
 /// resolution layer, so the pure mapping takes the answer.
@@ -429,6 +449,31 @@ mod tests {
             config::get(&config::defaults(), "filename_template").unwrap(),
             &Value::Str(TEMPLATE_DEFAULT.to_string())
         );
+    }
+
+    #[test]
+    fn split_urls_takes_commas_zeroes_and_lines() {
+        assert_eq!(
+            split_urls("https://a/1, https://b/2 0 https://c/3"),
+            strings(&["https://a/1", "https://b/2", "https://c/3"])
+        );
+        assert_eq!(
+            split_urls("https://a/1\nhttps://b/2\r\nhttps://c/3"),
+            strings(&["https://a/1", "https://b/2", "https://c/3"])
+        );
+        // a 0 inside a token is part of the url, never a separator
+        assert_eq!(
+            split_urls("https://youtu.be/a0b 0 https://youtu.be/c0d"),
+            strings(&["https://youtu.be/a0b", "https://youtu.be/c0d"])
+        );
+        // junk words are dropped, a trailing comma is not part of the url
+        assert_eq!(
+            split_urls("watch https://a/1, nice"),
+            strings(&["https://a/1"])
+        );
+        assert!(split_urls("").is_empty());
+        assert!(split_urls("nothing interesting").is_empty());
+        assert!(split_urls("0 0").is_empty());
     }
 
     #[test]

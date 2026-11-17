@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.10.0
+
+### Changes
+
+#### All platforms
+
+* Menu item 1 asks for the mode first - `0` video with sound, `a` audio only, `v` video only, `s` the stripped summary - then takes the url list and runs every entry in that mode.
+* A url line and the clipboard may carry several links. Commas, standalone `0`s and line breaks separate them; a `0` inside a link stays part of it. The four direct keys download every link on the clipboard in order, and escape stops the rest of the list.
+* The box carries a blue notice under it naming the four direct keys and the list rule.
+
 ## 2.9.3
 
 ### Changes

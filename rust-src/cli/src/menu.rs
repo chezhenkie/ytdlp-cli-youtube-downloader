@@ -13,7 +13,7 @@
 //! round-trip: a loaded settings object always carries every key, so
 //! the two are indistinguishable in every reachable state.
 
-use crate::args::{TEMPLATE_DEFAULT, clean_url, parse_lang_input};
+use crate::args::{TEMPLATE_DEFAULT, clean_url, parse_lang_input, split_urls};
 use crate::config::{self, AUDIO_FORMATS, CONTAINERS, Obj, RESOLUTIONS, SRT_MODES, Value};
 use crate::resolve::{self, ShapeKind};
 use crate::term::{A_AMBER, A_DARKGREY, A_GREY, CLEAR, c};
@@ -76,6 +76,18 @@ pub enum DownloadMode {
     VideoOnly,
 }
 
+impl DownloadMode {
+    /// The words the batch screen uses for the mode the user picked.
+    pub fn label(self) -> &'static str {
+        match self {
+            DownloadMode::Full => "video with sound",
+            DownloadMode::Summary => "stripped summary",
+            DownloadMode::AudioOnly => "audio only",
+            DownloadMode::VideoOnly => "video only",
+        }
+    }
+}
+
 /// The injected downloader: settings, url, io, mode.
 pub type DownloadFn<'a> = dyn FnMut(&mut Obj, &str, &mut Io, DownloadMode) -> i32 + 'a;
 
@@ -132,28 +144,9 @@ fn read_line_or(io: &mut Io, prompt: &str, below: Option<&[String]>) -> Result<S
     }
 }
 
-/// The clipboard key rows (FR-17, FR-22, FR-23): one link, the menu and
-/// its hint block repainted, then the grab in the asked mode. No link
-/// prints the amber line and holds; the summary mode says what it is
-/// about to do.
-fn clipboard_grab(
-    s: &mut Obj,
-    io: &mut Io,
-    world: &World,
-    download: &mut DownloadFn<'_>,
-    mode: DownloadMode,
-) -> Result<ActOutcome, MenuErr> {
-    let link = (world.clipboard)()
-        .and_then(|text| clean_url(Some(&text)))
-        .filter(|u| !u.is_empty());
-    let Some(url) = link else {
-        print_line(
-            io,
-            &c(world.use_color, A_AMBER, "  no link on the clipboard"),
-        );
-        tty::hold(io.out, io.reader);
-        return Ok(ActOutcome::Repaint(true));
-    };
+/// The menu and its hint block: the screen every download flow starts
+/// from, repainted above each url.
+fn paint_menu(s: &Obj, io: &mut Io, world: &World) -> Result<(), MenuErr> {
     if world.use_color {
         io.out.write(CLEAR);
         io.out.flush();
@@ -164,6 +157,34 @@ fn clipboard_grab(
         &ui::render_lines(world.version, s, &outdir, world.is_windows, world.use_color)?,
     );
     print_lines(io, &ui::hint_lines(&outdir, world.use_color));
+    Ok(())
+}
+
+/// The clipboard key rows (FR-17, FR-22, FR-23): every link the
+/// clipboard carries, comma or standalone-0 separated, repainted with the
+/// menu and its hint block, then the grab in the asked mode. No link
+/// prints the amber line and holds; the summary mode says what it is
+/// about to do. Escape during a run stops that run and the rest of the
+/// list.
+fn clipboard_grab(
+    s: &mut Obj,
+    io: &mut Io,
+    world: &World,
+    download: &mut DownloadFn<'_>,
+    mode: DownloadMode,
+) -> Result<ActOutcome, MenuErr> {
+    let urls = (world.clipboard)()
+        .map(|text| split_urls(&text))
+        .unwrap_or_default();
+    if urls.is_empty() {
+        print_line(
+            io,
+            &c(world.use_color, A_AMBER, "  no link on the clipboard"),
+        );
+        tty::hold(io.out, io.reader);
+        return Ok(ActOutcome::Repaint(true));
+    }
+    paint_menu(s, io, world)?;
     if mode == DownloadMode::Summary {
         print_line(
             io,
@@ -174,7 +195,23 @@ fn clipboard_grab(
             ),
         );
     }
-    download(s, &url, io, mode);
+    let total = urls.len();
+    for (i, url) in urls.iter().enumerate() {
+        if total > 1 {
+            print_line(
+                io,
+                &(c(
+                    world.use_color,
+                    A_GREY,
+                    &format!("  url {} of {}", i + 1, total),
+                ) + "  "
+                    + url),
+            );
+        }
+        if download(s, url, io, mode) == 130 {
+            break;
+        }
+    }
     Ok(ActOutcome::Repaint(false))
 }
 
@@ -237,24 +274,26 @@ pub fn ask_bool(
     }
 }
 
-/// `paint_batch`: menu on top, the collected list under it, input last.
-fn paint_batch(s: &Obj, entries: &[String], io: &mut Io, world: &World) -> Result<(), MenuErr> {
-    if world.use_color {
-        io.out.write(CLEAR);
-        io.out.flush();
-    }
-    let outdir = outdir_of(s, world)?;
-    print_lines(
+/// `paint_batch`: menu on top, the chosen mode and the input rules under
+/// it, the collected list last.
+fn paint_batch(
+    s: &Obj,
+    entries: &[String],
+    mode: DownloadMode,
+    io: &mut Io,
+    world: &World,
+) -> Result<(), MenuErr> {
+    paint_menu(s, io, world)?;
+    print_line(
         io,
-        &ui::render_lines(world.version, s, &outdir, world.is_windows, world.use_color)?,
+        &format!("  mode: {}", c(world.use_color, A_AMBER, mode.label())),
     );
-    print_lines(io, &ui::hint_lines(&outdir, world.use_color));
     print_line(
         io,
         &c(
             world.use_color,
             A_AMBER,
-            "  multiple urls - one per line, empty line starts the downloads",
+            "  urls - commas or 0s separate, empty line starts the downloads",
         ),
     );
     print_line(
@@ -267,29 +306,46 @@ fn paint_batch(s: &Obj, entries: &[String], io: &mut Io, world: &World) -> Resul
     Ok(())
 }
 
-/// `run_batch`: the collected entries in order, one at a time; a bad
-/// entry is marked and skipped, escape (rc 130) stops the batch.
-/// Returns True when at least one download started.
+/// Item 1 asks for the run's mode before it takes any url: the same four
+/// choices the key rows carry, answered as a line. Enter keeps video with
+/// sound; escape returns to the menu.
+fn batch_mode(io: &mut Io, world: &World) -> Result<DownloadMode, MenuErr> {
+    loop {
+        let raw = match read(
+            io,
+            "  download type - 0 video with sound, a audio only, v video only, s summary (enter = 0): ",
+            None,
+        ) {
+            ReadOutcome::Line(line) => line,
+            ReadOutcome::Escape => return Err(MenuErr::GoBack),
+            ReadOutcome::Eof => return Err(MenuErr::Eof),
+            ReadOutcome::Interrupted => return Err(MenuErr::Interrupted),
+        };
+        match raw.trim().to_ascii_lowercase().as_str() {
+            "" | "0" => return Ok(DownloadMode::Full),
+            "s" => return Ok(DownloadMode::Summary),
+            "a" => return Ok(DownloadMode::AudioOnly),
+            "v" => return Ok(DownloadMode::VideoOnly),
+            _ => print_line(io, &c(world.use_color, A_AMBER, "  choose 0, a, v or s")),
+        }
+    }
+}
+
+/// `run_batch`: the collected entries in order, one at a time, in the
+/// chosen mode; a bad entry is marked and skipped, escape (rc 130) stops
+/// the batch. Returns True when at least one download started.
 pub fn run_batch(
     s: &mut Obj,
     entries: &[String],
     io: &mut Io,
     world: &World,
     download: &mut DownloadFn<'_>,
+    mode: DownloadMode,
 ) -> Result<bool, MenuErr> {
     let total = entries.len();
     let mut started = false;
     for (i, text) in entries.iter().enumerate() {
-        if world.use_color {
-            io.out.write(CLEAR);
-            io.out.flush();
-        }
-        let outdir = outdir_of(s, world)?;
-        print_lines(
-            io,
-            &ui::render_lines(world.version, s, &outdir, world.is_windows, world.use_color)?,
-        );
-        print_lines(io, &ui::hint_lines(&outdir, world.use_color));
+        paint_menu(s, io, world)?;
         let url = clean_url(Some(text)).filter(|u| !u.is_empty());
         let tail = match &url {
             Some(u) => u.clone(),
@@ -314,7 +370,7 @@ pub fn run_batch(
             );
             continue;
         };
-        if download(s, &url, io, DownloadMode::Full) == 130 {
+        if download(s, &url, io, mode) == 130 {
             break;
         }
         started = true;
@@ -322,18 +378,21 @@ pub fn run_batch(
     Ok(started)
 }
 
-/// `multi_url`: collect urls one per line, an empty line starts the
-/// downloads, escape returns to the menu. Returns True when the main
-/// menu must repaint.
+/// `multi_url`: pick the mode, then collect urls one per line, an empty
+/// line starts the downloads, escape returns to the menu. A line may hold
+/// several urls separated by commas or standalone 0s; a line with no url
+/// stays in the list marked. Returns True when the main menu must
+/// repaint.
 pub fn multi_url(
     s: &mut Obj,
     io: &mut Io,
     world: &World,
     download: &mut DownloadFn<'_>,
 ) -> Result<bool, MenuErr> {
+    let mode = batch_mode(io, world)?;
     let mut entries: Vec<String> = Vec::new();
     loop {
-        paint_batch(s, &entries, io, world)?;
+        paint_batch(s, &entries, mode, io, world)?;
         let prompt = format!("  url {}: ", entries.len() + 1);
         match read(io, &prompt, None) {
             ReadOutcome::Eof | ReadOutcome::Interrupted | ReadOutcome::Escape => return Ok(true),
@@ -342,14 +401,19 @@ pub fn multi_url(
                 if text.is_empty() {
                     break;
                 }
-                entries.push(text);
+                let urls = split_urls(&text);
+                if urls.is_empty() {
+                    entries.push(text);
+                } else {
+                    entries.extend(urls);
+                }
             }
         }
     }
     if entries.is_empty() {
         return Ok(true);
     }
-    Ok(!run_batch(s, &entries, io, world, download)?)
+    Ok(!run_batch(s, &entries, io, world, download, mode)?)
 }
 
 // ---------------------------------------------------------- folder dialog
@@ -1404,6 +1468,147 @@ mod tests {
         }
     }
 
+    /// FR-12: item 1 asks for the mode first, then takes a pasted list;
+    /// commas and standalone 0s split it, and the mode stays a per-run
+    /// value.
+    #[test]
+    fn item1_asks_the_mode_and_takes_a_pasted_list() {
+        let tmp = TempConfig::new();
+        let path = tmp.config_path();
+        let mut s = config::defaults();
+        std::fs::write(&path, config::render_settings_file(&s)).expect("seed");
+        let mut seen: Vec<(String, DownloadMode)> = Vec::new();
+        let mut rec = RecordingOut::default();
+        let mut reader = ScriptedReader::new(vec![
+            ScriptItem::Line("a".to_string()),
+            ScriptItem::Line("https://a/1, https://b/2 0 https://c/3".to_string()),
+            ScriptItem::Line(String::new()),
+        ]);
+        let mut download = |_s: &mut Obj, url: &str, _io: &mut Io, mode: DownloadMode| -> i32 {
+            seen.push((url.to_string(), mode));
+            0
+        };
+        let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };
+        let w = world(&path, "2.0.2", false, false, None);
+        let outcome = {
+            let mut io = Io {
+                out: &mut rec,
+                reader: &mut reader,
+            };
+            act("1", &mut s, &mut io, &w, &mut download, &mut update).unwrap()
+        };
+        assert!(matches!(outcome, ActOutcome::Repaint(false)));
+        assert_eq!(
+            seen,
+            vec![
+                ("https://a/1".to_string(), DownloadMode::AudioOnly),
+                ("https://b/2".to_string(), DownloadMode::AudioOnly),
+                ("https://c/3".to_string(), DownloadMode::AudioOnly),
+            ]
+        );
+        assert_eq!(config::get(&s, "run_mode"), None, "the mode is per run");
+        let text = rec.text();
+        assert!(text.contains("mode: audio only"), "{text}");
+        assert!(text.contains("url 1 of 3"), "{text}");
+    }
+
+    /// FR-12: an unknown answer at the mode prompt says the four keys and
+    /// asks again; enter keeps video with sound.
+    #[test]
+    fn item1_repeats_an_unknown_mode_key() {
+        let tmp = TempConfig::new();
+        let path = tmp.config_path();
+        let mut s = config::defaults();
+        std::fs::write(&path, config::render_settings_file(&s)).expect("seed");
+        let mut seen: Vec<(String, DownloadMode)> = Vec::new();
+        let mut rec = RecordingOut::default();
+        let mut reader = ScriptedReader::new(vec![
+            ScriptItem::Line("x".to_string()),
+            ScriptItem::Line("v".to_string()),
+            ScriptItem::Line("https://a/1".to_string()),
+            ScriptItem::Line(String::new()),
+        ]);
+        let mut download = |_s: &mut Obj, url: &str, _io: &mut Io, mode: DownloadMode| -> i32 {
+            seen.push((url.to_string(), mode));
+            0
+        };
+        let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };
+        let w = world(&path, "2.0.2", false, false, None);
+        {
+            let mut io = Io {
+                out: &mut rec,
+                reader: &mut reader,
+            };
+            act("1", &mut s, &mut io, &w, &mut download, &mut update).unwrap();
+        }
+        assert_eq!(
+            seen,
+            vec![("https://a/1".to_string(), DownloadMode::VideoOnly)]
+        );
+        assert!(rec.text().contains("choose 0, a, v or s"));
+    }
+
+    /// FR-23 and the list form: the direct keys take every url on the
+    /// clipboard, in paste order, and say which one is running.
+    #[test]
+    fn quick_keys_take_a_clipboard_list() {
+        let tmp = TempConfig::new();
+        let path = tmp.config_path();
+        let mut s = config::defaults();
+        std::fs::write(&path, config::render_settings_file(&s)).expect("seed");
+        let clip = || Some("https://a/1, https://b/2 0 https://c/3".to_string());
+        let mut seen: Vec<(String, DownloadMode)> = Vec::new();
+        let mut rec = RecordingOut::default();
+        let mut reader = ScriptedReader::new(vec![]);
+        let mut download = |_s: &mut Obj, url: &str, _io: &mut Io, mode: DownloadMode| -> i32 {
+            seen.push((url.to_string(), mode));
+            0
+        };
+        let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };
+        let w = world_clip(&path, "2.0.2", false, false, None, &clip);
+        let outcome = {
+            let mut io = Io {
+                out: &mut rec,
+                reader: &mut reader,
+            };
+            act("v", &mut s, &mut io, &w, &mut download, &mut update).unwrap()
+        };
+        assert!(matches!(outcome, ActOutcome::Repaint(false)));
+        assert_eq!(seen.len(), 3);
+        assert!(seen.iter().all(|(_, m)| *m == DownloadMode::VideoOnly));
+        assert_eq!(seen[1].0, "https://b/2");
+        let text = rec.text();
+        assert!(text.contains("url 2 of 3"), "{text}");
+        assert_eq!(config::get(&s, "run_mode"), None, "the mode is per run");
+    }
+
+    /// The list stops on the first rc 130, like the batch.
+    #[test]
+    fn quick_keys_stop_the_list_on_escape() {
+        let tmp = TempConfig::new();
+        let path = tmp.config_path();
+        let mut s = config::defaults();
+        std::fs::write(&path, config::render_settings_file(&s)).expect("seed");
+        let clip = || Some("https://a/1, https://b/2".to_string());
+        let mut seen: Vec<String> = Vec::new();
+        let mut rec = RecordingOut::default();
+        let mut reader = ScriptedReader::new(vec![]);
+        let mut download = |_s: &mut Obj, url: &str, _io: &mut Io, _mode: DownloadMode| -> i32 {
+            seen.push(url.to_string());
+            130
+        };
+        let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };
+        let w = world_clip(&path, "2.0.2", false, false, None, &clip);
+        {
+            let mut io = Io {
+                out: &mut rec,
+                reader: &mut reader,
+            };
+            act("0", &mut s, &mut io, &w, &mut download, &mut update).unwrap();
+        }
+        assert_eq!(seen, vec!["https://a/1".to_string()]);
+    }
+
     /// The [11,1,11] cursor dance: the ten-line language block is handed
     /// to the reader as the colored `below` block (len(block)+1 = 11 up),
     /// and the verdict rewinds one row, rewrites it, repaints the block
@@ -1487,6 +1692,7 @@ mod tests {
         // repaint requested); the escape then wipes the screen
         let with_escape = run(vec![
             ScriptItem::Line("1".to_string()),
+            ScriptItem::Line(String::new()),
             ScriptItem::Line("https://a/1".to_string()),
             ScriptItem::Line(String::new()),
             ScriptItem::Escape,
@@ -1498,6 +1704,7 @@ mod tests {
         // the same session without the escape never repaints again
         let no_escape = run(vec![
             ScriptItem::Line("1".to_string()),
+            ScriptItem::Line(String::new()),
             ScriptItem::Line("https://a/1".to_string()),
             ScriptItem::Line(String::new()),
             ScriptItem::Line("14".to_string()),

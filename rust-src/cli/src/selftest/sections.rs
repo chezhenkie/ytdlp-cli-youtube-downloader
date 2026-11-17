@@ -905,6 +905,40 @@ pub(super) fn section_menu(
         ]),
     );
 
+    // the static notice under the box: two lines, the four keys named on
+    // the first, the rule tail on the second
+    let notice = ui::direct_notice_lines(false);
+    let notice_ok = notice.len() == 2
+        && notice[0].starts_with("  direct downloads")
+        && ["'s'", "'a'", "'v'", "'0'"]
+            .iter()
+            .all(|key| notice[0].contains(key))
+        && notice[0].ends_with("from clipboard,")
+        && notice[1] == "  separated by commas or zeroes.";
+    c.check(
+        "notice names the four direct keys",
+        notice_ok,
+        &got_strs(&[
+            notice.first().map(String::as_str).unwrap_or(""),
+            notice.get(1).map(String::as_str).unwrap_or(""),
+        ]),
+    );
+
+    // one clipboard paste feeds the direct keys: commas and standalone 0s
+    // separate the urls, a 0 inside a token stays part of the url
+    let pasted = args::split_urls("https://a/1, https://b/2 0 https://youtu.be/c0d");
+    let split_ok = pasted
+        == vec![
+            "https://a/1".to_string(),
+            "https://b/2".to_string(),
+            "https://youtu.be/c0d".to_string(),
+        ];
+    c.check(
+        "clipboard list splits on commas and zeroes",
+        split_ok,
+        &got_list(&pasted),
+    );
+
     // FR-22 and the one-off modes: the keys answer through the same
     // clipboard seam as item 0; no link keeps the amber line and the
     // repaint
@@ -1552,7 +1586,14 @@ pub(super) fn section_batch(
             0
         }
     };
-    let ran = menu::run_batch(&mut s, &entries, &mut io, &world, &mut downloader);
+    let ran = menu::run_batch(
+        &mut s,
+        &entries,
+        &mut io,
+        &world,
+        &mut downloader,
+        menu::DownloadMode::Full,
+    );
     let seen_in_order =
         seen.borrow().clone() == vec!["https://a/1".to_string(), "https://b/2".to_string()];
     c.check(
@@ -1593,7 +1634,14 @@ pub(super) fn section_batch(
             130
         }
     };
-    let stopped = menu::run_batch(&mut s2, &entries2, &mut io2, &world, &mut stopper);
+    let stopped = menu::run_batch(
+        &mut s2,
+        &entries2,
+        &mut io2,
+        &world,
+        &mut stopper,
+        menu::DownloadMode::Full,
+    );
     c.check(
         "batch stops on escape",
         matches!(stopped, Ok(false))

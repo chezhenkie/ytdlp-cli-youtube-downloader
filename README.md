@@ -63,7 +63,7 @@ v1.5.0 was the final Python release; its bundles remain on the v1.5.0 release pa
 
 ## Using it
 
-Start it and paste a URL, or press 0 to download the link already on your clipboard as video with sound. Press `s` instead to grab only a summary: the subtitles are downloaded and stripped to plain text, and the sound is downloaded only when no subtitle text can be produced. Press `a` for audio only or `v` for video only on the same clipboard link; neither changes your settings. Or skip the menu:
+Start it and paste a URL, or press 0 to download the link already on your clipboard as video with sound. Press `s` instead to grab only a summary: the subtitles are downloaded and stripped to plain text, and the sound is downloaded only when no subtitle text can be produced. Press `a` for audio only or `v` for video only on the same clipboard link; neither changes your settings. Menu item 1 asks for the same four modes first, then collects the list. Every one of those paths takes several links at once: a pasted line or the clipboard may separate them with commas, standalone `0`s or line breaks, and the links run in the order they appear. Or skip the menu:
 
 ```
 ytdlp.exe https://youtu.be/xxxx

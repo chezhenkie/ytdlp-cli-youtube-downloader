@@ -102,6 +102,25 @@ pub fn video_row(use_color: bool) -> String {
     key_row(VIDEO_ROW_TEXT, A_AMBER, use_color)
 }
 
+/// The static notice under the box: the four direct-download keys keep
+/// the colours of their menu rows, the sentence around them is light
+/// blue, and the part after the comma starts the second line.
+pub fn direct_notice_lines(use_color: bool) -> Vec<String> {
+    let blue = |text: &str| c(use_color, A_LBLUE, text);
+    let key = |text: &str, color: &str| c(use_color, color, text);
+    let mut first = String::new();
+    first.push_str(&blue("  direct downloads "));
+    first.push_str(&key("'s'", A_AMBER_DARK));
+    first.push_str(&blue(" "));
+    first.push_str(&key("'a'", A_AMBER));
+    first.push_str(&blue(" "));
+    first.push_str(&key("'v'", A_AMBER));
+    first.push_str(&blue(" "));
+    first.push_str(&key("'0'", A_AMBER_DARK));
+    first.push_str(&blue(" can process multiple urls from clipboard,"));
+    vec![first, blue("  separated by commas or zeroes.")]
+}
+
 /// Path for menu item 5: always `...<sep><folder name>`.
 pub fn short_path(p: &str, maxv: i64, is_windows: bool) -> String {
     let sep = if is_windows { "\\" } else { "/" };
@@ -365,7 +384,8 @@ pub fn hint_lines(outdir: &str, use_color: bool) -> Vec<String> {
 
 /// `render(s)`: header, the FR-22 summary row, the two one-off mode rows,
 /// the FR-17 quick-paste row, the 14 numbered rows, the escape hint, box
-/// bottom. Returns the lines; the caller prints them.
+/// bottom, then the blue direct-download notice. Returns the lines; the
+/// caller prints them.
 pub fn render_lines(
     version: &str,
     s: &Obj,
@@ -397,6 +417,7 @@ pub fn render_lines(
         " ".repeat(right as usize)
     ));
     lines.push(c(use_color, A_DARKGREY, &"-".repeat((WIDTH + 2) as usize)));
+    lines.extend(direct_notice_lines(use_color));
     Ok(lines)
 }
 
@@ -600,6 +621,31 @@ mod tests {
         }
     }
 
+    /// The static notice: two lines, the four keys in their row colours,
+    /// the rest light blue, the tail after the comma on its own line.
+    #[test]
+    fn direct_notice_matches_the_pins() {
+        assert_eq!(
+            direct_notice_lines(false),
+            vec![
+                "  direct downloads 's' 'a' 'v' '0' can process multiple urls from clipboard,"
+                    .to_string(),
+                "  separated by commas or zeroes.".to_string(),
+            ]
+        );
+        let colored = direct_notice_lines(true);
+        assert_eq!(colored.len(), 2);
+        assert_eq!(
+            colored[0],
+            "\x1b[38;5;117m  direct downloads \x1b[0m\x1b[38;5;208m's'\x1b[0m\x1b[38;5;117m \x1b[0m\x1b[38;5;214m'a'\x1b[0m\x1b[38;5;117m \x1b[0m\x1b[38;5;214m'v'\x1b[0m\x1b[38;5;117m \x1b[0m\x1b[38;5;208m'0'\x1b[0m\x1b[38;5;117m can process multiple urls from clipboard,\x1b[0m"
+        );
+        assert_eq!(
+            colored[1],
+            "\x1b[38;5;117m  separated by commas or zeroes.\x1b[0m"
+        );
+        assert!(strip_ansi(&colored[0]).ends_with("clipboard,"));
+    }
+
     /// FR-22, the one-off modes and FR-17: the key rows sit directly after
     /// the 3 header lines, in that order, before row 1.
     #[test]
@@ -618,9 +664,10 @@ mod tests {
             );
             assert_eq!(
                 lines.len(),
-                23,
-                "header 3 + four key rows + 14 rows + hint + rule"
+                25,
+                "header 3 + four key rows + 14 rows + hint + rule + notice 2"
             );
+            assert_eq!(&lines[23..], &direct_notice_lines(use_color)[..]);
             let blank = format!("|{}|", " ".repeat(WIDTH as usize));
             assert!(
                 !lines.iter().any(|l| strip_ansi(l) == blank),
