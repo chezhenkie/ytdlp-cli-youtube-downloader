@@ -1,5 +1,5 @@
 #!/bin/sh
-# ytdlp-cli installer for Linux x86_64 - no system package, no root.
+# ytdlp-cli installer for Linux x86_64 and arm64 - no system package, no root.
 #
 #   curl -fsSL https://raw.githubusercontent.com/chezhenkie/ytdlp-cli-youtube-downloader/main/install.sh | sh
 #
@@ -72,13 +72,14 @@ fi
 [ "$(uname -s)" = Linux ] \
 	|| die "Linux only - on macOS download the .pkg from $github/releases/latest (see README)"
 case $(uname -m) in
-	x86_64|amd64) ;;
-	*) die "no bundle for $(uname -m) - releases carry Linux x86_64 builds only" ;;
+	x86_64|amd64) arch= ;;
+	aarch64|arm64) arch=-arm64 ;;
+	*) die "no bundle for $(uname -m) - releases carry Linux x86_64 and arm64 builds" ;;
 esac
-suffix=linux
+flavour=
 if { command -v ldd >/dev/null 2>&1 && ldd --version 2>&1 | grep -qi musl; } \
 	|| ls /lib/ld-musl-*.so.1 >/dev/null 2>&1; then
-	suffix=linux-musl
+	flavour=-musl
 fi
 command -v curl >/dev/null 2>&1 || die "curl is required"
 command -v tar >/dev/null 2>&1 || die "tar is required"
@@ -110,8 +111,8 @@ echo "fetching the release notes ($version)"
 curl -fsSL "$base/RELEASE-NOTES.md" -o "$tmp/notes.md" \
 	|| die "cannot fetch RELEASE-NOTES.md - no network, or no such release?"
 
-row=$(grep -E "^[0-9a-f]{64}[[:space:]]+ytdlp-cli-v[0-9.]+-$suffix\.tar\.gz$" "$tmp/notes.md") \
-	|| die "no $suffix bundle in the checksums of $version"
+row=$(grep -E "^[0-9a-f]{64}[[:space:]]+ytdlp-cli-v[0-9.]+-linux$arch$flavour\.tar\.gz$" "$tmp/notes.md") \
+	|| die "no linux$arch$flavour bundle in the checksums of $version"
 [ "$(printf '%s\n' "$row" | awk 'END {print NR}')" = 1 ] \
 	|| die "the checksum block is ambiguous - refusing to guess"
 
@@ -156,7 +157,7 @@ ln -sf "$target/ytdlp" "$link"
 echo "installed $asset"
 echo "  tree: $target"
 echo "  link: $link"
-if [ "$suffix" = linux-musl ] && ! command -v yt-dlp >/dev/null 2>&1; then
+if [ "$flavour" = -musl ] && ! command -v yt-dlp >/dev/null 2>&1; then
 	echo "note: yt-dlp is not on PATH yet; on Alpine install it with:"
 	echo "  apk add yt-dlp"
 	echo "  (the Alpine package pulls ffmpeg and the JS runtime with it)"

@@ -9,6 +9,7 @@
 * Menu item 1 asks for the mode first - `0` video with sound, `a` audio only, `v` video only, `s` the stripped summary - then takes the url list and runs every entry in that mode.
 * A url line and the clipboard may carry several links. Commas, standalone `0`s and line breaks separate them; a `0` inside a link stays part of it. The four direct keys download every link on the clipboard in order, and escape stops the rest of the list.
 * The box carries a blue notice under it naming the four direct keys and the list rule.
+* arm64 bundles. The release adds a Windows arm64 zip, a Linux arm64 tar and a Linux arm64 musl tar. The Windows arm64 zip carries the native arm64 yt-dlp tree and srtstripper plus the x64 ffmpeg, which Windows 11 runs under emulation (the pinned provider publishes no arm64 Windows build). The Linux arm64 bundle carries native arm64 builds of all three payloads; the arm64 musl bundle is the cli plus the musl srtstripper, with yt-dlp and ffmpeg from apk. `install.sh` and the cli self-update pick the arm64 asset on an aarch64 host.
 
 ## 2.9.3
 

@@ -1014,9 +1014,15 @@ pub(super) fn section_menu(
     let win = update::release_asset("windows", "x86_64", "2.6.1", false);
     let lin = update::release_asset("linux", "x86_64", "2.6.1", false);
     let musl = update::release_asset("linux", "x86_64", "2.6.1", true);
+    let win_arm = update::release_asset("windows", "aarch64", "2.6.1", false);
+    let lin_arm = update::release_asset("linux", "aarch64", "2.6.1", false);
+    let musl_arm = update::release_asset("linux", "aarch64", "2.6.1", true);
     let bundles_ok = win.as_deref() == Some("ytdlp-cli-v2.6.1-windows.zip")
         && lin.as_deref() == Some("ytdlp-cli-v2.6.1-linux.tar.gz")
         && musl.as_deref() == Some("ytdlp-cli-v2.6.1-linux-musl.tar.gz")
+        && win_arm.as_deref() == Some("ytdlp-cli-v2.6.1-windows-arm64.zip")
+        && lin_arm.as_deref() == Some("ytdlp-cli-v2.6.1-linux-arm64.tar.gz")
+        && musl_arm.as_deref() == Some("ytdlp-cli-v2.6.1-linux-arm64-musl.tar.gz")
         && update::release_asset("macos", "aarch64", "2.6.1", false).is_none();
     c.check(
         "cli update source is the releases api",
@@ -1026,6 +1032,9 @@ pub(super) fn section_menu(
             win.as_deref().unwrap_or("none"),
             lin.as_deref().unwrap_or("none"),
             musl.as_deref().unwrap_or("none"),
+            win_arm.as_deref().unwrap_or("none"),
+            lin_arm.as_deref().unwrap_or("none"),
+            musl_arm.as_deref().unwrap_or("none"),
         ]),
     );
 }

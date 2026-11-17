@@ -121,8 +121,11 @@ pub fn release_asset(platform: &str, arch: &str, version: &str, musl: bool) -> O
     let top = format!("ytdlp-cli-v{version}");
     match (platform, arch) {
         ("windows", "x86_64") => Some(format!("{top}-windows.zip")),
+        ("windows", "aarch64") => Some(format!("{top}-windows-arm64.zip")),
         ("linux", "x86_64") if musl => Some(format!("{top}-linux-musl.tar.gz")),
+        ("linux", "aarch64") if musl => Some(format!("{top}-linux-arm64-musl.tar.gz")),
         ("linux", "x86_64") => Some(format!("{top}-linux.tar.gz")),
+        ("linux", "aarch64") => Some(format!("{top}-linux-arm64.tar.gz")),
         _ => None,
     }
 }
@@ -1176,6 +1179,18 @@ mod tests {
         assert_eq!(
             release_asset("linux", "x86_64", "2.6.1", true),
             Some("ytdlp-cli-v2.6.1-linux-musl.tar.gz".to_string())
+        );
+        assert_eq!(
+            release_asset("windows", "aarch64", "2.6.1", false),
+            Some("ytdlp-cli-v2.6.1-windows-arm64.zip".to_string())
+        );
+        assert_eq!(
+            release_asset("linux", "aarch64", "2.6.1", false),
+            Some("ytdlp-cli-v2.6.1-linux-arm64.tar.gz".to_string())
+        );
+        assert_eq!(
+            release_asset("linux", "aarch64", "2.6.1", true),
+            Some("ytdlp-cli-v2.6.1-linux-arm64-musl.tar.gz".to_string())
         );
         // macOS has no self-update: the mac line ships a pkg
         assert_eq!(release_asset("macos", "aarch64", "2.6.1", false), None);

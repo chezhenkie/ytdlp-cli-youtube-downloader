@@ -6,10 +6,10 @@ programs that work together because one invokes the other; each keeps its own
 license.
 
 Which of the four are inside a given artifact: the windows zip, the windows
-setup.exe, the linux glibc tar and the macOS pkg carry yt-dlp, ffmpeg and
-srtstripper; the linux-musl bundle carries ytdlp-cli and the musl build of
-srtstripper only - there yt-dlp and ffmpeg come from the system package manager
-(on Alpine, apk add yt-dlp pulls ffmpeg with it).
+setup.exe, the windows arm64 zip, the linux glibc tars and the macOS pkg carry
+yt-dlp, ffmpeg and srtstripper; the linux-musl bundles carry ytdlp-cli and the
+musl build of srtstripper only - there yt-dlp and ffmpeg come from the system
+package manager (on Alpine, apk add yt-dlp pulls ffmpeg with it).
 
 1. ytdlp-cli - the menu and the defaults
    MIT License. See LICENSE in this bundle.
@@ -25,8 +25,10 @@ srtstripper only - there yt-dlp and ffmpeg come from the system package manager
    system's own copy and its license file apply.
 
 3. ffmpeg - merging, audio extraction and subtitle conversion
-   Present in every glibc bundle and in the macOS pkg; the linux-musl bundle
-   does not contain it.
+   Present in every glibc bundle and in the macOS pkg; the linux-musl bundles
+   do not contain it. The windows arm64 bundle carries the x64 build below:
+   no arm64 windows build is published by the provider, and Windows 11 runs the
+   x64 binary under emulation.
    Copyright (c) 2000-2026 the FFmpeg developers.
    The builds shipped here are configured --enable-gpl --enable-version3, so
    they are distributed under the GNU General Public License version 2 or later,
@@ -47,6 +49,8 @@ srtstripper only - there yt-dlp and ffmpeg come from the system package manager
      sha256: 4044b3924c977ad31229d504c5d5b8685f9553124fbaff6e9c99048b42830341
    - Linux build: asset ffmpeg-linux-x64
      sha256: 9eac5b2b5076db5ff853a6fa0dcd6b8de7d0cac8481eadda6c47cd935825f1ee
+   - Linux build (arm64): asset ffmpeg-linux-arm64
+     sha256: 6e7b1d7d1aa8c35e3fedd78a140aa0968717aeb7386ecfb0ee00773d9f0a4503
    - macOS build (arm64): asset ffmpeg-osx-arm64
      sha256: e7b9fcd97f95f333512d6e8b8ac24d9dbc08f189f36047695499bd7b57214b22
 
@@ -61,13 +65,19 @@ srtstripper only - there yt-dlp and ffmpeg come from the system package manager
    MIT License, same author as ytdlp-cli (chezhenkie).
    https://github.com/chezhenkie/srt-subtitle-stripper
    Released as v1.6.4; the pinned builds shipped in bin/:
-   - Windows: srtstripper-windows-x86_64.exe,
+   - Windows (x64): srtstripper-windows-x86_64.exe,
      sha256 8cd030d4db776e3db1ca16bb286c1eeaecc71dd99c4ddb162331b0d68cb14cbb
+   - Windows (arm64): srtstripper-windows-aarch64.exe,
+     sha256 42fdad5259105ded2daa5ccff5c5d13144d939035f30a2e12f3b829e9499c849
    - Linux (glibc): srtstripper-linux-x86_64,
      sha256 85196f96349cdc0ea6c2bb54b8aee9bc5fc2d28d8ad2a51df00453c8cdac2fd1
-   - Linux (musl, static): srtstripper-linux-x86_64-musl,
+   - Linux (glibc, arm64): srtstripper-linux-aarch64,
+     sha256 25b2ca6e3e034d6363616e49811a93231124fa7c706c0b1fdecf185eb605a582
+   - Linux (musl, static, x64): srtstripper-linux-x86_64-musl,
      sha256 0a1a7ae08b4b54fc97da2313fe78b0c02185c4110994e9e45e3d3f60498fef9b
+   - Linux (musl, static, arm64): srtstripper-linux-aarch64-musl,
+     sha256 9218bb785f8270092847d93d0d603a2a0eaff013b42db650cbea5eeb1229148b
    - macOS (arm64): srtstripper-macos-arm64,
      sha256 4d70f0049be33ca63faf0cad6bc0c2a73ea29ff8bc1fd8f52c3cffea6566913c
-   The linux-musl bundle ships the musl build; the glibc and macOS builds are
+   The linux-musl bundles ship the musl build; the glibc and macOS builds are
    not present there.

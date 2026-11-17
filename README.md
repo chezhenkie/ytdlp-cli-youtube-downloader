@@ -32,9 +32,10 @@ The live, interactive flow is published at [chezhenkie.github.io/ytdlp-cli-youtu
 
 None beyond the bundle, the Windows binary is statically linked. The musl bundle carries no download runtime: its yt-dlp is the system's own (see the Alpine bullet below).
 
-- Windows: `ytdlp.exe` (or the setup.exe below, which installs it for your user and puts it on your PATH)
-- Linux: `./ytdlp`
-- Alpine and other musl Linux: `./ytdlp` plus the system runtime - `apk add yt-dlp` (that package pulls ffmpeg and the JS runtime with it); no musl yt-dlp or ffmpeg builds are published, so the musl bundle ships the cli and the srtstripper only
+- Windows x86_64: `ytdlp.exe` (or the setup.exe below, which installs it for your user and puts it on your PATH)
+- Windows arm64: `ytdlp.exe` from the arm64 zip; unpack it anywhere and run it. There is no arm64 installer.
+- Linux x86_64 and arm64: `./ytdlp`
+- Alpine and other musl Linux, x86_64 and arm64: `./ytdlp` plus the system runtime - `apk add yt-dlp` (that package pulls ffmpeg and the JS runtime with it); no musl yt-dlp or ffmpeg builds are published, so the musl bundle ships the cli and the srtstripper only
 - macOS 15+ (Apple silicon): `ytdlp` (the .pkg below installs it and puts it on your PATH; the bundled ffmpeg sets the floor)
 
 ### Installing on Windows
@@ -57,7 +58,7 @@ curl -fsSL https://raw.githubusercontent.com/chezhenkie/ytdlp-cli-youtube-downlo
 
 On Alpine and other musl systems the script installs the musl bundle automatically - the cli and the srtstripper; get the download runtime with `apk add yt-dlp`, which pulls ffmpeg and the JS runtime with it.
 
-Linux builds are x86_64: glibc bundles plus a musl bundle for Alpine (cli plus the srtstripper, the download runtime comes from apk), and the macOS build is arm64 (Apple silicon). On any other architecture put `yt-dlp` on PATH or set `yt_dlp_path` in `config/settings.json`. Menu item 12 updates the cli from the platform bundle; macOS takes its cli from this page.
+Linux builds are x86_64 and arm64: glibc bundles for each plus musl bundles for Alpine (cli plus the srtstripper, the download runtime comes from apk), and the macOS build is arm64 (Apple silicon). Windows ships x86_64 and arm64 builds; the arm64 zip has no installer. On any other architecture put `yt-dlp` on PATH or set `yt_dlp_path` in `config/settings.json`. Menu item 12 updates the cli from the platform bundle; macOS takes its cli from this page.
 
 v1.5.0 was the final Python release; its bundles remain on the v1.5.0 release page.
 

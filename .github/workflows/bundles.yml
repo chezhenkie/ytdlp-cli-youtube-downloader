@@ -5,14 +5,19 @@ name: bundles
 # release commit carries the digests, the tag follows, and gh release upload
 # places exactly these bytes.
 #
-# The matrix is one bundle per platform, each carrying the full runtime:
-#   windows zip    cli + yt-dlp onedir tree + ffmpeg + srtstripper
-#   windows setup  the same tree as a per-user installer
-#   linux tar.gz   cli + yt-dlp onedir tree + ffmpeg + srtstripper
-#   linux musl tar cli + srtstripper only; apk provides yt-dlp and ffmpeg
-#   macos pkg      cli + yt-dlp onedir tree + ffmpeg + srtstripper
-# Six release files with RELEASE-NOTES.md. No bare cli image is published on
-# any platform.
+# The matrix is one bundle per platform and architecture, each carrying the
+# full runtime:
+#   windows zip      cli + yt-dlp onedir tree + ffmpeg + srtstripper (x64)
+#   windows setup    the same tree as a per-user installer (x64)
+#   windows arm64    cli + yt-dlp onedir tree + the x64 ffmpeg + srtstripper
+#   linux tar.gz     cli + yt-dlp onedir tree + ffmpeg + srtstripper (x64)
+#   linux arm64 tar  the same tree for aarch64
+#   linux musl tar   cli + srtstripper only; apk provides yt-dlp and ffmpeg (x64)
+#   linux arm64 musl the same cli-only shape for aarch64
+#   macos pkg        cli + yt-dlp onedir tree + ffmpeg + srtstripper (arm64)
+# Nine release files with RELEASE-NOTES.md. No bare cli image is published on
+# any platform. Windows arm64 ships no setup.exe: the x64 installer is the
+# only one built, and the arm64 payload unpacks from the zip.
 #
 # The installers are built here and proven here, not just assembled: the
 # windows job silently installs the setup.exe, runs the installed binary's
@@ -23,18 +28,22 @@ name: bundles
 # carry.
 #
 # Payload pins:
-#   yt-dlp 2026.08.19 onedir zips: yt-dlp_win.zip (windows),
-#           yt-dlp_linux.zip (linux), yt-dlp_macos.zip (macos arm64). The zip
-#           carries the binary plus _internal and both are staged into bin/,
-#           so yt-dlp runs from the tree. The onefile build instead unpacks
-#           139 files / 23,815,375 bytes into %TEMP%\_MEIxxxxx on every
-#           launch (measured 5,698 writes per launch; the app launches it
-#           2x with subs off, 3x with subs on).
+#   yt-dlp 2026.08.19 onedir zips: yt-dlp_win.zip (windows x64),
+#           yt-dlp_win_arm64.zip (windows arm64), yt-dlp_linux.zip (linux
+#           x64), yt-dlp_linux_aarch64.zip (linux arm64), yt-dlp_macos.zip
+#           (macos arm64). The zip carries the binary plus _internal and both
+#           are staged into bin/, so yt-dlp runs from the tree. The onefile
+#           build instead unpacks 139 files / 23,815,375 bytes into
+#           %TEMP%\_MEIxxxxx on every launch (measured 5,698 writes per
+#           launch; the app launches it 2x with subs off, 3x with subs on).
 #   ffmpeg: shaka-project/static-ffmpeg-binaries n8.1.2-1, raw per-platform
 #           binaries - ffmpeg-win-x64.exe (windows), ffmpeg-linux-x64
-#           (linux), ffmpeg-osx-arm64 (macos). A public repo with
-#           contributors, CI-built from source, sha256 per asset published in
-#           the release API, and a pinned tag, so no asset can move under CI.
+#           (linux), ffmpeg-linux-arm64 (linux arm64), ffmpeg-osx-arm64
+#           (macos). A public repo with contributors, CI-built from source,
+#           sha256 per asset published in the release API, and a pinned tag,
+#           so no asset can move under CI. The windows arm64 bundle carries
+#           the x64 binary: no win-arm64 asset exists, and Windows 11 runs it
+#           under emulation.
 # Every payload is checked against its pinned digest before anything is staged.
 # The GPL license texts are not fetched: they ship from rust-src/packaging/
 # because www.gnu.org is unreachable from the windows runners. Their digests
@@ -49,16 +58,22 @@ env:
   CARGO_TERM_COLOR: always
   YTDLP_URL_BASE: https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19
   YTDLP_WIN_ZIP_SHA256: 30b4c14aafab6082becff7881e41b76df46dc43ea7633479410a91e29da492bf
+  YTDLP_WIN_ARM64_ZIP_SHA256: 2ad49db7429a6204721f711a44199a8c9fa8d5df2183dd7fedc4ef6c9e2e50d3
   YTDLP_LINUX_ZIP_SHA256: 32e72032766bef9199d99d15beb69fd52e46df8f8b06f0d8745db59e04d339e9
+  YTDLP_LINUX_ARM64_ZIP_SHA256: 4e27ad43f3a34bacffd078694eb3edbb4e3b378e7da44edab2be02e98555516e
   YTDLP_MACOS_ZIP_SHA256: 07e54b0865303c864006925913bce2604f8ee8cc6f18699bac9c309f9328a6d8
   FFMPEG_SHAKA_BASE: https://github.com/shaka-project/static-ffmpeg-binaries/releases/download/n8.1.2-1
   FFMPEG_WINDOWS_SHA256: 4044b3924c977ad31229d504c5d5b8685f9553124fbaff6e9c99048b42830341
   FFMPEG_LINUX_SHA256: 9eac5b2b5076db5ff853a6fa0dcd6b8de7d0cac8481eadda6c47cd935825f1ee
+  FFMPEG_LINUX_ARM64_SHA256: 6e7b1d7d1aa8c35e3fedd78a140aa0968717aeb7386ecfb0ee00773d9f0a4503
   FFMPEG_MACOS_SHA256: e7b9fcd97f95f333512d6e8b8ac24d9dbc08f189f36047695499bd7b57214b22
   SRTSTRIPPER_URL_BASE: https://github.com/chezhenkie/srt-subtitle-stripper/releases/download/v1.6.4
   SRTSTRIPPER_WINDOWS_SHA256: 8cd030d4db776e3db1ca16bb286c1eeaecc71dd99c4ddb162331b0d68cb14cbb
+  SRTSTRIPPER_WINDOWS_ARM64_SHA256: 42fdad5259105ded2daa5ccff5c5d13144d939035f30a2e12f3b829e9499c849
   SRTSTRIPPER_LINUX_SHA256: 85196f96349cdc0ea6c2bb54b8aee9bc5fc2d28d8ad2a51df00453c8cdac2fd1
+  SRTSTRIPPER_LINUX_ARM64_SHA256: 25b2ca6e3e034d6363616e49811a93231124fa7c706c0b1fdecf185eb605a582
   SRTSTRIPPER_MUSL_SHA256: 0a1a7ae08b4b54fc97da2313fe78b0c02185c4110994e9e45e3d3f60498fef9b
+  SRTSTRIPPER_LINUX_ARM64_MUSL_SHA256: 9218bb785f8270092847d93d0d603a2a0eaff013b42db650cbea5eeb1229148b
   SRTSTRIPPER_MACOS_SHA256: 4d70f0049be33ca63faf0cad6bc0c2a73ea29ff8bc1fd8f52c3cffea6566913c
   GPL2_SHA256: edaef632cbb643e4e7a221717a6c441a4c1a7c918e6e4d56debc3d8739b233f6
   GPL3_SHA256: 3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986
@@ -231,6 +246,100 @@ jobs:
             dist/SHA256SUMS
           if-no-files-found: error
 
+  windows-arm64-bundle:
+    name: windows arm64 bundle
+    runs-on: windows-11-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+      - name: build the release binary (arm64)
+        working-directory: rust-src
+        run: cargo build --release -p ytdlp-cli
+      - name: verify payload pins and assemble
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          function Get-Pinned([string]$url, [string]$out, [string]$want) {
+            curl.exe -fsSL --retry 3 -o $out $url
+            if ($LASTEXITCODE -ne 0) { throw "download failed: $url" }
+            $got = (Get-FileHash -Algorithm SHA256 $out).Hash.ToLower()
+            if ($got -ne $want) { throw "digest mismatch: $url`n  want $want`n  got  $got" }
+            Write-Host "pin ok: $out $got"
+          }
+          $m = [regex]::Match((Get-Content rust-src/Cargo.toml -Raw), '(?m)^version = "([^"]+)"')
+          if (-not $m.Success) { throw "version not found in rust-src/Cargo.toml" }
+          $ver = $m.Groups[1].Value
+          Write-Host "assembling v$ver (windows arm64)"
+          New-Item -ItemType Directory -Force payload, dist | Out-Null
+          Get-Pinned "$env:YTDLP_URL_BASE/yt-dlp_win_arm64.zip" payload/yt-dlp-win-arm64.zip $env:YTDLP_WIN_ARM64_ZIP_SHA256
+          Get-Pinned "$env:FFMPEG_SHAKA_BASE/ffmpeg-win-x64.exe" payload/ffmpeg.exe $env:FFMPEG_WINDOWS_SHA256
+          Get-Pinned "$env:SRTSTRIPPER_URL_BASE/srtstripper-windows-aarch64.exe" payload/srtstripper.exe $env:SRTSTRIPPER_WINDOWS_ARM64_SHA256
+          Expand-Archive -Path payload/yt-dlp-win-arm64.zip -DestinationPath payload/yt-dlp-win-arm64
+          foreach ($f in @("yt-dlp_arm64.exe", "_internal")) {
+            if (-not (Test-Path "payload/yt-dlp-win-arm64/$f")) { throw "yt-dlp arm64 onedir part missing: $f" }
+          }
+          $stage = "dist/ytdlp-cli-v$ver-windows-arm64"
+          New-Item -ItemType Directory -Force "$stage/bin" | Out-Null
+          Copy-Item rust-src/target/release/ytdlp.exe "$stage/ytdlp.exe"
+          Copy-Item README.md, CHANGELOG.md, LICENSE, THIRD-PARTY-NOTICES.md "$stage/"
+          Copy-Item payload/yt-dlp-win-arm64/yt-dlp_arm64.exe "$stage/bin/yt-dlp.exe"
+          Copy-Item payload/yt-dlp-win-arm64/_internal "$stage/bin/_internal" -Recurse
+          Copy-Item payload/ffmpeg.exe "$stage/bin/ffmpeg.exe"
+          Copy-Item payload/srtstripper.exe "$stage/bin/srtstripper.exe"
+          Copy-Item rust-src/packaging/GPL-2.0.txt, rust-src/packaging/GPL-3.0.txt "$stage/"
+          $probe = & "$stage/bin/yt-dlp.exe" --version
+          if ($LASTEXITCODE -ne 0 -or "$probe" -notmatch '^\d{4}\.\d{2}\.\d{2}') { throw "staged yt-dlp arm64 tree probe failed: $probe" }
+          Write-Host "staged yt-dlp arm64 tree runs: $probe"
+          $ff = & "$stage/bin/ffmpeg.exe" -version
+          if ($LASTEXITCODE -ne 0 -or "$ff" -notmatch '^ffmpeg version') { throw "staged ffmpeg probe failed: $ff" }
+          Write-Host "staged ffmpeg runs: $($ff | Select-Object -First 1)"
+          Compress-Archive -Path $stage -DestinationPath "dist/ytdlp-cli-v$ver-windows-arm64.zip"
+      - name: checksums and sizes
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          cd dist
+          Get-ChildItem *.zip | Sort-Object Name | ForEach-Object {
+            "$((Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLower())  $($_.Name)"
+          } | Set-Content -Encoding ascii SHA256SUMS
+          Get-Content SHA256SUMS
+          Get-ChildItem *.zip | Sort-Object Name | ForEach-Object { "size: $($_.Name) $($_.Length)" }
+      - name: bundle proof - expand the zip, count the tree, run the packaged suite
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $m = [regex]::Match((Get-Content rust-src/Cargo.toml -Raw), '(?m)^version = "([^"]+)"')
+          $ver = $m.Groups[1].Value
+          $zip = "dist/ytdlp-cli-v$ver-windows-arm64.zip"
+          if (-not (Test-Path $zip)) { throw "missing bundle: $zip" }
+          $out = "$PWD/zip-test-arm64"
+          Expand-Archive -Path $zip -DestinationPath $out
+          $root = "$out/ytdlp-cli-v$ver"
+          foreach ($f in @("ytdlp.exe", "bin/yt-dlp.exe", "bin/_internal", "bin/ffmpeg.exe", "bin/srtstripper.exe", "README.md", "CHANGELOG.md", "GPL-2.0.txt", "GPL-3.0.txt")) {
+            if (-not (Test-Path "$root/$f")) { throw "bundle missing: $f" }
+          }
+          $n = (Get-ChildItem "$root/bin/_internal" -Recurse -File).Count
+          if ($n -lt 100) { throw "bundle _internal incomplete: $n files" }
+          $v = & "$root/bin/yt-dlp.exe" --version
+          if ($LASTEXITCODE -ne 0 -or "$v" -notmatch '^\d{4}\.\d{2}\.\d{2}') { throw "bundle yt-dlp failed: $v" }
+          $ff = & "$root/bin/ffmpeg.exe" -version
+          if ($LASTEXITCODE -ne 0 -or "$ff" -notmatch '^ffmpeg version') { throw "bundle ffmpeg failed: $ff" }
+          $report = & "$root/ytdlp.exe" --selftest
+          if ($LASTEXITCODE -ne 0) { throw "packaged selftest rc $LASTEXITCODE" }
+          if (($report | Out-String) -notmatch "selftest: 186 checks, 0 failed") { throw "selftest report mismatch: $report" }
+          Write-Host "windows arm64 proof passed: _internal files $n, yt-dlp $v, ffmpeg $($ff[0]), selftest 186/0"
+          Remove-Item -Recurse -Force $out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-arm64-bundle
+          path: |
+            dist/ytdlp-cli-v*-windows-arm64.zip
+            dist/SHA256SUMS
+          if-no-files-found: error
+
   linux-bundle:
     name: linux bundle
     runs-on: ubuntu-latest
@@ -314,6 +423,89 @@ jobs:
             dist/SHA256SUMS
           if-no-files-found: error
 
+  linux-arm64-bundle:
+    name: linux arm64 bundle
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+      - name: build the release binary
+        working-directory: rust-src
+        run: cargo build --release -p ytdlp-cli
+      - name: verify payload pins and assemble
+        run: |
+          set -euo pipefail
+          ver=$(sed -n 's/^version = "\(.*\)"$/\1/p' rust-src/Cargo.toml | head -n1)
+          echo "assembling v$ver (linux arm64)"
+          mkdir -p payload dist
+          get_pinned() { # url out want
+            curl -fsSL --retry 3 -o "$2" "$1"
+            echo "$3  $2" | sha256sum -c -
+          }
+          get_pinned "$YTDLP_URL_BASE/yt-dlp_linux_aarch64.zip" payload/yt-dlp_linux_aarch64.zip "$YTDLP_LINUX_ARM64_ZIP_SHA256"
+          get_pinned "$FFMPEG_SHAKA_BASE/ffmpeg-linux-arm64" payload/ffmpeg "$FFMPEG_LINUX_ARM64_SHA256"
+          get_pinned "$SRTSTRIPPER_URL_BASE/srtstripper-linux-aarch64" payload/srtstripper "$SRTSTRIPPER_LINUX_ARM64_SHA256"
+          echo "$GPL2_SHA256  rust-src/packaging/GPL-2.0.txt" | sha256sum -c -
+          echo "$GPL3_SHA256  rust-src/packaging/GPL-3.0.txt" | sha256sum -c -
+          mkdir -p payload/yt-dlp-linux-arm64
+          unzip -q payload/yt-dlp_linux_aarch64.zip -d payload/yt-dlp-linux-arm64
+          test -f payload/yt-dlp-linux-arm64/yt-dlp_linux_aarch64 || { echo "yt-dlp_linux_aarch64.zip lacks the launcher" >&2; exit 1; }
+          test -d payload/yt-dlp-linux-arm64/_internal || { echo "yt-dlp_linux_aarch64.zip lacks _internal" >&2; exit 1; }
+          stage="dist/ytdlp-cli-v$ver"
+          mkdir -p "$stage/bin"
+          install -m 0755 rust-src/target/release/ytdlp "$stage/ytdlp"
+          install -m 0644 README.md CHANGELOG.md LICENSE THIRD-PARTY-NOTICES.md "$stage/"
+          install -m 0755 payload/yt-dlp-linux-arm64/yt-dlp_linux_aarch64 "$stage/bin/yt-dlp"
+          cp -a payload/yt-dlp-linux-arm64/_internal "$stage/bin/_internal"
+          install -m 0755 payload/ffmpeg "$stage/bin/ffmpeg"
+          install -m 0755 payload/srtstripper "$stage/bin/srtstripper"
+          install -m 0644 rust-src/packaging/GPL-2.0.txt rust-src/packaging/GPL-3.0.txt "$stage/"
+          "$stage/bin/yt-dlp" --version
+          "$stage/bin/ffmpeg" -version | head -n 1
+          tar -czf "dist/ytdlp-cli-v$ver-linux-arm64.tar.gz" -C dist "ytdlp-cli-v$ver"
+          cd dist
+          sha256sum ytdlp-cli-v$ver-linux-arm64.tar.gz > SHA256SUMS
+          cat SHA256SUMS
+          ls -l ytdlp-cli-v$ver-linux-arm64.tar.gz
+      - name: bundle proof - the tar carries the onedir tree and ffmpeg
+        run: |
+          set -euo pipefail
+          ver=$(sed -n 's/^version = "\(.*\)"$/\1/p' rust-src/Cargo.toml | head -n1)
+          top="ytdlp-cli-v$ver"
+          tarball="dist/$top-linux-arm64.tar.gz"
+          test -f "$tarball"
+          list="dist/$top-linux-arm64.list"
+          tar -tzf "$tarball" > "$list"
+          grep -qx "$top/bin/yt-dlp" "$list"
+          grep -qx "$top/bin/ffmpeg" "$list"
+          grep -qx "$top/bin/srtstripper" "$list"
+          n=$(grep -c "^$top/bin/_internal/" "$list" || true)
+          test "$n" -ge 100
+          echo "linux arm64 tar: $n _internal entries"
+      - name: run proof - extract the tar, run the packaged suite and the payloads
+        run: |
+          set -euo pipefail
+          ver=$(sed -n 's/^version = "\(.*\)"$/\1/p' rust-src/Cargo.toml | head -n1)
+          mkdir -p dist/run
+          tar -xzf "dist/ytdlp-cli-v$ver-linux-arm64.tar.gz" -C dist/run
+          root="dist/run/ytdlp-cli-v$ver"
+          "$root/bin/yt-dlp" --version
+          "$root/bin/ffmpeg" -version | head -n 1
+          report=$("$root/ytdlp" --selftest)
+          echo "$report" | grep -q "selftest: 186 checks, 0 failed"
+          echo "$report" | tail -n 3
+          echo "linux arm64 run proof passed: onedir payload and ffmpeg run, selftest 186/0"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-arm64-bundle
+          path: |
+            dist/ytdlp-cli-v*-linux-arm64.tar.gz
+            dist/SHA256SUMS
+          if-no-files-found: error
+
   linux-musl-bundle:
     name: linux musl (alpine) bundle
     runs-on: ubuntu-latest
@@ -376,6 +568,71 @@ jobs:
           name: linux-musl-bundle
           path: |
             dist/ytdlp-cli-v*-linux-musl.tar.gz
+            dist/SHA256SUMS
+          if-no-files-found: error
+
+  linux-arm64-musl-bundle:
+    name: linux arm64 musl bundle
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+          targets: aarch64-unknown-linux-musl
+      - name: musl C toolchain (ring compiles C for the target)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+      - name: build the musl release binary
+        working-directory: rust-src
+        run: cargo build --release -p ytdlp-cli --target aarch64-unknown-linux-musl
+      - name: assemble the bundle (no yt-dlp, no ffmpeg - apk provides the runtime; the first-party srtstripper rides along)
+        run: |
+          set -euo pipefail
+          ver=$(sed -n 's/^version = "\(.*\)"$/\1/p' rust-src/Cargo.toml | head -n1)
+          echo "assembling v$ver (linux arm64 musl)"
+          mkdir -p payload dist
+          get_pinned() { # url out want
+            curl -fsSL --retry 3 -o "$2" "$1"
+            echo "$3  $2" | sha256sum -c -
+          }
+          get_pinned "$SRTSTRIPPER_URL_BASE/srtstripper-linux-aarch64-musl" payload/srtstripper-musl "$SRTSTRIPPER_LINUX_ARM64_MUSL_SHA256"
+          stage="dist/ytdlp-cli-v$ver"
+          mkdir -p "$stage/bin"
+          install -m 0755 rust-src/target/aarch64-unknown-linux-musl/release/ytdlp "$stage/ytdlp"
+          install -m 0644 README.md CHANGELOG.md LICENSE THIRD-PARTY-NOTICES.md "$stage/"
+          install -m 0755 payload/srtstripper-musl "$stage/bin/srtstripper"
+          tar -czf "dist/ytdlp-cli-v$ver-linux-arm64-musl.tar.gz" -C dist "ytdlp-cli-v$ver"
+          cd dist
+          sha256sum ytdlp-cli-v$ver-linux-arm64-musl.tar.gz > SHA256SUMS
+          cat SHA256SUMS
+          ls -l ytdlp-cli-v$ver-linux-arm64-musl.tar.gz
+      - name: run proof - static link, packaged selftest, cli-only payload
+        run: |
+          set -euo pipefail
+          ver=$(sed -n 's/^version = "\(.*\)"$/\1/p' rust-src/Cargo.toml | head -n1)
+          mkdir -p dist/run
+          tar -xzf "dist/ytdlp-cli-v$ver-linux-arm64-musl.tar.gz" -C dist/run
+          bin="dist/run/ytdlp-cli-v$ver/ytdlp"
+          file "$bin"
+          if ! file "$bin" | grep -Eq 'statically linked|static-pie'; then
+            echo "not a static build - refusing"; exit 1
+          fi
+          if tar -tzf "dist/ytdlp-cli-v$ver-linux-arm64-musl.tar.gz" | grep -q 'bin/yt-dlp'; then
+            echo "the musl bundle must not carry yt-dlp"; exit 1
+          fi
+          echo "$SRTSTRIPPER_LINUX_ARM64_MUSL_SHA256  dist/run/ytdlp-cli-v$ver/bin/srtstripper" | sha256sum -c -
+          report=$("$bin" --selftest)
+          echo "$report" | grep -q "selftest: 186 checks, 0 failed"
+          echo "$report" | tail -n 3
+          echo "linux arm64 musl run proof passed: static, selftest 186/0, no bundled yt-dlp, srtstripper pinned"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-arm64-musl-bundle
+          path: |
+            dist/ytdlp-cli-v*-linux-arm64-musl.tar.gz
             dist/SHA256SUMS
           if-no-files-found: error
 
