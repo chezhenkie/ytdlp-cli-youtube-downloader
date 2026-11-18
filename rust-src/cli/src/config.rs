@@ -834,7 +834,7 @@ mod tests {
         let path = write_file(
             &dir,
             "settings.json",
-            br#"{"video_resolution": "720", "zz": 9, "audio_only": true}"#,
+            br#"{"video_resolution": "720", "type": "audio", "zz": 9, "audio_only": true}"#,
         );
         let LoadOutcome::Loaded { settings, notes } = load_settings(&path).unwrap() else {
             panic!("loaded expected");

@@ -10,8 +10,7 @@ only - playlist_max_items int-parsed with fallback 0 (= all), the three vocabula
 | yt_dlp_path | str | "" | path or "" (auto) | find_yt_dlp (resolve.rs) |
 | ffmpeg_path | str | "" | dir or file path or "" | find_ffmpeg_dir (resolve.rs) |
 | auto_update | bool | true | on/off | auto_update_check (update.rs) |
-| auto_update_last_check | int | 1791925032* | unix epoch seconds | throttle (update.rs) |
-| type | str | "video" | video / video no audio / audio only | build_args (args.rs) |
+| auto_update_last_check | int | 1792068442* | unix epoch seconds | throttle (update.rs) |
 | video_container | str | "mp4" | mp4 mkv webm best | build_args (args.rs) |
 | video_resolution | str | "1080" | 2160..360, best | build_args (args.rs) |
 | audio_format | str | "mp3" | mp3 m4a opus wav best | build_args (args.rs) |
@@ -50,7 +49,7 @@ Every requirement's acceptance criterion is an executable, offline check; the pa
 | FR-16 | PE VersionInfo fields asserted on the built exe in CI and repeated on the extracted bundle at G10 |
 | FR-18 | installers built on their native runners in bundles.yml and proven there: windows silent install + installed-exe PE fields + selftest 186/0 + the installed onedir tree (bin/_internal, at least 100 files, payload --version) + the installed bin/srtstripper.exe + exactly one PATH entry after two silent installs (two duplicates seeded before the first) + every PATH entry gone and the tree removed on uninstall; macos `installer -pkg` + selftest 186/0 + the installed tree count + payload digests (yt-dlp, ffmpeg, srtstripper) + tree writability + launcher + the shipped uninstall script (symlink, tree, receipt); G10 repeats the windows install/uninstall on the shipped setup.exe and digest-chains the pkg |
 | FR-19 | the linux-musl job in bundles.yml (static-link check, extract, packaged selftest 186/0, the staged srtstripper digest, no bin/yt-dlp in the tar); install.sh musl auto-select (ldd --version plus the /lib/ld-musl-*.so.1 existence check); the v2.3.0 G10 run proved the Alpine userland: official minirootfs chroot, selftest 177/0, apk add yt-dlp, --check resolving the system yt-dlp |
-| FR-20 | exec.rs stripper-pass tests (reported output path, missing-binary line, silent when off), srtstripper module tests (mode-flag map, PASS-line parse, spawn-arg shape, failure text, subs_since filtering), selftest menu/default checks; the live download with a real srtstripper is release-acceptance work (G10) |
+| FR-20 | exec.rs stripper-pass tests (reported output path, missing-binary line, silent when off), srtstripper module tests (mode-flag map, PASS-line parse, spawn-arg shape, failure text, subs_written filtering), selftest menu/default checks; the live download with a real srtstripper is release-acceptance work (G10) |
 | FR-22 | the two packaged checks ("summary row sits above the quick row", "summary key answers without a link"), plus the crate tests for do_summary (text path with the forced text mode, sound fallback with the stored settings untouched), ui.rs summary-row bytes and width, menu.rs clipboard summary flow, and the tty key rule (0/s/S on an empty line only) |
 | FR-23 | the packaged check on the three keys ("s, a and v answer without a link"), plus the crate tests for the row bytes, the one-off modes through the downloader seam, the settings left without a mode, and the tty key rule |
 | FR-24 | the packaged checks "notice names the four direct keys" and "clipboard list splits on commas and zeroes", plus the crate tests for split_urls (commas, lines, standalone 0s, a 0 inside a link), the item 1 mode question, the list order through clipboard_grab and the escape stop |

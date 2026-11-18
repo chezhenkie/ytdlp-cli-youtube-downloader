@@ -6,7 +6,7 @@
 //! and writes only that member - no path handling, no zip-slip surface,
 //! and nothing else from the archive touches disk.
 //!
-//! Port notes (phase 8): zip 7.2.0 and tar 0.4.46 come with default
+//! Port notes (phase 8): zip and tar come with default
 //! features off, so only decode paths are compiled, and both
 //! decompress through pure-rust crates (flate2's miniz_oxide, and
 //! lzma-rust2 in place of the C xz2 - OQ-N3). python's rule that a

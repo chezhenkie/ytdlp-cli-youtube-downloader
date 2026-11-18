@@ -177,7 +177,9 @@ pub const YTDLP_RELEASES_API: &str = "https://api.github.com/repos/yt-dlp/yt-dlp
 pub fn ytdlp_tree_asset(platform: &str, arch: &str) -> Option<&'static str> {
     match (platform, arch) {
         ("windows", "x86_64") => Some("yt-dlp_win.zip"),
+        ("windows", "aarch64") => Some("yt-dlp_win_arm64.zip"),
         ("linux", "x86_64") => Some("yt-dlp_linux.zip"),
+        ("linux", "aarch64") => Some("yt-dlp_linux_aarch64.zip"),
         ("macos", "aarch64") => Some("yt-dlp_macos.zip"),
         _ => None,
     }
@@ -187,7 +189,9 @@ pub fn ytdlp_tree_asset(platform: &str, arch: &str) -> Option<&'static str> {
 fn ytdlp_tree_member(asset: &str) -> Option<&'static str> {
     match asset {
         "yt-dlp_win.zip" => Some("yt-dlp.exe"),
+        "yt-dlp_win_arm64.zip" => Some("yt-dlp_arm64.exe"),
         "yt-dlp_linux.zip" => Some("yt-dlp_linux"),
+        "yt-dlp_linux_aarch64.zip" => Some("yt-dlp_linux_aarch64"),
         "yt-dlp_macos.zip" => Some("yt-dlp_macos"),
         _ => None,
     }
@@ -1054,14 +1058,29 @@ mod tests {
             Some("yt-dlp_linux.zip")
         );
         assert_eq!(
+            ytdlp_tree_asset("windows", "aarch64"),
+            Some("yt-dlp_win_arm64.zip")
+        );
+        assert_eq!(
+            ytdlp_tree_asset("linux", "aarch64"),
+            Some("yt-dlp_linux_aarch64.zip")
+        );
+        assert_eq!(
             ytdlp_tree_asset("macos", "aarch64"),
             Some("yt-dlp_macos.zip")
         );
         assert_eq!(ytdlp_tree_asset("macos", "x86_64"), None);
-        assert_eq!(ytdlp_tree_asset("linux", "aarch64"), None);
         assert_eq!(ytdlp_tree_asset("freebsd", "x86_64"), None);
         assert_eq!(ytdlp_tree_member("yt-dlp_win.zip"), Some("yt-dlp.exe"));
+        assert_eq!(
+            ytdlp_tree_member("yt-dlp_win_arm64.zip"),
+            Some("yt-dlp_arm64.exe")
+        );
         assert_eq!(ytdlp_tree_member("yt-dlp_linux.zip"), Some("yt-dlp_linux"));
+        assert_eq!(
+            ytdlp_tree_member("yt-dlp_linux_aarch64.zip"),
+            Some("yt-dlp_linux_aarch64")
+        );
         assert_eq!(ytdlp_tree_member("yt-dlp_macos.zip"), Some("yt-dlp_macos"));
         assert_eq!(ytdlp_tree_member("yt-dlp.exe"), None);
     }

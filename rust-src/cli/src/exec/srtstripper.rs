@@ -34,17 +34,40 @@ fn is_sub_name(name: &str) -> bool {
         || lower.ends_with(".ssa")
 }
 
-/// The subtitle files `folder` holds with an mtime at/after `since`
-/// (with the shared slack idiom of `newest_since`): the files a subtitle
-/// pass wrote. Path spelling follows `newest_since` (pathlib render).
+/// Subtitle files with their mtimes, taken before a pass so the files
+/// that pass wrote can be told apart from an earlier list item's.
+pub struct SubSnapshot(Vec<(String, f64)>);
+
+pub fn subs_snapshot(folder: &str) -> SubSnapshot {
+    SubSnapshot(sub_files(folder))
+}
+
+/// The subtitle files that appeared or changed since `before`. A list
+/// item can start seconds after the previous item wrote its own file,
+/// so an mtime window alone would count that file as this pass's work.
 /// Read order, not mtime order: the report lists them as the directory
 /// yields them.
-pub fn subs_since(folder: &str, since: f64, slack: f64) -> Vec<String> {
+pub fn subs_written(folder: &str, before: &SubSnapshot) -> Vec<String> {
+    let mut found: Vec<String> = Vec::new();
+    for (path, mtime) in sub_files(folder) {
+        let fresh = match before.0.iter().find(|(seen, _)| seen == &path) {
+            Some((_, old)) => mtime > *old,
+            None => true,
+        };
+        if fresh {
+            found.push(path);
+        }
+    }
+    found
+}
+
+/// The subtitle files `folder` holds with their mtimes.
+fn sub_files(folder: &str) -> Vec<(String, f64)> {
     let entries = match std::fs::read_dir(folder) {
         Ok(entries) => entries,
         Err(_) => return Vec::new(),
     };
-    let mut found: Vec<String> = Vec::new();
+    let mut found: Vec<(String, f64)> = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
         // one stat per entry: is_file and the mtime answer from the
@@ -62,9 +85,7 @@ pub fn subs_since(folder: &str, since: f64, slack: f64) -> Vec<String> {
         let Some(mtime) = resolve::mtime_from_meta(&meta) else {
             continue;
         };
-        if mtime >= since - slack {
-            found.push(resolve::path_render(&path.to_string_lossy()));
-        }
+        found.push((resolve::path_render(&path.to_string_lossy()), mtime));
     }
     found
 }
@@ -240,18 +261,33 @@ mod tests {
     }
 
     #[test]
-    fn subs_since_keeps_only_fresh_subtitle_files() {
-        let dir = scratch_dir("subs-since");
-        let old = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs_f64();
-        write_file(&dir, "video.en.srt", b"1\n");
-        write_file(&dir, "video.de.vtt", b"2\n");
+    fn subs_written_counts_only_the_files_the_pass_touched() {
+        let dir = scratch_dir("subs-written");
+        write_file(&dir, "first.en.srt", b"1\n");
         write_file(&dir, "notes.txt", b"3\n");
-        write_file(&dir, "video.fr.srt", b"4\n");
-        let got = subs_since(&dir, old, 2.0);
-        let names: Vec<String> = got
+        // a finished list item leaves its file in the past
+        let old = std::time::SystemTime::now() - std::time::Duration::from_secs(60);
+        let handle = std::fs::OpenOptions::new()
+            .write(true)
+            .open(std::path::Path::new(&dir).join("first.en.srt"))
+            .unwrap();
+        handle
+            .set_times(std::fs::FileTimes::new().set_modified(old))
+            .unwrap();
+        drop(handle);
+        let before = subs_snapshot(&dir);
+        write_file(&dir, "second.en.srt", b"2\n");
+        let names = file_names(&subs_written(&dir, &before));
+        assert_eq!(names, vec!["second.en.srt".to_string()]);
+        // a rewrite of a known name is this pass's work too
+        write_file(&dir, "first.en.srt", b"1\n2\n");
+        let names = file_names(&subs_written(&dir, &before));
+        assert!(names.contains(&"first.en.srt".to_string()));
+        assert!(!names.contains(&"notes.txt".to_string()));
+    }
+
+    fn file_names(paths: &[String]) -> Vec<String> {
+        paths
             .iter()
             .map(|p| {
                 std::path::Path::new(p)
@@ -259,11 +295,7 @@ mod tests {
                     .map(|n| n.to_string_lossy().into_owned())
                     .unwrap_or_default()
             })
-            .collect();
-        assert!(names.contains(&"video.en.srt".to_string()));
-        assert!(names.contains(&"video.de.vtt".to_string()));
-        assert!(names.contains(&"video.fr.srt".to_string()));
-        assert!(!names.contains(&"notes.txt".to_string()));
+            .collect()
     }
 
     fn scratch_dir(tag: &str) -> String {

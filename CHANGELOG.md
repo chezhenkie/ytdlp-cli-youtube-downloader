@@ -15,7 +15,7 @@
 
 #### All platforms
 
-* The blue notice under the box fits the box. Its first line ran to 76 columns in a 66-column frame and a terminal wrapped it onto an extra line; the notice now reads `direct downloads 's' 'a' 'v' '0' take several urls` and `from the clipboard, separated by commas or zeroes.`, 52 and 53 columns, and the box width is asserted by the crate test and the packaged check.
+* The blue notice under the box fits the box. Its first line ran to 76 columns in a 66-column frame and a terminal wrapped it onto an extra line; the notice now reads `direct downloads 's' 'a' 'v' '0' take several urls` and `from the clipboard, separated by commas or zeroes.`, 52 columns each, and the box width is asserted by the crate test and the packaged check.
 
 ## 2.10.0
 

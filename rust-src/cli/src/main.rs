@@ -64,7 +64,6 @@ fn run() -> Result<ExitCode, String> {
     // first start that is not the one that replaced it
     update::remove_previous_image(&self_path());
     let mut settings = load_and_announce(&config_path, use_color, &shared)?;
-    apply_overrides(&mut settings, &invocation);
 
     // python's dispatch order: --check, --selftest, --update, url, menu
     if invocation.check {
@@ -87,6 +86,9 @@ fn run() -> Result<ExitCode, String> {
     if let Some(url) = &invocation.url
         && !invocation.menu
     {
+        // the overrides belong to this run; the menu path never sees them,
+        // so a saved settings file cannot pick up a transient mode or path
+        apply_overrides(&mut settings, &invocation);
         return Ok(run_quick(
             &settings, url, &root, is_windows, use_color, &shared,
         ));
@@ -122,7 +124,7 @@ fn load_and_announce(
 }
 
 /// `apply_overrides`: one-shot overrides mutate the in-memory settings
-/// only (FR-3); quick runs never persist them.
+/// only (FR-3) and only on the quick path; the menu decides its own mode.
 fn apply_overrides(s: &mut Obj, inv: &cli_args::Invocation) {
     if inv.audio {
         config::set(s, "run_mode", Value::Str("audio only".to_string()));

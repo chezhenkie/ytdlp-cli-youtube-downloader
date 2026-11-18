@@ -668,7 +668,7 @@ fn retry_offered_tracks(
     label: &str,
     langs_text: &str,
     outdir: &str,
-    since: f64,
+    before: &srtstripper::SubSnapshot,
     rc_in: i64,
     err_in: String,
     codes_in: Vec<String>,
@@ -714,7 +714,7 @@ fn retry_offered_tracks(
         rc = rc2;
         err = err2;
         codes = codes2;
-        files = srtstripper::subs_since(outdir, since, 2.0).len();
+        files = srtstripper::subs_written(outdir, before).len();
         if files > 0 {
             break;
         }
@@ -898,6 +898,7 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
                 }
             };
         let sub_started = now_secs();
+        let sub_before = srtstripper::subs_snapshot(&outdir);
         let (mut rc2, stopped2, mut err2, mut codes) =
             run_download(&binary, &sub_opts, Some(&st2), ctx.use_color, rt);
         if stopped2 {
@@ -905,7 +906,7 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
             st2.done(Some(&format!("subtitles - stopped by escape{tail}")));
             return 130;
         }
-        let mut files = srtstripper::subs_since(&outdir, sub_started, 2.0).len();
+        let mut files = srtstripper::subs_written(&outdir, &sub_before).len();
         // FR-9 fallback: a pass that wrote no file leaves the requested
         // language unserved, which is what YouTube does for generated
         // translations (429). Walk the offered tracks in order and stop at
@@ -921,7 +922,7 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
                 "",
                 &langs_text,
                 &outdir,
-                sub_started,
+                &sub_before,
                 rc2,
                 err2,
                 codes,
@@ -962,7 +963,7 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
                     st2.done(Some(line.as_str()));
                 }
             }
-            strip_subtitles(s, ctx, &outdir, sub_started, rt);
+            strip_subtitles(s, ctx, &outdir, &sub_before, rt);
         } else if rc2 == 0 {
             let (verdict, miss) = sub_success_lines(&codes);
             st2.done(Some(&verdict));
@@ -1016,7 +1017,13 @@ pub fn do_download(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) ->
 /// missing binary or a failing run is a report line; the download stays
 /// successful. Called only after a subtitle pass exited 0, so subs off
 /// or a failed pass never reach it.
-fn strip_subtitles(s: &Obj, ctx: &mut DownloadCtx, outdir: &str, started: f64, rt: &mut RunRt) {
+fn strip_subtitles(
+    s: &Obj,
+    ctx: &mut DownloadCtx,
+    outdir: &str,
+    before: &srtstripper::SubSnapshot,
+    rt: &mut RunRt,
+) {
     if !config::get(s, "srt_stripper").is_some_and(config::py_truthy) {
         return;
     }
@@ -1029,7 +1036,7 @@ fn strip_subtitles(s: &Obj, ctx: &mut DownloadCtx, outdir: &str, started: f64, r
         st.done(Some("srt timecode stripper - not found (bin/ or PATH)"));
         return;
     };
-    let paths = srtstripper::subs_since(outdir, started, 2.0);
+    let paths = srtstripper::subs_written(outdir, before);
     if paths.is_empty() {
         st.done(None);
         return;
@@ -1108,6 +1115,7 @@ pub fn do_summary(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) -> 
             }
         };
     let sub_started = now_secs();
+    let sub_before = srtstripper::subs_snapshot(&outdir);
     let (mut rc, stopped, err, codes) =
         run_download(&binary, &sub_opts, Some(&st), ctx.use_color, rt);
     if stopped {
@@ -1116,7 +1124,7 @@ pub fn do_summary(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) -> 
         return 130;
     }
     let mut err = err;
-    let mut paths = srtstripper::subs_since(&outdir, sub_started, 2.0);
+    let mut paths = srtstripper::subs_written(&outdir, &sub_before);
     // Same FR-9 walk as a download: no subtitle file after the configured
     // pass means the track is not served; offered tracks are tried in
     // order before the run gives up on text.
@@ -1131,7 +1139,7 @@ pub fn do_summary(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) -> 
             "summary - ",
             &langs_text,
             &outdir,
-            sub_started,
+            &sub_before,
             rc,
             err,
             codes,
@@ -1149,7 +1157,7 @@ pub fn do_summary(s: &Obj, url: &str, ctx: &mut DownloadCtx, rt: &mut RunRt) -> 
             FallbackEnd::Done { rc: r, err: e, .. } => {
                 rc = r;
                 err = e;
-                paths = srtstripper::subs_since(&outdir, sub_started, 2.0);
+                paths = srtstripper::subs_written(&outdir, &sub_before);
             }
         }
     }
@@ -1778,6 +1786,7 @@ mod tests {
         let mut world = InstallWorld::new("strip-hit", "linux");
         std::fs::create_dir_all(resolve::py_path_join(&world.dir, "out")).unwrap();
         let outdir = resolve::py_path_join(&world.dir, "out");
+        let before = srtstripper::subs_snapshot(&outdir);
         let sub = resolve::py_path_join(&outdir, "video.en.srt");
         std::fs::write(&sub, b"1\n00:00:00,000 --> 00:00:01,000\nhi\n").unwrap();
         let bin_path = resolve::py_path_join(&world.bin_dir, "srtstripper");
@@ -1811,7 +1820,7 @@ mod tests {
             interrupt_scope: None,
         };
         with_ctx!(&mut world, sink, |ctx| {
-            strip_subtitles(&s, &mut ctx, &outdir, 0.0, &mut rt);
+            strip_subtitles(&s, &mut ctx, &outdir, &before, &mut rt);
         });
         let printed = lines.lock().unwrap().join("\n");
         assert!(
@@ -1826,6 +1835,7 @@ mod tests {
         let mut world = InstallWorld::new("strip-miss", "linux");
         std::fs::create_dir_all(resolve::py_path_join(&world.dir, "out")).unwrap();
         let outdir = resolve::py_path_join(&world.dir, "out");
+        let before = srtstripper::subs_snapshot(&outdir);
         let sub = resolve::py_path_join(&outdir, "video.en.srt");
         std::fs::write(&sub, b"1\n").unwrap();
         let lines = Arc::clone(&world.lines);
@@ -1847,7 +1857,7 @@ mod tests {
             interrupt_scope: None,
         };
         with_ctx!(&mut world, sink, |ctx| {
-            strip_subtitles(&s, &mut ctx, &outdir, 0.0, &mut rt);
+            strip_subtitles(&s, &mut ctx, &outdir, &before, &mut rt);
         });
         let printed = lines.lock().unwrap().join("\n");
         assert!(
@@ -1863,6 +1873,7 @@ mod tests {
         let mut world = InstallWorld::new("strip-off", "linux");
         std::fs::create_dir_all(resolve::py_path_join(&world.dir, "out")).unwrap();
         let outdir = resolve::py_path_join(&world.dir, "out");
+        let before = srtstripper::subs_snapshot(&outdir);
         let sub = resolve::py_path_join(&outdir, "video.en.srt");
         std::fs::write(&sub, b"1\n").unwrap();
         let lines = Arc::clone(&world.lines);
@@ -1883,7 +1894,7 @@ mod tests {
             interrupt_scope: None,
         };
         with_ctx!(&mut world, sink, |ctx| {
-            strip_subtitles(&s, &mut ctx, &outdir, 0.0, &mut rt);
+            strip_subtitles(&s, &mut ctx, &outdir, &before, &mut rt);
         });
         let printed = lines.lock().unwrap().join("\n");
         assert!(

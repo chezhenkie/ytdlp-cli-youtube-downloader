@@ -159,7 +159,7 @@
       "title": "Screen and keys",
       "items": [
         "Four key rows sit above row 1: s summary and 0 quick paste in dark amber, a audio only and v video only in the brighter amber, then the 14 numbered rows.",
-        "Two blue notice lines sit under the box rule: the four direct keys on the first, the clipboard clause on the second, at 52 and 53 columns inside the 64-column width.",
+        "Two blue notice lines sit under the box rule: the four direct keys on the first, the clipboard clause on the second, at 52 columns each inside the 64-column width.",
         "The keys fire only on the main prompt's empty line, so a pasted url is never read as a key.",
         "Escape backs out of a submenu, wipes results, and stops a running download with rc 130 after cleaning partials."
       ]

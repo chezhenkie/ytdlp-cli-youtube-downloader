@@ -33,12 +33,12 @@ package manager (on Alpine, apk add yt-dlp pulls ffmpeg with it).
    The builds shipped here are configured --enable-gpl --enable-version3, so
    they are distributed under the GNU General Public License version 2 or later,
    and they include components licensed under GPL version 3 or later. The full
-   text of GPL version 2 and of GPL version 3 both ship in this bundle, as
-   GPL-2.0.txt and GPL-3.0.txt.
+   text of GPL version 2 and of GPL version 3 both ship in every bundle that
+   carries ffmpeg, as GPL-2.0.txt and GPL-3.0.txt.
 
    Corresponding source. FFmpeg's own source is published at
    https://ffmpeg.org/download.html and in the git repository at
-   https://github.com/FFmpeg/FFmpeg. All three bundled binaries come from one
+   https://github.com/FFmpeg/FFmpeg. All four bundled builds come from one
    provider, shaka-project/static-ffmpeg-binaries release n8.1.2-1, built from
    the ffmpeg n8.1.2 tree with libvpx 1.16.0, svt-av1 4.1.0, x264, x265 4.2,
    lame 3.100, opus 1.6.1 and mbedtls 3.4.1. The build script and the CI

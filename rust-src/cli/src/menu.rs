@@ -208,7 +208,10 @@ fn clipboard_grab(
                     + url),
             );
         }
-        if download(s, url, io, mode) == 130 {
+        let rc = download(s, url, io, mode);
+        // 130 is escape; -1 is the Ctrl+C cancel of this item. Either one
+        // ends the list instead of starting the next link
+        if rc == 130 || rc == -1 {
             break;
         }
     }
@@ -370,7 +373,8 @@ pub fn run_batch(
             );
             continue;
         };
-        if download(s, &url, io, mode) == 130 {
+        let rc = download(s, &url, io, mode);
+        if rc == 130 || rc == -1 {
             break;
         }
         started = true;
@@ -395,7 +399,9 @@ pub fn multi_url(
         paint_batch(s, &entries, mode, io, world)?;
         let prompt = format!("  url {}: ", entries.len() + 1);
         match read(io, &prompt, None) {
-            ReadOutcome::Eof | ReadOutcome::Interrupted | ReadOutcome::Escape => return Ok(true),
+            ReadOutcome::Escape => return Ok(true),
+            ReadOutcome::Eof => return Err(MenuErr::Eof),
+            ReadOutcome::Interrupted => return Err(MenuErr::Interrupted),
             ReadOutcome::Line(raw) => {
                 let text = raw.trim().to_string();
                 if text.is_empty() {
@@ -1609,6 +1615,34 @@ mod tests {
         assert_eq!(seen, vec!["https://a/1".to_string()]);
     }
 
+    /// Ctrl+C during an item cancels that download with rc -1; the rest of
+    /// the clipboard list does not start.
+    #[test]
+    fn quick_keys_stop_the_list_on_cancel() {
+        let tmp = TempConfig::new();
+        let path = tmp.config_path();
+        let mut s = config::defaults();
+        std::fs::write(&path, config::render_settings_file(&s)).expect("seed");
+        let clip = || Some("https://a/1, https://b/2".to_string());
+        let mut seen: Vec<String> = Vec::new();
+        let mut rec = RecordingOut::default();
+        let mut reader = ScriptedReader::new(vec![]);
+        let mut download = |_s: &mut Obj, url: &str, _io: &mut Io, _mode: DownloadMode| -> i32 {
+            seen.push(url.to_string());
+            -1
+        };
+        let mut update = |_s: &mut Obj, _io: &mut Io| -> Result<(), MenuErr> { Ok(()) };
+        let w = world_clip(&path, "2.0.2", false, false, None, &clip);
+        {
+            let mut io = Io {
+                out: &mut rec,
+                reader: &mut reader,
+            };
+            act("0", &mut s, &mut io, &w, &mut download, &mut update).unwrap();
+        }
+        assert_eq!(seen, vec!["https://a/1".to_string()]);
+    }
+
     /// The [11,1,11] cursor dance: the ten-line language block is handed
     /// to the reader as the colored `below` block (len(block)+1 = 11 up),
     /// and the verdict rewinds one row, rewrites it, repaints the block
@@ -1758,6 +1792,21 @@ mod tests {
 
         let (result, _) = run(vec![
             ScriptItem::Line("7".to_string()),
+            ScriptItem::Interrupted,
+        ]);
+        assert!(matches!(result, Err(MenuErr::Interrupted)));
+
+        // the batch url prompt propagates both shapes like every other
+        // submenu prompt (the empty line picks the full mode first)
+        let (result, _) = run(vec![
+            ScriptItem::Line("1".to_string()),
+            ScriptItem::Line(String::new()),
+            ScriptItem::Eof,
+        ]);
+        assert!(matches!(result, Err(MenuErr::Eof)));
+        let (result, _) = run(vec![
+            ScriptItem::Line("1".to_string()),
+            ScriptItem::Line(String::new()),
             ScriptItem::Interrupted,
         ]);
         assert!(matches!(result, Err(MenuErr::Interrupted)));

@@ -6,7 +6,7 @@
 //! the info-field checks the menu row 9 stage added and the two
 //! description-rename checks the 2.5.2 stage added and the two
 //! output-extension checks the 2.5.3 stage added and the two summary-key
-//! checks the 2.8.0 stage added (192 total), carried over from the
+//! checks the 2.8.0 stage added (186 total), carried over from the
 //! retired python-oracle compare. Where python
 //! monkeypatched a module global this module injects the seam the
 //! ported function already takes - the same rule the crate tests and
@@ -29,7 +29,7 @@ mod sections;
 use plumbing::*;
 use sections::*;
 
-/// The entry point: python's `selftest()` - the 192-check report, rc 0
+/// The entry point: python's `selftest()` - the 186-check report, rc 0
 /// when all pass and rc 1 like python's return.
 pub fn run_selftest(
     version: &str,

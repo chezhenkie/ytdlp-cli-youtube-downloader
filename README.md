@@ -96,7 +96,7 @@ bin/srtstripper.exe
 resources/
 ```
 
-`ytdlp.exe` is the program, and `config/settings.json` holds the menu defaults. `bin/` holds what the program starts: `yt-dlp.exe` with its `_internal` folder, `ffmpeg.exe` and `srtstripper.exe`. `resources/` holds the images shipped with the bundle. Linux and macOS use the same names without `.exe`.
+`ytdlp.exe` is the program, and `config/settings.json` holds the menu defaults. `bin/` holds what the program starts: `yt-dlp.exe` with its `_internal` folder, `ffmpeg.exe` and `srtstripper.exe`. `resources/` holds the images shipped with the bundle. Linux and macOS use the same names without `.exe`. The musl bundles carry only `bin/srtstripper`; their yt-dlp and ffmpeg come from `apk add yt-dlp`.
 
 `bin/_internal` is the Python runtime yt-dlp runs on: the interpreter, its standard library, certificates and the modules it imports. yt-dlp is a Python program, so its official build ships that runtime beside the launcher; the installer or archive installs it once, and yt-dlp starts from it directly. It is private to this folder and must stay beside the launcher: nothing is installed system-wide, no background process runs, and removing the folder removes all of it.
 

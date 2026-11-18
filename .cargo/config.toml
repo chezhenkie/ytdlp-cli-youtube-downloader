@@ -13,3 +13,9 @@
 # msvcp*.dll; gate G10 repeats it against the extracted bundle.
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-C", "target-feature=+crt-static"]
+
+# The arm64 zip is unpacked and run, with no installer to bring a
+# redistributable along, so it takes the same flag. The bundle proofs
+# assert the import table of both windows builds.
+[target.aarch64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

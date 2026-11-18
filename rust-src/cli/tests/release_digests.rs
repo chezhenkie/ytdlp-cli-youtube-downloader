@@ -56,45 +56,83 @@ fn digest_rows(text: &str) -> Vec<(String, String)> {
     rows
 }
 
+/// A README that ships inside every bundle must not pin any release, in
+/// any shape: a versioned artifact name or a digest token counts, even
+/// when the line is a table row rather than a checksum block.
+fn release_pin(text: &str) -> Option<String> {
+    for line in text.lines() {
+        for token in line.split(|c: char| {
+            !(c.is_ascii_alphanumeric() || c == '_' || c == '-' || c == '.' || c == '<' || c == '>')
+        }) {
+            let lower = token.to_ascii_lowercase();
+            let versioned = lower.starts_with("ytdlp-cli-v")
+                && lower
+                    .as_bytes()
+                    .get("ytdlp-cli-v".len())
+                    .is_some_and(|b| b.is_ascii_digit());
+            let digest = token.len() == 64 && token.bytes().all(|b| b.is_ascii_hexdigit());
+            if versioned || digest {
+                return Some(line.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// Every file under `releases/`, at any depth: the release tree keeps
+/// the published files under per-flavour bundle folders.
+fn release_files(dir: &Path, found: &mut Vec<PathBuf>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            release_files(&path, found);
+        } else {
+            found.push(path);
+        }
+    }
+}
+
 #[test]
 fn notes_pinned_digests_match_when_releases_exist() {
     let root = repo_root();
     let readme = std::fs::read_to_string(root.join("README.md")).expect("README.md readable");
-    assert!(
-        digest_rows(&readme).is_empty(),
-        "README.md ships in every bundle and must not pin release digests"
-    );
+    if let Some(line) = release_pin(&readme) {
+        panic!("README.md ships in every bundle and must not pin a release: {line}");
+    }
 
     let notes =
         std::fs::read_to_string(root.join("RELEASE-NOTES.md")).expect("RELEASE-NOTES.md readable");
     let rows = digest_rows(&notes);
     assert!(!rows.is_empty(), "RELEASE-NOTES.md carries no digest rows");
 
+    let mut files = Vec::new();
+    release_files(&root.join("releases"), &mut files);
+    if files.is_empty() {
+        println!("releases/ absent: RELEASE-NOTES digest check skipped (dev-only, per the plan)");
+        return;
+    }
     let mut present = 0;
     for (digest, name) in &rows {
-        // ytdlp-cli-v1.5.0-windows-lean.zip -> release tag v1.5.0
-        let version = name
-            .split('-')
-            .find(|part| {
-                part.starts_with('v') && part[1..].starts_with(|c: char| c.is_ascii_digit())
-            })
-            .expect("artifact names embed the version");
-        let path = root.join("releases").join(version).join(name);
-        if !path.exists() {
+        let path = files.iter().find(|p| {
+            p.file_name()
+                .map(|n| n.to_string_lossy() == name.as_str())
+                .unwrap_or(false)
+        });
+        let Some(path) = path else {
             continue;
-        }
+        };
         present += 1;
-        let got = sha256_file(&path).unwrap_or_else(|e| panic!("hash {}: {e}", path.display()));
+        let got = sha256_file(path).unwrap_or_else(|e| panic!("hash {}: {e}", path.display()));
         assert_eq!(&got, digest, "digest mismatch for {name}");
     }
-    if present == 0 {
-        println!("releases/ absent: RELEASE-NOTES digest check skipped (dev-only, per the plan)");
-    } else {
-        assert_eq!(
-            present,
-            rows.len(),
-            "some pinned artifacts are missing locally"
-        );
-        println!("{present} release artifacts hashed and matched");
-    }
+    assert_eq!(
+        present,
+        rows.len(),
+        "some pinned artifacts are missing locally: {present} of {} found",
+        rows.len()
+    );
+    println!("{present} release artifacts hashed and matched");
 }
