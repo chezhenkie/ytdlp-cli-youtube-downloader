@@ -193,6 +193,8 @@ jobs:
           Write-Host "installed yt-dlp tree runs: $payloadVersion"
           $ffv = & "$tdir/bin/ffmpeg.exe" -version
           if ($LASTEXITCODE -ne 0 -or "$ffv" -notmatch '^ffmpeg version') { throw "installed ffmpeg failed to run" }
+          pwsh -NoProfile -File rust-src/tools/srt_smoke.ps1 -Exe "$tdir/bin/srtstripper.exe"
+          if ($LASTEXITCODE -ne 0) { throw "installed srtstripper failed to strip the fixture" }
           $pathNow = (Get-Item "HKCU:\Environment").GetValue("Path", $null, "DoNotExpandEnvironmentNames")
           if ((Count-PathEntry $pathNow $tdirN) -ne 1) { Write-Host "HKCU Path after install: $pathNow"; throw "PATH entry count after install: $(Count-PathEntry $pathNow $tdirN)" }
           Start-Process -FilePath $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/DIR=$tdir" -Wait
@@ -236,7 +238,9 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or "$v" -notmatch '^\d{4}\.\d{2}\.\d{2}') { throw "bundle yt-dlp failed: $v" }
           $ff = & "$root/bin/ffmpeg.exe" -version
           if ($LASTEXITCODE -ne 0 -or "$ff" -notmatch '^ffmpeg version') { throw "bundle ffmpeg failed: $ff" }
-          Write-Host "windows bundle proof passed: _internal files $n, yt-dlp $v, ffmpeg $($ff[0])"
+          pwsh -NoProfile -File rust-src/tools/srt_smoke.ps1 -Exe "$root/bin/srtstripper.exe"
+          if ($LASTEXITCODE -ne 0) { throw "bundle srtstripper failed to strip the fixture" }
+          Write-Host "windows bundle proof passed: _internal files $n, yt-dlp $v, ffmpeg $($ff[0]), srtstripper smoke"
           Remove-Item -Recurse -Force $out
       - uses: actions/upload-artifact@v4
         with:
@@ -334,6 +338,8 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or "$v" -notmatch '^\d{4}\.\d{2}\.\d{2}') { throw "bundle yt-dlp failed: $v" }
           $ff = & "$root/bin/ffmpeg.exe" -version
           if ($LASTEXITCODE -ne 0 -or "$ff" -notmatch '^ffmpeg version') { throw "bundle ffmpeg failed: $ff" }
+          pwsh -NoProfile -File rust-src/tools/srt_smoke.ps1 -Exe "$root/bin/srtstripper.exe"
+          if ($LASTEXITCODE -ne 0) { throw "bundle srtstripper failed to strip the fixture" }
           $report = & "$root/ytdlp.exe" --selftest
           if ($LASTEXITCODE -ne 0) { throw "packaged selftest rc $LASTEXITCODE" }
           if (($report | Out-String) -notmatch "selftest: 186 checks, 0 failed") { throw "selftest report mismatch: $report" }
@@ -421,10 +427,11 @@ jobs:
           root="dist/run/ytdlp-cli-v$ver"
           "$root/bin/yt-dlp" --version
           "$root/bin/ffmpeg" -version | head -n 1
+          bash rust-src/tools/srt_smoke.sh "$root/bin/srtstripper"
           report=$("$root/ytdlp" --selftest)
           echo "$report" | grep -q "selftest: 186 checks, 0 failed"
           echo "$report" | tail -n 3
-          echo "linux run proof passed: onedir payload and ffmpeg run, selftest 186/0"
+          echo "linux run proof passed: onedir payload, ffmpeg and srtstripper run, selftest 186/0"
       - uses: actions/upload-artifact@v4
         with:
           name: linux-bundle
@@ -507,10 +514,11 @@ jobs:
           root="dist/run/ytdlp-cli-v$ver"
           "$root/bin/yt-dlp" --version
           "$root/bin/ffmpeg" -version | head -n 1
+          bash rust-src/tools/srt_smoke.sh "$root/bin/srtstripper"
           report=$("$root/ytdlp" --selftest)
           echo "$report" | grep -q "selftest: 186 checks, 0 failed"
           echo "$report" | tail -n 3
-          echo "linux arm64 run proof passed: onedir payload and ffmpeg run, selftest 186/0"
+          echo "linux arm64 run proof passed: onedir payload, ffmpeg and srtstripper run, selftest 186/0"
       - uses: actions/upload-artifact@v4
         with:
           name: linux-arm64-bundle
@@ -575,10 +583,11 @@ jobs:
             echo "the musl bundle must not carry yt-dlp"; exit 1
           fi
           echo "$SRTSTRIPPER_MUSL_SHA256  dist/run/ytdlp-cli-v$ver/bin/srtstripper" | sha256sum -c -
+          bash rust-src/tools/srt_smoke.sh "dist/run/ytdlp-cli-v$ver/bin/srtstripper"
           report=$("$bin" --selftest)
           echo "$report" | grep -q "selftest: 186 checks, 0 failed"
           echo "$report" | tail -n 3
-          echo "musl run proof passed: static, selftest 186/0, no bundled yt-dlp, srtstripper pinned"
+          echo "musl run proof passed: static, srtstripper smoke, selftest 186/0, no bundled yt-dlp"
       - uses: actions/upload-artifact@v4
         with:
           name: linux-musl-bundle
@@ -643,10 +652,11 @@ jobs:
             echo "the musl bundle must not carry yt-dlp"; exit 1
           fi
           echo "$SRTSTRIPPER_LINUX_ARM64_MUSL_SHA256  dist/run/ytdlp-cli-v$ver/bin/srtstripper" | sha256sum -c -
+          bash rust-src/tools/srt_smoke.sh "dist/run/ytdlp-cli-v$ver/bin/srtstripper"
           report=$("$bin" --selftest)
           echo "$report" | grep -q "selftest: 186 checks, 0 failed"
           echo "$report" | tail -n 3
-          echo "linux arm64 musl run proof passed: static, selftest 186/0, no bundled yt-dlp, srtstripper pinned"
+          echo "linux arm64 musl run proof passed: static, srtstripper smoke, selftest 186/0, no bundled yt-dlp"
       - uses: actions/upload-artifact@v4
         with:
           name: linux-arm64-musl-bundle
@@ -741,6 +751,7 @@ jobs:
           /usr/local/ytdlp-cli/bin/yt-dlp --version
           echo "$FFMPEG_MACOS_SHA256  /usr/local/ytdlp-cli/bin/ffmpeg" | shasum -a 256 -c -
           echo "$SRTSTRIPPER_MACOS_SHA256  /usr/local/ytdlp-cli/bin/srtstripper" | shasum -a 256 -c -
+          bash rust-src/tools/srt_smoke.sh /usr/local/ytdlp-cli/bin/srtstripper
           # the product claims macOS 15.0+ on arm64; pkgbuild emits no
           # Distribution XML, so the claim lives in the Mach-O load commands.
           # every shipped binary must run on the stated floor. the shaka
