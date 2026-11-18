@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.11.1
+
+### Fixes
+
+#### All platforms
+
+* A url list counts only the subtitle files its own pass wrote. A later link could start inside the previous item's two-second file window, so it stripped the previous subtitle file and reported the text as ready without fetching its own. The pass now compares the output folder with a snapshot taken before the run.
+* `-a` without a url no longer lands in the saved settings. The flag put the transient mode on the object the menu saves, so settings.json gained a key it does not own and the `0` key downloaded audio only for the rest of the session. Command-line overrides now apply only to a run that takes a url.
+* Ctrl+C ends a clipboard or batch list instead of starting the next link, and an interrupted batch url prompt ends the menu like every other prompt.
+
+#### Windows arm64
+
+* The zip runs without the Visual C++ redistributable. The arm64 cli was linked against the dynamic CRT, so it imported `VCRUNTIME140.dll` and the api-ms-win-crt set on a machine that carries nothing; the static CRT flag now covers both Windows targets and the bundle proof asserts the import table.
+* The bundled yt-dlp updates again. Item 12 and `--update` answered "no published yt-dlp tree for windows/aarch64"; the tree updater now names `yt-dlp_win_arm64.zip` and its `yt-dlp_arm64.exe` member.
+
+#### Linux arm64
+
+* The bundled yt-dlp updates again: the tree updater names `yt-dlp_linux_aarch64.zip` and its launcher instead of answering "no published yt-dlp tree for linux/aarch64".
+
+#### Documentation
+
+* The Pages site serves the 17-node process flow the repository carries instead of the earlier 16-node render.
+
 ## 2.11.0
 
 ### Changes
