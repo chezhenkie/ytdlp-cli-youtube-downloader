@@ -104,7 +104,7 @@ resources/
 
 [![The download and subtitle path in the process flow](resources/archify%20flow%20ytdlp-cli.png)](https://chezhenkie.github.io/ytdlp-cli-youtube-downloader/)
 
-The interactive process flow is published at [chezhenkie.github.io/ytdlp-cli-youtube-downloader](https://chezhenkie.github.io/ytdlp-cli-youtube-downloader/). The diagram source is in the [ytdlp process flow archify](https://github.com/chezhenkie/ytdlp-cli-youtube-downloader/tree/main/ytdlp%20process%20flow%20archify) folder.
+The interactive process flow is published at [chezhenkie.github.io/ytdlp-cli-youtube-downloader](https://chezhenkie.github.io/ytdlp-cli-youtube-downloader/). Its source is `docs/flow.workflow.json`, next to the published render.
 
 ## Limits
 
@@ -131,8 +131,7 @@ The bundled yt-dlp is the official onedir build for the platform. The bundled ff
 | `resources/` | Menu capture and process-flow image |
 | `specsheet/` | Binding specification, starting at `00-overview.md` |
 | `rust-src/` | Rust workspace, the cli and its tests |
-| `ytdlp process flow archify/` | Diagram JSON and HTML |
-| `docs/` | GitHub Pages entry and the published flow |
+| `docs/` | GitHub Pages entry, the published flow and its source JSON |
 | `CHANGELOG.md` | Version history |
 | `RELEASE-NOTES.md` | Sizes and digests of the current release |
 

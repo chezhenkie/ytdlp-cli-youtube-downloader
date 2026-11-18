@@ -4,7 +4,7 @@
   "meta": {
     "title": "yt-dlp cli - process flow",
     "quality_profile": "showcase",
-    "output": "ytdlp process flow archify/ytdlp-process-flow.html",
+    "output": "docs/flow.html",
     "repository": {
       "url": "https://github.com/chezhenkie/ytdlp-cli-youtube-downloader.git",
       "revision": "6dec2e1b99a59b31cafc4a281b785c1e722d8be0"
