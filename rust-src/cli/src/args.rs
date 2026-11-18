@@ -54,17 +54,16 @@ pub fn clean_url(text: Option<&str>) -> Option<String> {
 }
 
 /// Every http(s) url in a pasted list, cleaned and in paste order.
-/// Commas, newlines and a standalone `0` token separate entries, so
-/// `url1,url2 0 url3` and one url per line both answer three urls. A `0`
-/// inside a token belongs to the url: a bare `0` between urls can never
-/// be told apart from a video id, so only the whole-token form separates.
+/// Commas and newlines split the text and whitespace splits the rest, so
+/// `url1,url2 0 url3` and one url per line both answer three urls. A
+/// standalone `0` is dropped as a non-url token (`clean_url` wants an
+/// http scheme), while a `0` inside a token stays part of the url: a
+/// video id carries zeros, so only the whole-token form can look like a
+/// separator.
 pub fn split_urls(text: &str) -> Vec<String> {
     let mut out = Vec::new();
     for chunk in text.split([',', '\n', '\r']) {
         for token in chunk.split_whitespace() {
-            if token == "0" {
-                continue;
-            }
             if let Some(url) = clean_url(Some(token)).filter(|u| !u.is_empty()) {
                 out.push(url);
             }
